@@ -33,6 +33,9 @@ Run the application through Visual Studio or use the command:
 dotnet run
 ```
 
+### Advanced Usage
+For detailed usage instructions, refer to the documentation in the project files.
+
 ### Configuration
 Customize settings in `appsettings_v1.txt`
 
