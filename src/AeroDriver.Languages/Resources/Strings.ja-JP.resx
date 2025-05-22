@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+    <xsd:import namespace="http://www.w3.org/XML/1998/namespace" />
+    <xsd:element name="root" msdata:IsDataSet="true">
+      <xsd:complexType>
+        <xsd:choice maxOccurs="unbounded">
+          <xsd:element name="metadata">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+              <xsd:attribute name="type" type="xsd:string" />
+              <xsd:attribute name="mimetype" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="assembly">
+            <xsd:complexType>
+              <xsd:attribute name="alias" type="xsd:string" />
+              <xsd:attribute name="name" type="xsd:string" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="data">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+                <xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" msdata:Ordinal="1" />
+              <xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+              <xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+              <xsd:attribute ref="xml:space" />
+            </xsd:complexType>
+          </xsd:element>
+          <xsd:element name="resheader">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+              </xsd:sequence>
+              <xsd:attribute name="name" type="xsd:string" use="required" />
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:choice>
+      </xsd:complexType>
+    </xsd:element>
+  </xsd:schema>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  
+  <!-- Application Strings -->
+  <data name="AppName" xml:space="preserve">
+    <value>AeroDriver</value>
+  </data>
+  <data name="AppDescription" xml:space="preserve">
+    <value>WHQL認定ドライバーを使用したWindowsドライバー管理ツール</value>
+  </data>
+  
+  <!-- Common UI Strings -->
+  <data name="Button_Scan" xml:space="preserve">
+    <value>スキャン</value>
+  </data>
+  <data name="Button_Update" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Button_Backup" xml:space="preserve">
+    <value>バックアップ</value>
+  </data>
+  <data name="Button_Restore" xml:space="preserve">
+    <value>復元</value>
+  </data>
+  <data name="Button_Exit" xml:space="preserve">
+    <value>終了</value>
+  </data>
+  
+  <!-- Status Messages -->
+  <data name="Status_Scanning" xml:space="preserve">
+    <value>ドライバーをスキャン中...</value>
+  </data>
+  <data name="Status_Updating" xml:space="preserve">
+    <value>ドライバーを更新中...</value>
+  </data>
+  <data name="Status_Complete" xml:space="preserve">
+    <value>正常に完了しました</value>
+  </data>
+  <data name="Status_Error" xml:space="preserve">
+    <value>エラーが発生しました: {0}</value>
+  </data>
+  
+  <!-- Driver Information -->
+  <data name="Driver_Status_UpToDate" xml:space="preserve">
+    <value>最新の状態です</value>
+  </data>
+  <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
+    <value>更新があります: {0}</value>
+  </data>
+  <data name="Driver_Status_NotWHQL" xml:space="preserve">
+    <value>WHQL認証されていません</value>
+  </data>
+  
+  <!-- Settings -->
+  <data name="Settings_Language" xml:space="preserve">
+    <value>言語</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>テーマ</value>
+  </data>
+  <data name="Settings_CheckForUpdates" xml:space="preserve">
+    <value>起動時に更新を確認する</value>
+  </data>
+  <data name="Settings_CreateRestorePoint" xml:space="preserve">
+    <value>更新前にシステムの復元ポイントを作成する</value>
+  </data>
+</root>

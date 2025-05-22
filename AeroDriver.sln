@@ -1,0 +1,59 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AeroDriver.Core", "src\AeroDriver.Core\AeroDriver.Core.csproj", "{A1B2C3D4-E5F6-4789-ABCD-EF1234567890}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AeroDriver.CLI", "src\AeroDriver.CLI\AeroDriver.CLI.csproj", "{B2C3D4E5-F6A7-5890-BCDE-F23456789012}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AeroDriver.UI", "src\AeroDriver.UI\AeroDriver.UI.csproj", "{C3D4E5F6-A7B8-6901-CDEF-345678901234}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AeroDriver.Languages", "src\AeroDriver.Languages\AeroDriver.Languages.csproj", "{D4E5F6A7-B8C9-7012-DEFG-456789012345}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AeroDriver.Core.Tests", "tests\AeroDriver.Core.Tests\AeroDriver.Core.Tests.csproj", "{E5F6A7B8-C9D0-8123-EFGH-567890123456}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AeroDriver.UI.Tests", "tests\AeroDriver.UI.Tests\AeroDriver.UI.Tests.csproj", "{F6A7B8C9-D0E1-9234-FGHI-678901234567}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A1B2C3D4-E5F6-4789-ABCD-EF1234567890}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A1B2C3D4-E5F6-4789-ABCD-EF1234567890}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A1B2C3D4-E5F6-4789-ABCD-EF1234567890}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A1B2C3D4-E5F6-4789-ABCD-EF1234567890}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B2C3D4E5-F6A7-5890-BCDE-F23456789012}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B2C3D4E5-F6A7-5890-BCDE-F23456789012}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B2C3D4E5-F6A7-5890-BCDE-F23456789012}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B2C3D4E5-F6A7-5890-BCDE-F23456789012}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C3D4E5F6-A7B8-6901-CDEF-345678901234}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C3D4E5F6-A7B8-6901-CDEF-345678901234}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C3D4E5F6-A7B8-6901-CDEF-345678901234}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C3D4E5F6-A7B8-6901-CDEF-345678901234}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4E5F6A7-B8C9-7012-DEFG-456789012345}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4E5F6A7-B8C9-7012-DEFG-456789012345}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4E5F6A7-B8C9-7012-DEFG-456789012345}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4E5F6A7-B8C9-7012-DEFG-456789012345}.Release|Any CPU.Build.0 = Release|Any CPU
+		{E5F6A7B8-C9D0-8123-EFGH-567890123456}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5F6A7B8-C9D0-8123-EFGH-567890123456}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5F6A7B8-C9D0-8123-EFGH-567890123456}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5F6A7B8-C9D0-8123-EFGH-567890123456}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F6A7B8C9-D0E1-9234-FGHI-678901234567}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F6A7B8C9-D0E1-9234-FGHI-678901234567}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F6A7B8C9-D0E1-9234-FGHI-678901234567}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F6A7B8C9-D0E1-9234-FGHI-678901234567}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{A1B2C3D4-E5F6-4789-ABCD-EF1234567890} = {A1B2C3D4-E5F6-4789-ABCD-EF1234567890}
+		{B2C3D4E5-F6A7-5890-BCDE-F23456789012} = {B2C3D4E5-F6A7-5890-BCDE-F23456789012}
+		{C3D4E5F6-A7B8-6901-CDEF-345678901234} = {C3D4E5F6-A7B8-6901-CDEF-345678901234}
+		{D4E5F6A7-B8C9-7012-DEFG-456789012345} = {D4E5F6A7-B8C9-7012-DEFG-456789012345}
+		{E5F6A7B8-C9D0-8123-EFGH-567890123456} = {E5F6A7B8-C9D0-8123-EFGH-567890123456}
+		{F6A7B8C9-D0E1-9234-FGHI-678901234567} = {F6A7B8C9-D0E1-9234-FGHI-678901234567}
+	EndGlobalSection
+EndGlobal

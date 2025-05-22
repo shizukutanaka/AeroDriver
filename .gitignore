@@ -1,0 +1,183 @@
+# Visual Studio files
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.userprefs
+*.vspscc
+*.vssscc
+*.sln.ide
+*.VC.db
+*.VC.VC.opendb
+.vs/
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn
+msbuild.failure
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+*.userprefs
+
+# Local development settings
+appsettings.Development.json
+appsettings.Local.json
+appsettings.*.json
+!appsettings.json
+
+# Logs and databases
+*.log
+*.sqlite
+*.sqlite3
+*.sql
+*.mdf
+*.ldf
+*.ndf
+*.sdf
+
+# Build results
+*.dll
+*.pdb
+*.exe
+*.cache
+*.config
+*.xml
+*.json
+*.vsix
+*.zip
+*.nupkg
+*.ncrunchsolution
+*.ncrunchproject
+*.dotCover
+*.testlog
+
+# Test results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# Rider
+.idea/
+*.sln.iml
+
+# VS Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+[Dd]esktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# Windows Installer files
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Windows shortcuts
+*.lnk
+
+# Backup files
+*.bak
+*.tmp
+*.temp
+*.swp
+*~
+
+# Package files
+*.nupkg
+*.snupkg
+
+# Local development environment
+.env
+.env.local
+
+# VS Code workspace settings
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
+
+# End of https://www.toptal.com/developers/gitignore/api/visualstudio,visualstudiocode,windows
+
+# ReSharper
+_ReSharper*/
+*.[Rr]e[Ss]harper
+*.DotSettings.user
+
+# JetBrains Rider
+.idea/
+*.sln.iml
+
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+[Oo]ut/
+msbuild.log
+msbuild.err
+msbuild.wrn
+
+# Visual Studio 2015/2017/2019
+.vs/
+*.user
+*.userosscache
+*.sln.ide
+
+# Visual Studio Code
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# Local History for Visual Studio Code
+.history/
