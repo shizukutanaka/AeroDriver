@@ -59,39 +59,31 @@ AeroDriver supports 300+ languages, covering the following language groups:
 
 ---
 
-# AeroDriver (日本語)
+# AeroDriver
 
-**AeroDriver** は、Windowsシステム向けの最新かつ包括的なドライバー管理ツールです。Microsoft認証済みのWHQL（Windows Hardware Quality Labs）認定ドライバーのみを使用し、システムの安定性と互換性を確保します。300言語対応の洗練されたインターフェースで、世界中のどのユーザーでも母国語で簡単に操作できます。
+AeroDriverは、Windows向けのシンプルなドライバー管理ツールです。Microsoft認証済みのWHQLドライバーのみを使用し、システムの安定性と互換性を重視しています。
 
-## ✨ 主な機能
+## 主な機能
+- WHQL認証ドライバーのみインストール
+- 自動ドライバー検出
+- Windows Update Catalog連携
 
-- **WHQL認証ドライバーのみ使用**: Microsoftの厳格なテスト基準を満たした高品質ドライバーのみをインストール
-- **自動ドライバー検出**: WMIを使用してシステム内の全ドライバーを高精度で検出
-- **Windows Update Catalog連携**: Microsoft公式のドライバーソースと直接連携
-- **300言語完全対応**: 世界中のほぼすべての主要言語をサポート
-- **システム言語自動検出**: システムの言語設定に基づき自動的に最適な言語を選択
-- **3世代バックアップ**: 自動的に古いバックアップを管理・削除
-- **30種類のテーマ**: あらゆる好みに合わせた豊富なデザインバリエーション
-- **BTCドネーション**: 開発サポートのための暗号通貨寄付システム
-
-## 📋 システム要件
-
-- Windows 10/11（64ビット）
+## システム要件
+- Windows 10/11（64bit）
 - Intel Core i3/AMD Ryzen 3以上
 - 4GB RAM
 - 1GB空き容量
 
-## 🚀 インストール方法
-
-### インストーラーを使用する場合
+## インストール方法
 1. [リリースページ](https://github.com/shizukutanaka/AeroDriver/releases)から最新版をダウンロード
-2. インストーラーを実行
-3. 画面の指示に従ってインストールを完了
-4. AeroDriverが自動的にシステム言語を検出し、適切な言語で起動します
+2. インストーラーを実行し、画面の指示に従ってインストール
 
-### コマンドラインから使用する場合
-```bash
-# インストール後、コマンドラインから起動する場合
+## 使い方
+インストール後、スタートメニューまたはコマンドラインから `AeroDriver` を起動してください。
+
+---
+
+This is the Minimum Viable Product (MVP) version. For details, visit the official repository.
 aerodriver --scan
 ```
 
