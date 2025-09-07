@@ -9,6 +9,11 @@ namespace AeroDriver.Core.Models
     public class DriverInfo
     {
         /// <summary>
+        /// 内部ID
+        /// </summary>
+        public string Id { get; set; }
+        
+        /// <summary>
         /// デバイスID
         /// </summary>
         public string DeviceID { get; set; }
@@ -67,6 +72,16 @@ namespace AeroDriver.Core.Models
         /// インストーラータイプ (INF, EXE, MSI, ZIPなど)
         /// </summary>
         public string InstallerType { get; set; }
+        
+        /// <summary>
+        /// デバイスクラス
+        /// </summary>
+        public string DeviceClass { get; set; }
+        
+        /// <summary>
+        /// 問題があるドライバーかどうか
+        /// </summary>
+        public bool HasProblem { get; set; }
     }
     
     /// <summary>

@@ -4,12 +4,13 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using AeroDriver.Core.Models;
+using AeroDriver.Core.Interfaces;
 
 namespace AeroDriver.Core.Services
 {
@@ -48,6 +49,41 @@ namespace AeroDriver.Core.Services
             }
         }
         
+        /// <summary>
+        /// ドライバー情報に基づいて利用可能な更新を検索します
+        /// </summary>
+        public async Task<DriverInfo> FindAvailableUpdateAsync(DriverInfo currentDriver)
+        {
+            if (currentDriver == null)
+                return null;
+
+            try
+            {
+                _logger.LogInformation("ドライバー更新を検索中: {DeviceName}", currentDriver.DeviceName);
+                
+                // ハードウェアIDを使用してドライバーを検索
+                var updatedDriver = await FindDriverByHardwareIdAsync(currentDriver.HardwareID);
+                
+                if (updatedDriver == null)
+                    return null;
+
+                // 新しいバージョンかどうかチェック
+                if (Utilities.VersionHelper.IsNewer(updatedDriver.DriverVersion, currentDriver.DriverVersion))
+                {
+                    _logger.LogInformation("新しいドライバーが見つかりました: {DeviceName} {OldVersion} -> {NewVersion}", 
+                        currentDriver.DeviceName, currentDriver.DriverVersion, updatedDriver.DriverVersion);
+                    return updatedDriver;
+                }
+                
+                return null;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "ドライバー更新検索エラー: {DeviceName}", currentDriver.DeviceName);
+                return null;
+            }
+        }
+
         /// <summary>
         /// ハードウェアIDに基づいてドライバーを検索します
         /// </summary>
@@ -101,7 +137,7 @@ namespace AeroDriver.Core.Services
                 // 最新のドライバーを選択
                 var latestDriver = searchResults
                     .OrderByDescending(d => d.DriverDate)
-                    .ThenByDescending(d => CompareVersions(d.DriverVersion, "0.0.0.0"))
+                    .ThenByDescending(d => Utilities.VersionHelper.Compare(d.DriverVersion, "0.0.0.0"))
                     .FirstOrDefault();
                 
                 // ダウンロードリンクを取得
@@ -272,7 +308,7 @@ namespace AeroDriver.Core.Services
                 }
                 
                 string json = File.ReadAllText(cacheFile);
-                var cachedInfo = JsonConvert.DeserializeObject<CachedDriverInfo>(json);
+                var cachedInfo = JsonSerializer.Deserialize<CachedDriverInfo>(json);
                 
                 // キャッシュの有効期限をチェック (24時間)
                 if (cachedInfo.CacheTime.AddHours(24) < DateTime.Now)
@@ -306,7 +342,8 @@ namespace AeroDriver.Core.Services
                     CacheTime = DateTime.Now
                 };
                 
-                string json = JsonConvert.SerializeObject(cachedInfo, Formatting.Indented);
+                var options = new JsonSerializerOptions { WriteIndented = true };
+                string json = JsonSerializer.Serialize(cachedInfo, options);
                 File.WriteAllText(cacheFile, json);
                 
                 _logger.LogInformation("ドライバー情報をキャッシュに保存しました: {HardwareId}", hardwareId);
@@ -328,57 +365,6 @@ namespace AeroDriver.Core.Services
             return Regex.Replace(input, invalidReStr, "_");
         }
         
-        /// <summary>
-        /// バージョン文字列を比較します
-        /// </summary>
-        private int CompareVersions(string version1, string version2)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(version1) && string.IsNullOrEmpty(version2))
-                {
-                    return 0;
-                }
-                
-                if (string.IsNullOrEmpty(version1))
-                {
-                    return -1;
-                }
-                
-                if (string.IsNullOrEmpty(version2))
-                {
-                    return 1;
-                }
-                
-                // バージョン文字列を分割して比較
-                string[] v1Parts = version1.Split('.', ',');
-                string[] v2Parts = version2.Split('.', ',');
-                
-                int maxLength = Math.Max(v1Parts.Length, v2Parts.Length);
-                
-                for (int i = 0; i < maxLength; i++)
-                {
-                    int v1Value = i < v1Parts.Length && int.TryParse(v1Parts[i], out int temp1) ? temp1 : 0;
-                    int v2Value = i < v2Parts.Length && int.TryParse(v2Parts[i], out int temp2) ? temp2 : 0;
-                    
-                    if (v1Value > v2Value)
-                    {
-                        return 1;
-                    }
-                    else if (v1Value < v2Value)
-                    {
-                        return -1;
-                    }
-                }
-                
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "バージョン比較中にエラーが発生しました: {Version1} vs {Version2}", version1, version2);
-                return 0;
-            }
-        }
         
         /// <summary>
         /// 製造元名からベンダーIDを取得します

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using AeroDriver.Core.Models;
 
@@ -16,12 +17,31 @@ namespace AeroDriver.Core.Interfaces
         Task<bool> BackupDriverAsync(DriverInfo driver);
         
         /// <summary>
+        /// システム全体のバックアップを作成する
+        /// </summary>
+        /// <returns>バックアップが成功したかどうか</returns>
+        Task<bool> CreateBackupAsync();
+        
+        /// <summary>
         /// ドライバーをバックアップから復元する
         /// </summary>
         /// <param name="driver">復元するドライバー情報</param>
         /// <param name="backupVersion">復元するバックアップのバージョン（省略時は最新）</param>
         /// <returns>復元が成功したかどうか</returns>
         Task<bool> RestoreDriverAsync(DriverInfo driver, string backupVersion = null);
+        
+        /// <summary>
+        /// バックアップから復元する
+        /// </summary>
+        /// <param name="backupId">復元するバックアップのID</param>
+        /// <returns>復元が成功したかどうか</returns>
+        Task<bool> RestoreBackupAsync(string backupId);
+        
+        /// <summary>
+        /// 利用可能なバックアップリストを取得する
+        /// </summary>
+        /// <returns>バックアップのリスト</returns>
+        Task<List<BackupInfo>> GetBackupsAsync();
         
         /// <summary>
         /// 古いバックアップをクリーンアップする
@@ -43,5 +63,18 @@ namespace AeroDriver.Core.Interfaces
         /// <param name="driver">確認するドライバー情報</param>
         /// <returns>バックアップのバージョンリスト</returns>
         string[] GetAvailableBackups(DriverInfo driver);
+    }
+
+    /// <summary>
+    /// バックアップ情報
+    /// </summary>
+    public class BackupInfo
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public DateTime CreationDate { get; set; }
+        public long Size { get; set; }
+        public string Description { get; set; } = string.Empty;
+        public List<string> IncludedDrivers { get; set; } = new List<string>();
     }
 }
