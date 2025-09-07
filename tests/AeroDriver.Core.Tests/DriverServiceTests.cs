@@ -1,5 +1,8 @@
+using System.Collections.Generic;
+using System.Threading.Tasks;
 using AeroDriver.Core.Services;
 using AeroDriver.Core.Interfaces;
+using AeroDriver.Core.Models;
 using Moq;
 using Xunit;
 
@@ -26,7 +29,7 @@ public class DriverServiceTests
 
         // Assert
         Assert.NotNull(result);
-        Assert.IsType<List<Models.DriverInfo>>(result);
+        Assert.IsType<List<DriverInfo>>(result);
     }
 
     [Fact]
@@ -34,7 +37,7 @@ public class DriverServiceTests
     {
         // Arrange
         _mockWhqlService.Setup(x => x.CheckForUpdatesAsync())
-            .ReturnsAsync(new List<Models.DriverInfo>());
+            .ReturnsAsync(new List<DriverInfo>());
 
         // Act
         var result = await _driverService.ScanForDriversAsync();
@@ -58,5 +61,45 @@ public class DriverServiceTests
         // Assert
         Assert.True(result);
         _mockBackupService.Verify(x => x.CreateBackupAsync(It.IsAny<string>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task BackupDriverAsync_WithValidId_ReturnsTrue()
+    {
+        // Arrange
+        var driverId = "TEST123";
+        _mockBackupService.Setup(x => x.CreateBackupAsync(driverId))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _driverService.BackupDriverAsync(driverId);
+
+        // Assert
+        Assert.True(result);
+        _mockBackupService.Verify(x => x.CreateBackupAsync(driverId), Times.Once);
+    }
+
+    [Fact]
+    public async Task RollbackDriverAsync_WithValidId_ReturnsTrue()
+    {
+        // Arrange
+        var driverId = "TEST123";
+        var mockBackups = new List<BackupInfo>
+        {
+            new BackupInfo { DeviceId = driverId, BackupPath = "/test/path" }
+        };
+        
+        _mockBackupService.Setup(x => x.GetBackupsAsync())
+            .ReturnsAsync(mockBackups);
+        _mockBackupService.Setup(x => x.RestoreBackupAsync(It.IsAny<string>()))
+            .ReturnsAsync(true);
+
+        // Act
+        var result = await _driverService.RollbackDriverAsync(driverId);
+
+        // Assert
+        Assert.True(result);
+        _mockBackupService.Verify(x => x.GetBackupsAsync(), Times.Once);
+        _mockBackupService.Verify(x => x.RestoreBackupAsync(It.IsAny<string>()), Times.Once);
     }
 }
