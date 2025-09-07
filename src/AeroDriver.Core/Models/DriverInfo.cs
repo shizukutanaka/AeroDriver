@@ -79,6 +79,11 @@ namespace AeroDriver.Core.Models
         public string DeviceClass { get; set; }
         
         /// <summary>
+        /// ドライバーステータス
+        /// </summary>
+        public string Status { get; set; }
+        
+        /// <summary>
         /// 問題があるドライバーかどうか
         /// </summary>
         public bool HasProblem { get; set; }
