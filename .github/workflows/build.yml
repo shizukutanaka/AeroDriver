@@ -1,0 +1,91 @@
+name: Build and Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  DOTNET_VERSION: '8.0.x'
+
+jobs:
+  build:
+    name: Build and Test
+    runs-on: windows-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Full history for GitVersion
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+    
+    - name: Restore dependencies
+      run: dotnet restore --verbosity minimal
+    
+    - name: Build Debug
+      run: dotnet build --configuration Debug --no-restore --verbosity minimal
+    
+    - name: Build Release
+      run: dotnet build --configuration Release --no-restore --verbosity minimal
+    
+    - name: Run Tests
+      run: dotnet test --configuration Release --no-build --verbosity minimal --logger "console;verbosity=minimal" --collect:"XPlat Code Coverage"
+    
+    - name: Upload Coverage Reports
+      if: always()
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.cobertura.xml
+        fail_ci_if_error: false
+
+  build-cross-platform:
+    name: Cross-platform Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Build Core Library (Linux)
+      run: dotnet build src/AeroDriver.Core --configuration Release --verbosity minimal
+    
+    - name: Run Core Tests (Linux)
+      run: dotnet test tests/AeroDriver.Core.Tests --configuration Release --verbosity minimal
+
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    
+    - name: Restore dependencies
+      run: dotnet restore --verbosity minimal
+    
+    - name: Format check
+      run: dotnet format --verify-no-changes --verbosity minimal
+    
+    - name: Build with warnings as errors
+      run: dotnet build --configuration Release --verbosity minimal /p:TreatWarningsAsErrors=true

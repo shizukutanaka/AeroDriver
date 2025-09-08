@@ -1,23 +1,22 @@
 # AeroDriver
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
-![.NET](https://img.shields.io/badge/.NET-7.0-blueviolet)
-[![Build Status](https://github.com/shizukutanaka/AeroDriver/actions/workflows/build.yml/badge.svg)](https://github.com/shizukutanaka/AeroDriver/actions)
+![.NET](https://img.shields.io/badge/.NET-8.0-blueviolet)
 
-![AeroDriver Logo](assets/images/logo/aerodriver-logo.png)
-
-**AeroDriver** is a comprehensive driver management tool for Windows systems that focuses on using only WHQL (Windows Hardware Quality Labs) certified drivers to ensure system stability and compatibility. With a sleek interface supporting 300 languages, users worldwide can easily operate the application in their native language.
+**AeroDriver** is a lightweight and practical driver management tool for Windows systems focusing on WHQL certified drivers for stability.
 
 ## ✨ Features
 
 - **WHQL Certified Drivers Only**: Install only high-quality drivers that meet Microsoft's strict testing standards
-- **Automatic Driver Detection**: Accurately detect all drivers in the system using WMI
+- **Intelligent Driver Detection**: High-performance WMI-based driver enumeration with filtering and optimization
 - **Windows Update Catalog Integration**: Direct integration with Microsoft's official driver sources
-- **300+ Language Support**: Covers nearly all major languages worldwide
+- **Advanced Caching System**: Smart caching for improved performance and reduced system load
+- **Comprehensive Health Monitoring**: Real-time system health assessment with actionable recommendations
+- **Automated Maintenance**: Smart cleanup of old backups, temporary files, and cache data
+- **10 Language Support**: Supports major languages including English, Japanese, Chinese, German, Spanish, French, Italian, Korean, Portuguese, and Russian
 - **Automatic Language Detection**: Automatically selects the optimal language based on system settings
 - **3-Generation Backup**: Automatically manages and deletes old backups
-- **30+ Themes**: Rich design variations to suit all preferences
-- **BTC Donation**: Cryptocurrency donation system to support development
+- **Enhanced Error Handling**: Robust exception management with detailed logging and recovery
 
 ## 📋 System Requirements
 
@@ -28,66 +27,79 @@
 
 ## 🚀 Installation
 
-### Using Installer
-1. Download the latest version from the [Releases](https://github.com/shizukutanaka/AeroDriver/releases) page
-2. Run the installer
-3. Follow the on-screen instructions to complete the installation
-4. AeroDriver will automatically detect your system language and start in the appropriate language
-
 ### Using Command Line
 ```bash
 # 最も実用的なワンクリックコマンド（推奨）
-aerodriver auto
+dotnet run --project src/AeroDriver.CLI -- auto
 
-# その他の基本コマンド
-aerodriver scan     # ドライバーをスキャン
-aerodriver fix      # 問題を修復
-aerodriver diag     # 診断実行
-aerodriver info     # システム情報表示
+# 診断・メンテナンスコマンド
+dotnet run --project src/AeroDriver.CLI -- health   # 包括的ヘルスレポート
+dotnet run --project src/AeroDriver.CLI -- scan     # ドライバー更新スキャン
+dotnet run --project src/AeroDriver.CLI -- diag     # システム診断
+dotnet run --project src/AeroDriver.CLI -- fix      # 問題修復提案
+dotnet run --project src/AeroDriver.CLI -- info     # システム情報表示
+
+# クリーンアップとキャッシュ管理
+dotnet run --project src/AeroDriver.CLI -- cleanup          # 全体クリーンアップ
+dotnet run --project src/AeroDriver.CLI -- cleanup backups  # バックアップクリーンアップ
+dotnet run --project src/AeroDriver.CLI -- cache clear      # キャッシュクリア
+
+# 新機能 - レポート生成とログ管理
+dotnet run --project src/AeroDriver.CLI -- report quick --format json --output report.json
+dotnet run --project src/AeroDriver.CLI -- logs errors
+dotnet run --project src/AeroDriver.CLI -- monitor  # パフォーマンス監視
+dotnet run --project src/AeroDriver.CLI -- autoupdate status  # 自動更新状態
+
+# 高度なオプション
+dotnet run --project src/AeroDriver.CLI -- auto --force --no-backup  # 強制更新（バックアップなし）
+dotnet run --project src/AeroDriver.CLI -- scan --verbose            # 詳細情報付きスキャン
+dotnet run --project src/AeroDriver.CLI -- health --format html --output health.html
 ```
-
-## 📸 Screenshots
-
-![Main Dashboard](assets/images/screenshots/dashboard.png)
-![Driver Update Screen](assets/images/screenshots/update-screen.png)
-![WHQL Database](assets/images/screenshots/whql-database.png)
 
 ## 🌍 Language Support
 
-AeroDriver supports 300+ languages, covering the following language groups:
+AeroDriver currently supports 10 major languages:
 
-- **East Asian Languages**: Japanese, Chinese (Simplified/Traditional), Korean, etc.
-- **Western European Languages**: English, French, German, Spanish, etc.
-- **Eastern European Languages**: Russian, Polish, Ukrainian, etc.
-- **Middle Eastern Languages**: Arabic, Hebrew, Persian, etc.
-- **South Asian Languages**: Hindi, Bengali, Tamil, etc.
-- **Southeast Asian Languages**: Indonesian, Thai, Vietnamese, etc.
+- **English** (en-US) - Default
+- **Japanese** (ja-JP) - 日本語
+- **Chinese Simplified** (zh-CN) - 简体中文
+- **Korean** (ko-KR) - 한국어
+- **German** (de-DE) - Deutsch
+- **Spanish** (es-ES) - Español
+- **French** (fr-FR) - Français
+- **Italian** (it-IT) - Italiano
+- **Portuguese Brazilian** (pt-BR) - Português
+- **Russian** (ru-RU) - Русский
 
 ---
 
 ## 🌍 多言語対応
 
-AeroDriverは300以上の言語に対応しており、以下のような言語グループをカバーしています：
+AeroDriverは現在10の主要言語に対応しています：
 
-- **東アジア言語**: 日本語、中国語(簡体字/繁体字)、韓国語など
-- **西ヨーロッパ言語**: 英語、フランス語、ドイツ語、スペイン語など
-- **東ヨーロッパ言語**: ロシア語、ポーランド語、ウクライナ語など
-- **中東・南アジア言語**: アラビア語、ヘブライ語、ヒンディー語、ペルシャ語など
-- **東南アジア言語**: インドネシア語、タイ語、ベトナム語、ベンガル語、タミル語など
-- **アフリカ言語**: スワヒリ語、アムハラ語、ズールー語など
-- **その他多数**
+- **英語** (en-US) - デフォルト
+- **日本語** (ja-JP) - Japanese
+- **中国語簡体字** (zh-CN) - Chinese Simplified
+- **韓国語** (ko-KR) - Korean
+- **ドイツ語** (de-DE) - German
+- **スペイン語** (es-ES) - Spanish
+- **フランス語** (fr-FR) - French
+- **イタリア語** (it-IT) - Italian
+- **ポルトガル語ブラジル** (pt-BR) - Portuguese Brazilian
+- **ロシア語** (ru-RU) - Russian
 
 ## 🧩 アーキテクチャ
 
 AeroDriverは以下の主要コンポーネントで構成されています：
 
-- **DriverService**: ドライバー検出と更新管理
+- **DriverService**: 高性能ドライバー検出と更新管理（キャッシュ対応）
 - **WhqlDatabaseService**: Microsoft Windows Update Catalogとの連携
 - **BackupService**: バックアップと復元機能
-- **LanguageService**: 300言語対応の多言語システム
-- **FontService**: 言語ごとの最適フォント管理
+- **SystemHealthService**: システム包括的ヘルス監視
+- **CacheService**: インメモリキャッシュシステム
+- **CleanupService**: 自動メンテナンスとクリーンアップ
+- **LanguageService**: 10言語対応の多言語システム
 - **SettingsService**: ユーザー設定の管理
-- **NotificationService**: システム通知管理
 
 ## 🛠️ 開発者向け情報
 
@@ -114,24 +126,18 @@ dotnet run
 ### 必要な NuGet パッケージ
 
 ```xml
-<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="7.0.0" />
-<PackageReference Include="Microsoft.Extensions.Logging" Version="7.0.0" />
-<PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-<PackageReference Include="QRCoder" Version="1.4.3" />
-<PackageReference Include="System.Management" Version="7.0.2" />
+<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.1" />
+<PackageReference Include="Microsoft.Extensions.Configuration.Abstractions" Version="8.0.0" />
+<PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.1" />
+<PackageReference Include="System.Management" Version="8.0.0" />
+<PackageReference Include="System.Text.Json" Version="8.0.0" />
 ```
 
 ## 📝 ライセンス
 
 MITライセンスの下で公開されています。詳細は[LICENSE](LICENSE)ファイルを参照してください。
 
-## 💰 開発サポート
-
-AeroDriverの開発をサポートするには、以下のBTCアドレスに寄付してください：
-
-```
-1GzHriuokSrZYAZEEWoL7eeCCXsX3WyLHa
-```
 
 ## 🤝 コントリビューション
 

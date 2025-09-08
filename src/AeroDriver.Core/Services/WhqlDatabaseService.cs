@@ -9,42 +9,38 @@ namespace AeroDriver.Core.Services
 {
     public class WhqlDatabaseService : IWhqlDatabaseService
     {
+        private readonly Dictionary<string, DriverUpdateInfo> _knownUpdates;
+
+        public WhqlDatabaseService()
+        {
+            _knownUpdates = InitializeKnownUpdates();
+        }
+
         public async Task<List<DriverInfo>> CheckForUpdatesAsync()
         {
-            // Simulate driver update check
-            await Task.Delay(100); // Simulate network delay
+            await Task.Delay(200); // Simulate network delay
 
-            var mockUpdates = new List<DriverInfo>
+            var availableUpdates = new List<DriverInfo>();
+
+            // Simulate checking common drivers that often have updates
+            foreach (var update in _knownUpdates.Values)
             {
-                new DriverInfo
+                if (IsUpdateRelevant(update))
                 {
-                    DeviceID = "PCI\\VEN_10DE&DEV_1234",
-                    DeviceName = "NVIDIA Graphics Device",
-                    DriverVersion = "31.0.15.1234",
-                    DriverProviderName = "NVIDIA Corporation",
-                    DeviceClass = "Display",
-                    Status = "Update Available",
-                    IsWHQLCertified = true
-                },
-                new DriverInfo
-                {
-                    DeviceID = "PCI\\VEN_8086&DEV_5678",
-                    DeviceName = "Intel Network Adapter",
-                    DriverVersion = "12.18.9.45",
-                    DriverProviderName = "Intel Corporation",
-                    DeviceClass = "Network",
-                    Status = "Update Available",
-                    IsWHQLCertified = true
+                    availableUpdates.Add(new DriverInfo
+                    {
+                        DeviceID = update.DeviceId,
+                        DeviceName = update.DeviceName,
+                        DriverVersion = update.LatestVersion,
+                        DriverProviderName = update.Manufacturer,
+                        DeviceClass = update.DeviceClass,
+                        Status = "Update Available",
+                        IsWHQLCertified = true
+                    });
                 }
-            };
-
-            // Return mock updates 30% of the time
-            if (new Random().Next(100) < 30)
-            {
-                return mockUpdates;
             }
 
-            return new List<DriverInfo>();
+            return availableUpdates;
         }
 
         public async Task<DriverInfo> FindAvailableUpdateAsync(DriverInfo currentDriver)
@@ -52,53 +48,155 @@ namespace AeroDriver.Core.Services
             if (currentDriver == null)
                 return null;
 
-            await Task.Delay(50); // Simulate search delay
+            await Task.Delay(100);
 
-            // Simulate finding an update for some drivers
-            if (new Random().Next(100) < 25) // 25% chance of having an update
+            // Extract vendor and device IDs from hardware ID
+            var vendorId = ExtractVendorId(currentDriver.DeviceID);
+            var deviceId = ExtractDeviceId(currentDriver.DeviceID);
+
+            if (string.IsNullOrEmpty(vendorId) || string.IsNullOrEmpty(deviceId))
+                return null;
+
+            var key = $"{vendorId}&{deviceId}";
+            if (_knownUpdates.TryGetValue(key, out var updateInfo))
             {
-                return new DriverInfo
+                if (IsNewerVersion(updateInfo.LatestVersion, currentDriver.DriverVersion))
                 {
-                    DeviceID = currentDriver.DeviceID,
-                    DeviceName = currentDriver.DeviceName,
-                    DriverVersion = IncrementVersion(currentDriver.DriverVersion),
-                    DriverProviderName = currentDriver.DriverProviderName,
-                    DeviceClass = currentDriver.DeviceClass,
-                    Status = "Update Available",
-                    IsWHQLCertified = true
-                };
+                    return new DriverInfo
+                    {
+                        DeviceID = currentDriver.DeviceID,
+                        DeviceName = currentDriver.DeviceName,
+                        DriverVersion = updateInfo.LatestVersion,
+                        DriverProviderName = updateInfo.Manufacturer,
+                        DeviceClass = currentDriver.DeviceClass,
+                        Status = "Update Available",
+                        IsWHQLCertified = true
+                    };
+                }
             }
 
             return null;
         }
 
-        private string IncrementVersion(string version)
+        private Dictionary<string, DriverUpdateInfo> InitializeKnownUpdates()
         {
-            if (string.IsNullOrEmpty(version) || version == "Unknown")
-                return "1.0.0.1";
+            return new Dictionary<string, DriverUpdateInfo>
+            {
+                ["VEN_10DE&DEV_1E87"] = new DriverUpdateInfo
+                {
+                    DeviceId = "PCI\\VEN_10DE&DEV_1E87",
+                    DeviceName = "NVIDIA GeForce RTX 2080 Ti",
+                    Manufacturer = "NVIDIA Corporation",
+                    DeviceClass = "Display",
+                    LatestVersion = "31.0.15.4601"
+                },
+                ["VEN_8086&DEV_15B8"] = new DriverUpdateInfo
+                {
+                    DeviceId = "PCI\\VEN_8086&DEV_15B8",
+                    DeviceName = "Intel Ethernet Connection I219-V",
+                    Manufacturer = "Intel Corporation",
+                    DeviceClass = "Network",
+                    LatestVersion = "12.19.2.45"
+                },
+                ["VEN_8086&DEV_1F41"] = new DriverUpdateInfo
+                {
+                    DeviceId = "PCI\\VEN_8086&DEV_1F41",
+                    DeviceName = "Intel USB 3.0 eXtensible Host Controller",
+                    Manufacturer = "Intel Corporation",
+                    DeviceClass = "USB",
+                    LatestVersion = "10.0.19041.844"
+                },
+                ["VEN_1022&DEV_1457"] = new DriverUpdateInfo
+                {
+                    DeviceId = "PCI\\VEN_1022&DEV_1457",
+                    DeviceName = "AMD High Definition Audio Controller",
+                    Manufacturer = "Advanced Micro Devices Inc.",
+                    DeviceClass = "MEDIA",
+                    LatestVersion = "10.0.1.17"
+                }
+            };
+        }
+
+        private bool IsUpdateRelevant(DriverUpdateInfo updateInfo)
+        {
+            // Simulate some logic to determine if an update is relevant
+            // In a real implementation, this would check against actual system hardware
+            return DateTime.Now.Millisecond % 3 == 0; // Random relevance check
+        }
+
+        private bool IsNewerVersion(string newVersion, string currentVersion)
+        {
+            if (string.IsNullOrEmpty(newVersion) || string.IsNullOrEmpty(currentVersion))
+                return false;
+
+            if (currentVersion == "Unknown")
+                return true;
 
             try
             {
-                var parts = version.Split('.').Select(int.Parse).ToArray();
-                if (parts.Length >= 4)
+                var newParts = newVersion.Split('.').Select(int.Parse).ToArray();
+                var currentParts = currentVersion.Split('.').Select(int.Parse).ToArray();
+
+                for (int i = 0; i < Math.Max(newParts.Length, currentParts.Length); i++)
                 {
-                    parts[3]++; // Increment build number
-                    return string.Join(".", parts);
+                    var newPart = i < newParts.Length ? newParts[i] : 0;
+                    var currentPart = i < currentParts.Length ? currentParts[i] : 0;
+
+                    if (newPart > currentPart)
+                        return true;
+                    if (newPart < currentPart)
+                        return false;
                 }
-                else if (parts.Length >= 3)
-                {
-                    parts[2]++; // Increment patch version
-                    return string.Join(".", parts);
-                }
-                else
-                {
-                    return version + ".1";
-                }
+
+                return false; // Versions are equal
             }
             catch
             {
-                return version + "_updated";
+                return false; // Error parsing versions
             }
+        }
+
+        private string ExtractVendorId(string hardwareId)
+        {
+            if (string.IsNullOrEmpty(hardwareId))
+                return null;
+
+            var venIndex = hardwareId.IndexOf("VEN_", StringComparison.OrdinalIgnoreCase);
+            if (venIndex == -1)
+                return null;
+
+            var venStart = venIndex + 4;
+            var venEnd = hardwareId.IndexOf('&', venStart);
+            if (venEnd == -1)
+                venEnd = hardwareId.Length;
+
+            return hardwareId.Substring(venIndex, venEnd - venIndex);
+        }
+
+        private string ExtractDeviceId(string hardwareId)
+        {
+            if (string.IsNullOrEmpty(hardwareId))
+                return null;
+
+            var devIndex = hardwareId.IndexOf("DEV_", StringComparison.OrdinalIgnoreCase);
+            if (devIndex == -1)
+                return null;
+
+            var devStart = devIndex;
+            var devEnd = hardwareId.IndexOf('&', devStart + 4);
+            if (devEnd == -1)
+                devEnd = hardwareId.Length;
+
+            return hardwareId.Substring(devStart, devEnd - devStart);
+        }
+
+        private class DriverUpdateInfo
+        {
+            public string DeviceId { get; set; }
+            public string DeviceName { get; set; }
+            public string Manufacturer { get; set; }
+            public string DeviceClass { get; set; }
+            public string LatestVersion { get; set; }
         }
     }
 }
