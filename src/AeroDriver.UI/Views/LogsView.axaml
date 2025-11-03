@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="AeroDriver.UI.Views.LogsView">
+    <DockPanel Margin="10">
+        <Button Name="ClearLogsButton" Content="Clear Logs" DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+        <TextBox Name="LogTextBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"/>
+    </DockPanel>
+</UserControl>

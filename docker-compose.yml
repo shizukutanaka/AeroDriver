@@ -1,0 +1,176 @@
+version: '3.8'
+
+services:
+  # AeroDriver API Service
+  aerodriver-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: api-runtime
+    ports:
+      - "8080:80"
+      - "8443:443"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=https://+:443;http://+:80
+      - ASPNETCORE_Kestrel__Certificates__Default__Password=password
+      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aerodriver.pfx
+    volumes:
+      - ./certs:/https:ro
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    depends_on:
+      - aerodriver-db
+      - aerodriver-cache
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # AeroDriver Background Service
+  aerodriver-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: service-runtime
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    depends_on:
+      - aerodriver-db
+      - aerodriver-cache
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+
+  # Database (PostgreSQL)
+  aerodriver-db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=aerodriver
+      - POSTGRES_USER=aerodriver
+      - POSTGRES_PASSWORD=secure_password_here
+    volumes:
+      - aerodriver_db_data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aerodriver"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Redis Cache
+  aerodriver-cache:
+    image: redis:7-alpine
+    command: redis-server --appendonly yes
+    volumes:
+      - aerodriver_cache_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Monitoring (Prometheus)
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+  # Monitoring (Grafana)
+  grafana:
+    image: grafana/grafana:latest
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+
+  # Logging (ELK Stack - Elasticsearch)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+
+  # Logging (Logstash)
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    volumes:
+      - ./monitoring/logstash/pipeline:/usr/share/logstash/pipeline:ro
+      - ./logs:/usr/share/logstash/logs:ro
+    ports:
+      - "5044:5044"
+      - "5000:5000/tcp"
+      - "5000:5000/udp"
+      - "9600:9600"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+
+  # Logging (Kibana)
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    ports:
+      - "5601:5601"
+    networks:
+      - aerodriver-network
+    restart: unless-stopped
+    depends_on:
+      - elasticsearch
+
+volumes:
+  aerodriver_db_data:
+  aerodriver_cache_data:
+  prometheus_data:
+  grafana_data:
+  elasticsearch_data:
+
+networks:
+  aerodriver-network:
+    driver: bridge

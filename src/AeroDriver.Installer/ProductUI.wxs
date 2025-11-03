@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Fragment>
+    <UI>
+      <Dialog Id="WelcomeDlg" Width="370" Height="270" Title="!(loc.WelcomeDlg_Title)">
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.WelcomeDlgNext)">
+          <Publish Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.WelcomeDlgCancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" Text="WixUI_Bmp_Banner" />
+        <Control Id="Description" Type="Text" X="26" Y="184" Width="320" Height="40" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeDlgDescription)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.WelcomeDlgTitle)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+      </Dialog>
+
+      <Dialog Id="LicenseAgreementDlg" Width="370" Height="270" Title="!(loc.LicenseAgreementDlg_Title)">
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.LicenseAgreementDlgBack)">
+          <Publish Event="NewDialog" Value="WelcomeDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.LicenseAgreementDlgNext)">
+          <Publish Event="NewDialog" Value="InstallDirDlg">LicenseAccepted = "1"</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.LicenseAgreementDlgCancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" Text="WixUI_Bmp_Banner" />
+        <Control Id="LicenseText" Type="ScrollableText" X="26" Y="60" Width="320" Height="120" Sunken="yes" TabSkip="no">
+          <Text SourceFile="License.rtf" />
+        </Control>
+        <Control Id="Description" Type="Text" X="26" Y="27" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="!(loc.LicenseAgreementDlgDescription)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.LicenseAgreementDlgTitle)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="LicenseAccepted" Type="CheckBox" X="26" Y="190" Width="320" Height="17" CheckBoxValue="1" Property="LicenseAccepted" Text="!(loc.LicenseAgreementDlgLicenseAccepted)" />
+      </Dialog>
+
+      <Dialog Id="InstallDirDlg" Width="370" Height="270" Title="!(loc.InstallDirDlg_Title)">
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Text="!(loc.InstallDirDlgBack)">
+          <Publish Event="NewDialog" Value="LicenseAgreementDlg">1</Publish>
+        </Control>
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.InstallDirDlgNext)">
+          <Publish Event="NewDialog" Value="ProgressDlg">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.InstallDirDlgCancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" Text="WixUI_Bmp_Banner" />
+        <Control Id="Description" Type="Text" X="26" Y="23" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="!(loc.InstallDirDlgDescription)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.InstallDirDlgTitle)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="Folder" Type="PathEdit" X="26" Y="60" Width="320" Height="18" Property="WIXUI_INSTALLDIR" Indirect="yes" />
+        <Control Id="ChangeFolder" Type="PushButton" X="26" Y="83" Width="56" Height="17" Text="!(loc.InstallDirDlgChangeFolder)">
+          <Publish Event="SpawnDialog" Value="BrowseDlg">1</Publish>
+        </Control>
+      </Dialog>
+
+      <Dialog Id="ProgressDlg" Width="370" Height="270" Title="!(loc.ProgressDlg_Title)">
+        <Control Id="Back" Type="PushButton" X="180" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ProgressDlgBack)" />
+        <Control Id="Next" Type="PushButton" X="236" Y="243" Width="56" Height="17" Disabled="yes" Text="!(loc.ProgressDlgNext)" />
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ProgressDlgCancel)">
+          <Publish Event="SpawnDialog" Value="CancelDlg">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" Text="WixUI_Bmp_Banner" />
+        <Control Id="ProgressBar" Type="ProgressBar" X="26" Y="60" Width="320" Height="20" ProgressBlocks="yes" Text="!(loc.ProgressDlgProgressBar)">
+          <Subscribe Event="ActionData" Attribute="Progress" />
+        </Control>
+        <Control Id="Description" Type="Text" X="26" Y="23" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="!(loc.ProgressDlgDescription)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.ProgressDlgTitle)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+        <Control Id="ActionText" Type="Text" X="26" Y="83" Width="320" Height="20" Transparent="yes" NoPrefix="yes">
+          <Subscribe Event="ActionText" Attribute="Text" />
+        </Control>
+      </Dialog>
+
+      <Dialog Id="ExitDlg" Width="370" Height="270" Title="!(loc.ExitDlg_Title)">
+        <Control Id="Finish" Type="PushButton" X="236" Y="243" Width="56" Height="17" Default="yes" Text="!(loc.ExitDlgFinish)">
+          <Publish Event="EndDialog" Value="Return">1</Publish>
+        </Control>
+        <Control Id="Cancel" Type="PushButton" X="304" Y="243" Width="56" Height="17" Cancel="yes" Text="!(loc.ExitDlgCancel)">
+          <Publish Event="EndDialog" Value="Exit">1</Publish>
+        </Control>
+        <Control Id="Bitmap" Type="Bitmap" X="0" Y="0" Width="370" Height="234" Text="WixUI_Bmp_Banner" />
+        <Control Id="Description" Type="Text" X="26" Y="23" Width="320" Height="30" Transparent="yes" NoPrefix="yes" Text="!(loc.ExitDlgDescription)" />
+        <Control Id="Title" Type="Text" X="15" Y="6" Width="200" Height="15" Transparent="yes" NoPrefix="yes" Text="!(loc.ExitDlgTitle)" />
+        <Control Id="BottomLine" Type="Line" X="0" Y="234" Width="370" Height="0" />
+      </Dialog>
+
+      <InstallUISequence>
+        <Show Dialog="WelcomeDlg" Before="ProgressDlg" />
+        <Show Dialog="LicenseAgreementDlg" After="WelcomeDlg" Before="InstallDirDlg" />
+        <Show Dialog="InstallDirDlg" After="LicenseAgreementDlg" Before="ProgressDlg" />
+        <Show Dialog="ProgressDlg" After="InstallDirDlg" Before="ExitDlg" />
+        <Show Dialog="ExitDlg" After="ProgressDlg" />
+      </InstallUISequence>
+    </UI>
+  </Fragment>
+</Wix>

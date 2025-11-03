@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <IsPackable>false</IsPackable>
+    <AssemblyTitle>AeroDriver Tests</AssemblyTitle>
+    <AssemblyDescription>Unit tests for AeroDriver</AssemblyDescription>
+    <AssemblyProduct>AeroDriver</AssemblyProduct>
+    <AssemblyCompany>AeroDriver Team</AssemblyCompany>
+    <AssemblyCopyright>Copyright © 2024 AeroDriver Team</AssemblyCopyright>
+    <AssemblyVersion>1.0.0.0</AssemblyVersion>
+    <FileVersion>1.0.0.0</FileVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\AeroDriver.Core\AeroDriver.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Moq" />
+    <PackageReference Include="FluentAssertions" />
+  </ItemGroup>
+
+</Project>

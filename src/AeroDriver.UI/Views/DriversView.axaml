@@ -1,0 +1,16 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="AeroDriver.UI.Views.DriversView">
+    <DockPanel Margin="16">
+        <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+            <Button Name="UpdateButton" Content="Update Selected" Classes="Primary"/>
+            <Button Name="BackupSelectedButton" Content="Backup Selected"/>
+        </StackPanel>
+        <ListBox Name="DriverListBox" Margin="0,0,0,8">
+            <!-- Driver items will be populated here -->
+        </ListBox>
+    </DockPanel>
+</UserControl>

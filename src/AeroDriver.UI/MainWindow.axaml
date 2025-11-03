@@ -1,0 +1,113 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="using:AeroDriver.UI"
+        mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="700"
+        x:Class="AeroDriver.UI.MainWindow"
+        Title="AeroDriver" MinWidth="600" MinHeight="500" WindowStartupLocation="CenterScreen" CanResize="True">
+
+    <Window.Styles>
+        <Style Selector="Border.InfoCard">
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource SystemControlForegroundBaseLowBrush}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="8"/>
+            <Setter Property="Padding" Value="16"/>
+        </Style>
+        <Style Selector="TextBlock.CardTitle">
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Margin" Value="0,0,0,4"/>
+        </Style>
+        <Style Selector="TextBlock.CardContent">
+            <Setter Property="FontSize" Value="14"/>
+        </Style>
+        <Style Selector="TextBlock.CardSubContent">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+        </Style>
+    </Window.Styles>
+
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Scan" Name="ScanMenuItem"/>
+                <Separator/>
+                <MenuItem Header="_Exit" Name="ExitMenuItem"/>
+            </MenuItem>
+            <MenuItem Header="_Tools">
+                <MenuItem Header="_Optimize" Name="OptimizeMenuItem"/>
+                <MenuItem Header="_Backup" Name="BackupMenuItem"/>
+            </MenuItem>
+            <MenuItem Header="_Help">
+                <MenuItem Header="_About" Name="AboutMenuItem"/>
+            </MenuItem>
+        </Menu>
+
+        <TabControl Name="MainTabControl">
+            <TabItem Header="Dashboard">
+                <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*" ColumnDefinitions="*,*" RowSpacing="12" ColumnSpacing="12">
+                    <!-- System Info Card -->
+                    <Border Grid.Row="0" Grid.Column="0" Classes="InfoCard">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="System Information" Classes="CardTitle"/>
+                            <TextBlock Name="OsInfoTextBlock" Classes="CardContent"/>
+                            <TextBlock Name="ProcessorInfoTextBlock" Classes="CardSubContent"/>
+                            <TextBlock Name="MachineNameTextBlock" Classes="CardSubContent"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Status Card -->
+                    <Border Grid.Row="0" Grid.Column="1" Classes="InfoCard">
+                        <StackPanel Spacing="12">
+                            <TextBlock Text="System Status" Classes="CardTitle"/>
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="Status:" Classes="CardContent"/>
+                                <TextBlock Name="StatusTextBlock" Text="Loading..." FontWeight="Bold"/>
+                            </StackPanel>
+                            <TextBlock Name="DriverStatusTextBlock" Text="Drivers: Scanning..." Classes="CardSubContent"/>
+                            <TextBlock Name="PerformanceStatusTextBlock" Text="Performance: Loading..." Classes="CardSubContent"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Action Panel -->
+                    <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Classes="InfoCard">
+                        <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" ItemWidth="150" ItemHeight="40">
+                            <Button Name="ScanButton" Content="Quick Scan" Classes="Primary"/>
+                            <Button Name="RefreshButton" Content="Refresh"/>
+                            <Button Name="PerformanceButton" Content="Performance"/>
+                        </WrapPanel>
+                    </Border>
+
+                    <!-- Recent Activity -->
+                    <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Classes="InfoCard">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Recent Activity" Classes="CardTitle"/>
+                            <ScrollViewer VerticalScrollBarVisibility="Auto">
+                                <TextBlock Text="No recent activity." FontStyle="Italic" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                            </ScrollViewer>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Drivers">
+                <DockPanel Margin="16">
+                    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" Spacing="8" HorizontalAlignment="Left">
+                        <Button Name="UpdateButton" Content="Update Selected" Classes="Primary"/>
+                        <Button Name="BackupSelectedButton" Content="Backup Selected"/>
+                    </StackPanel>
+                    <ListBox Name="DriverListBox" Margin="0,0,0,8">
+                        <!-- Driver items will be populated here -->
+                    </ListBox>
+                </DockPanel>
+            </TabItem>
+            <TabItem Header="Logs">
+                <DockPanel Margin="10">
+                    <Button Name="ClearLogsButton" Content="Clear Logs" DockPanel.Dock="Bottom" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                    <TextBox Name="LogTextBox" IsReadOnly="True" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Visible" HorizontalScrollBarVisibility="Auto" FontFamily="Consolas" FontSize="11"/>
+                </DockPanel>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>

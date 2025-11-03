@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="AeroDriver" Language="1033" Version="1.0.0.0" Manufacturer="AeroDriver Team" UpgradeCode="12345678-1234-1234-1234-123456789012">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine" />
+
+    <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="AeroDriver" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+      <ComponentGroupRef Id="CLIComponents" />
+      <ComponentGroupRef Id="UIComponents" />
+      <ComponentGroupRef Id="APIComponents" />
+      <ComponentGroupRef Id="ServiceComponents" />
+    </Feature>
+
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch AeroDriver" />
+    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOX" Value="1" />
+
+    <UIRef Id="WixUI_InstallDir" />
+    <UIRef Id="WixUI_ErrorProgressText" />
+
+    <Property Id="INSTALLFOLDER">
+      <RegistrySearch Id="InstallFolderSearch" Root="HKLM" Key="Software\AeroDriver" Name="InstallFolder" Type="raw" />
+    </Property>
+
+    <Property Id="DOTNETRUNTIME" Value="1">
+      <RegistrySearch Id="DotNetRuntimeSearch" Root="HKLM" Key="SOFTWARE\Microsoft\NET Framework Setup\NDP\v8.0" Name="Install" Type="raw" />
+    </Property>
+
+    <InstallExecuteSequence>
+      <Custom Action="CheckDotNetRuntime" Before="InstallFinalize">NOT DOTNETRUNTIME</Custom>
+    </InstallExecuteSequence>
+
+    <CustomAction Id="CheckDotNetRuntime" BinaryKey="WixCA" DllEntry="WixQuietExec" Execute="immediate" Return="check" />
+    <CustomAction Id="CheckDotNetRuntime" BinaryKey="WixCA" DllEntry="WixMessageFormatted" Execute="immediate" Return="check" />
+
+    <SetProperty Id="CheckDotNetRuntime" Value="&quot;net8.0-windows&quot; is not installed. Please install .NET 8.0 Runtime from https://dotnet.microsoft.com/download/dotnet/8.0" Sequence="both">
+      <![CDATA[DOTNETRUNTIME <> "1"]]>
+    </SetProperty>
+
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLFOLDER" Name="AeroDriver">
+          <Directory Id="APPDIR" Name="bin">
+            <Component Id="ApplicationFiles" Guid="12345678-1234-1234-1234-123456789012">
+              <File Id="AeroDriver.CLI.exe" Name="AeroDriver.CLI.exe" Source="$(var.AeroDriver.CLI.TargetPath)" />
+              <File Id="AeroDriver.UI.exe" Name="AeroDriver.UI.exe" Source="$(var.AeroDriver.UI.TargetPath)" />
+              <File Id="AeroDriver.API.exe" Name="AeroDriver.API.exe" Source="$(var.AeroDriver.API.TargetPath)" />
+              <File Id="AeroDriver.Service.exe" Name="AeroDriver.Service.exe" Source="$(var.AeroDriver.Service.TargetPath)" />
+            </Component>
+          </Directory>
+
+          <Directory Id="CONFIGDIR" Name="config">
+            <Component Id="ConfigFiles" Guid="87654321-4321-4321-4321-210987654321">
+              <File Id="appsettings.json" Name="appsettings.json" Source="..\AeroDriver.CLI\appsettings.json" />
+            </Component>
+          </Directory>
+
+          <Directory Id="LOCALEDIR" Name="locale">
+            <Component Id="LocaleFiles" Guid="11223344-5566-7788-99aa-bbccddeeff00">
+              <File Id="en-US.json" Name="en-US.json" Source="..\AeroDriver.Core\Resources\Languages\en-US.json" />
+              <File Id="ja-JP.json" Name="ja-JP.json" Source="..\AeroDriver.Core\Resources\Languages\ja-JP.json" />
+            </Component>
+          </Directory>
+
+          <Directory Id="DOCSDIR" Name="docs">
+            <Component Id="DocumentationFiles" Guid="99887766-5544-3322-1100-ffeeddccbbaa">
+              <File Id="README.md" Name="README.md" Source="..\..\README.md" />
+              <File Id="CHANGELOG.md" Name="CHANGELOG.md" Source="..\..\CHANGELOG.md" />
+            </Component>
+          </Directory>
+        </Directory>
+      </Directory>
+
+      <Directory Id="ProgramMenuFolder">
+        <Directory Id="ApplicationProgramsFolder" Name="AeroDriver">
+          <Component Id="ApplicationShortcuts" Guid="55554444-3333-2222-1111-000000000000">
+            <Shortcut Id="ApplicationDesktopShortcut"
+                      Name="AeroDriver"
+                      Description="Professional Windows Driver Management"
+                      Target="[INSTALLFOLDER]AeroDriver.UI.exe"
+                      WorkingDirectory="INSTALLFOLDER" />
+            <Shortcut Id="CLIStartMenuShortcut"
+                      Name="AeroDriver CLI"
+                      Description="AeroDriver Command Line Interface"
+                      Target="[INSTALLFOLDER]AeroDriver.CLI.exe"
+                      WorkingDirectory="INSTALLFOLDER" />
+            <RemoveFolder Id="ApplicationProgramsFolder" On="uninstall" />
+            <RegistryValue Root="HKCU"
+                           Key="Software\AeroDriver"
+                           Name="installed"
+                           Type="integer"
+                           Value="1"
+                           KeyPath="yes" />
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+
+    <ComponentGroup Id="ProductComponents">
+      <ComponentRef Id="ApplicationFiles" />
+      <ComponentRef Id="ConfigFiles" />
+      <ComponentRef Id="LocaleFiles" />
+      <ComponentRef Id="DocumentationFiles" />
+      <ComponentRef Id="ApplicationShortcuts" />
+    </ComponentGroup>
+
+    <ComponentGroup Id="CLIComponents">
+      <Component Id="CLIFiles" Guid="77776666-5555-4444-3333-222211110000">
+        <File Id="AeroDriver.CLI.dll" Name="AeroDriver.CLI.dll" Source="$(var.AeroDriver.CLI.TargetDir)AeroDriver.CLI.dll" />
+        <File Id="AeroDriver.Core.dll" Name="AeroDriver.Core.dll" Source="$(var.AeroDriver.Core.TargetDir)AeroDriver.Core.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="UIComponents">
+      <Component Id="UIFiles" Guid="88887777-6666-5555-4444-333322221111">
+        <File Id="AeroDriver.UI.dll" Name="AeroDriver.UI.dll" Source="$(var.AeroDriver.UI.TargetDir)AeroDriver.UI.dll" />
+        <File Id="Avalonia.dll" Name="Avalonia.dll" Source="$(var.AeroDriver.UI.TargetDir)Avalonia.dll" />
+        <File Id="Avalonia.Desktop.dll" Name="Avalonia.Desktop.dll" Source="$(var.AeroDriver.UI.TargetDir)Avalonia.Desktop.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="APIComponents">
+      <Component Id="APIFiles" Guid="99998888-7777-6666-5555-444433332222">
+        <File Id="AeroDriver.API.dll" Name="AeroDriver.API.dll" Source="$(var.AeroDriver.API.TargetDir)AeroDriver.API.dll" />
+        <File Id="Swashbuckle.AspNetCore.Swagger.dll" Name="Swashbuckle.AspNetCore.Swagger.dll" Source="$(var.AeroDriver.API.TargetDir)Swashbuckle.AspNetCore.Swagger.dll" />
+      </Component>
+    </ComponentGroup>
+
+    <ComponentGroup Id="ServiceComponents">
+      <Component Id="ServiceFiles" Guid="00009999-8888-7777-6666-555544443333">
+        <File Id="AeroDriver.Service.dll" Name="AeroDriver.Service.dll" Source="$(var.AeroDriver.Service.TargetDir)AeroDriver.Service.dll" />
+        <ServiceInstall Id="ServiceInstaller"
+                        Type="ownProcess"
+                        Vital="yes"
+                        Name="AeroDriverService"
+                        DisplayName="AeroDriver Service"
+                        Description="Professional Windows Driver Management Service"
+                        Start="auto"
+                        Account="LocalSystem"
+                        ErrorControl="normal"
+                        Interactive="no" />
+        <ServiceControl Id="StartService"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Name="AeroDriverService"
+                        Wait="yes" />
+      </Component>
+    </ComponentGroup>
+  </Product>
+</Wix>

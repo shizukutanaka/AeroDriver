@@ -1,0 +1,50 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="600"
+             x:Class="AeroDriver.UI.Views.DashboardView">
+    <Grid Margin="16" RowDefinitions="Auto,Auto,Auto,*" ColumnDefinitions="*,*" RowSpacing="12" ColumnSpacing="12">
+        <!-- System Info Card -->
+        <Border Grid.Row="0" Grid.Column="0" Classes="InfoCard">
+            <StackPanel Spacing="8">
+                <TextBlock Text="System Information" Classes="CardTitle"/>
+                <TextBlock Name="OsInfoTextBlock" Classes="CardContent"/>
+                <TextBlock Name="ProcessorInfoTextBlock" Classes="CardSubContent"/>
+                <TextBlock Name="MachineNameTextBlock" Classes="CardSubContent"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Status Card -->
+        <Border Grid.Row="0" Grid.Column="1" Classes="InfoCard">
+            <StackPanel Spacing="12">
+                <TextBlock Text="System Status" Classes="CardTitle"/>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <TextBlock Text="Status:" Classes="CardContent"/>
+                    <TextBlock Name="StatusTextBlock" Text="Loading..." FontWeight="Bold"/>
+                </StackPanel>
+                <TextBlock Name="DriverStatusTextBlock" Text="Drivers: Scanning..." Classes="CardSubContent"/>
+                <TextBlock Name="PerformanceStatusTextBlock" Text="Performance: Loading..." Classes="CardSubContent"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Action Panel -->
+        <Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Classes="InfoCard">
+            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center" ItemWidth="150" ItemHeight="40">
+                <Button Name="ScanButton" Content="Quick Scan" Classes="Primary"/>
+                <Button Name="RefreshButton" Content="Refresh"/>
+                <Button Name="PerformanceButton" Content="Performance"/>
+            </WrapPanel>
+        </Border>
+
+        <!-- Recent Activity -->
+        <Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Classes="InfoCard">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Recent Activity" Classes="CardTitle"/>
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <TextBlock Text="No recent activity." FontStyle="Italic" Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+                </ScrollViewer>
+            </StackPanel>
+        </Border>
+    </Grid>
+</UserControl>
