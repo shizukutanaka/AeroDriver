@@ -12,6 +12,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Validation;
+using AeroDriver.Core.Security;
+using AeroDriver.Core.Monitoring;
 
 namespace AeroDriver.Core.Resilience;
 
@@ -28,6 +30,10 @@ public class SafeDriverUpdater
     private readonly DriverPayloadValidator _payloadValidator;
     private readonly CanaryDeploymentManager _canaryDeploymentManager;
     private readonly DriverCompatibilityMatrix _compatibilityMatrix;
+    private readonly CVEVulnerabilityScanner _cveScanner;
+    private readonly ExploitMitigationValidator _exploitValidator;
+    private readonly DriverFuzzingEngine _fuzzingEngine;
+    private readonly SyscallMonitor _syscallMonitor;
     private readonly string _backupPath;
 
     // タイムアウト設定
@@ -40,7 +46,11 @@ public class SafeDriverUpdater
         DriverCompatibilityValidator validator,
         DriverPayloadValidator? payloadValidator = null,
         CanaryDeploymentManager? canaryDeploymentManager = null,
-        DriverCompatibilityMatrix? compatibilityMatrix = null)
+        DriverCompatibilityMatrix? compatibilityMatrix = null,
+        CVEVulnerabilityScanner? cveScanner = null,
+        ExploitMitigationValidator? exploitValidator = null,
+        DriverFuzzingEngine? fuzzingEngine = null,
+        SyscallMonitor? syscallMonitor = null)
     {
         _logger = logger;
         _repository = repository;
@@ -48,6 +58,10 @@ public class SafeDriverUpdater
         _payloadValidator = payloadValidator ?? new DriverPayloadValidator(logger);
         _canaryDeploymentManager = canaryDeploymentManager ?? new CanaryDeploymentManager(logger);
         _compatibilityMatrix = compatibilityMatrix ?? new DriverCompatibilityMatrix(logger);
+        _cveScanner = cveScanner ?? new CVEVulnerabilityScanner(logger);
+        _exploitValidator = exploitValidator ?? new ExploitMitigationValidator(logger);
+        _fuzzingEngine = fuzzingEngine ?? new DriverFuzzingEngine(logger);
+        _syscallMonitor = syscallMonitor ?? new SyscallMonitor(logger);
 
         _backupPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -111,6 +125,90 @@ public class SafeDriverUpdater
                 if (!result.PayloadValidationResult.IsValid)
                 {
                     _logger.LogWarning($"Payload validation warning: {result.PayloadValidationResult.Message}");
+                }
+            }
+
+            // Step 0a: CVE脆弱性スキャン（既知の脆弱性検出）
+            if (options.ScanCVEs)
+            {
+                _logger.LogInformation("Scanning for known CVE vulnerabilities");
+                var cveResult = await _cveScanner.ScanDriverAsync(
+                    proposedUpdate.DriverName,
+                    proposedUpdate.DriverVersion,
+                    currentDriver.FilePath ?? "",
+                    ct);
+
+                result.CVEVulnerabilityScanResult = cveResult;
+
+                if (cveResult.IsBlocked || cveResult.HighestSeverity == VulnerabilitySeverity.Critical)
+                {
+                    _logger.LogError($"CVE vulnerability detected - BLOCKING: {cveResult.RecommendedAction}");
+                    result.Success = false;
+                    result.Message = $"Driver blocked due to known vulnerability: {cveResult.RecommendedAction}";
+                    return result;
+                }
+
+                if (cveResult.IsVulnerable)
+                {
+                    _logger.LogWarning($"CVE vulnerability found: {cveResult.RecommendedAction}");
+                }
+            }
+
+            // Step 0c: エクスプロイト軽減技術検証
+            if (options.ValidateExploitMitigations)
+            {
+                _logger.LogInformation("Validating exploit mitigation techniques");
+                var exploitResult = await _exploitValidator.ValidateExploitMitigationsAsync(
+                    proposedUpdate.DriverName,
+                    currentDriver.FilePath ?? "",
+                    ct);
+
+                result.ExploitMitigationResult = exploitResult;
+
+                if (exploitResult.RiskLevel == ExploitRiskLevel.Critical)
+                {
+                    _logger.LogError($"Critical exploit mitigation missing - BLOCKING: {exploitResult.RecommendedAction}");
+                    result.Success = false;
+                    result.Message = $"Driver blocked due to missing security mitigations: {exploitResult.RecommendedAction}";
+                    return result;
+                }
+
+                if (exploitResult.RiskLevel == ExploitRiskLevel.High)
+                {
+                    _logger.LogWarning($"High-risk exploit vulnerability: {exploitResult.RecommendedAction}");
+                }
+            }
+
+            // Step 0d: ファジング検証（未知の脆弱性検出）
+            if (options.PerformFuzzing)
+            {
+                _logger.LogInformation("Performing driver fuzzing tests");
+                var fuzzResult = await _fuzzingEngine.FuzzDriverAsync(
+                    proposedUpdate.DriverName,
+                    currentDriver.FilePath ?? "",
+                    proposedUpdate.Payload,
+                    maxIterations: 5000,
+                    timeoutMs: 3000,
+                    ct);
+
+                result.FuzzingResult = fuzzResult;
+
+                if (fuzzResult.Crashes.Count > 0)
+                {
+                    var criticalCrashes = fuzzResult.Crashes
+                        .Where(c => c.VulnerabilityType == VulnerabilityType.PrivilegeEscalation ||
+                                   c.VulnerabilityType == VulnerabilityType.RemoteCodeExecution)
+                        .ToList();
+
+                    if (criticalCrashes.Count > 0)
+                    {
+                        _logger.LogError($"Critical vulnerability found during fuzzing - BLOCKING: {criticalCrashes.Count} critical crashes");
+                        result.Success = false;
+                        result.Message = $"Driver blocked: {criticalCrashes.Count} critical vulnerabilities found during testing";
+                        return result;
+                    }
+
+                    _logger.LogWarning($"Fuzzing found {fuzzResult.Crashes.Count} potential issues");
                 }
             }
 
@@ -504,9 +602,14 @@ public class SafeUpdateResult
     public string Message { get; set; } = string.Empty;
     public string DriverName { get; set; } = string.Empty;
 
-    // Web研究ベースの検証結果
+    // Phase 1-2 検証結果
     public PayloadValidationResult? PayloadValidationResult { get; set; }
     public CompatibilityMatrixResult? CompatibilityMatrixResult { get; set; }
+
+    // Phase 3 高度なセキュリティ検証結果
+    public VulnerabilityScanResult? CVEVulnerabilityScanResult { get; set; }
+    public ExploitMitigationResult? ExploitMitigationResult { get; set; }
+    public FuzzingResult? FuzzingResult { get; set; }
 
     // 既存の検証結果
     public ValidationResult? PreValidationResult { get; set; }
@@ -579,9 +682,14 @@ public enum HealthSeverity
 /// </summary>
 public class UpdateOptions
 {
-    // Web研究ベースの新規検証オプション（デフォルトで有効）
+    // Phase 1-2 検証オプション（デフォルトで有効）
     public bool ValidatePayload { get; set; } = true;           // CrowdStrike事件対策
     public bool CheckCompatibility { get; set; } = true;        // WHCP互換性確認
+
+    // Phase 3 高度なセキュリティ検証オプション
+    public bool ScanCVEs { get; set; } = true;                  // 既知の脆弱性スキャン
+    public bool ValidateExploitMitigations { get; set; } = true;// DEP/ASLR/CFI/HVCI/VBS検証
+    public bool PerformFuzzing { get; set; } = false;           // ファジング検証（オプション・時間がかかる）
 
     // 既存の検証オプション
     public bool PerformPreValidation { get; set; } = true;
