@@ -18,12 +18,16 @@ namespace AeroDriver.Core.Resilience;
 /// <summary>
 /// 自動ロールバック機能付き安全なドライバー更新システム
 /// IEEE Fault Tolerance研究に基づく多層保護メカニズム
+/// CrowdStrike事件対策: ドライバーペイロード検証とCanary配置を統合
 /// </summary>
 public class SafeDriverUpdater
 {
     private readonly ILogger _logger;
     private readonly IDriverRepository _repository;
     private readonly DriverCompatibilityValidator _validator;
+    private readonly DriverPayloadValidator _payloadValidator;
+    private readonly CanaryDeploymentManager _canaryDeploymentManager;
+    private readonly DriverCompatibilityMatrix _compatibilityMatrix;
     private readonly string _backupPath;
 
     // タイムアウト設定
@@ -33,11 +37,17 @@ public class SafeDriverUpdater
     public SafeDriverUpdater(
         ILogger logger,
         IDriverRepository repository,
-        DriverCompatibilityValidator validator)
+        DriverCompatibilityValidator validator,
+        DriverPayloadValidator? payloadValidator = null,
+        CanaryDeploymentManager? canaryDeploymentManager = null,
+        DriverCompatibilityMatrix? compatibilityMatrix = null)
     {
         _logger = logger;
         _repository = repository;
         _validator = validator;
+        _payloadValidator = payloadValidator ?? new DriverPayloadValidator(logger);
+        _canaryDeploymentManager = canaryDeploymentManager ?? new CanaryDeploymentManager(logger);
+        _compatibilityMatrix = compatibilityMatrix ?? new DriverCompatibilityMatrix(logger);
 
         _backupPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -78,6 +88,53 @@ public class SafeDriverUpdater
         try
         {
             _logger.LogInformation($"Starting safe driver update for {currentDriver.Name}");
+
+            // Step 0: ペイロード検証（CrowdStrike事件対策）
+            if (options.ValidatePayload)
+            {
+                _logger.LogInformation("Performing driver payload validation");
+                result.PayloadValidationResult = await _payloadValidator.ValidatePayloadAsync(
+                    proposedUpdate.Payload ?? Array.Empty<byte>(),
+                    proposedUpdate.DriverName,
+                    proposedUpdate.DriverVersion,
+                    ct);
+
+                if (!result.PayloadValidationResult.IsValid &&
+                    result.PayloadValidationResult.Severity == ValidationSeverity.Critical)
+                {
+                    _logger.LogError($"Critical payload validation failure: {result.PayloadValidationResult.Message}");
+                    result.Success = false;
+                    result.Message = $"Driver binary validation failed (security issue): {result.PayloadValidationResult.Message}";
+                    return result;
+                }
+
+                if (!result.PayloadValidationResult.IsValid)
+                {
+                    _logger.LogWarning($"Payload validation warning: {result.PayloadValidationResult.Message}");
+                }
+            }
+
+            // Step 0b: ドライバー互換性マトリックス確認
+            if (options.CheckCompatibility)
+            {
+                _logger.LogInformation("Checking driver compatibility matrix");
+                result.CompatibilityMatrixResult = await _compatibilityMatrix.CheckCompatibilityAsync(
+                    proposedUpdate.DriverName,
+                    proposedUpdate.DriverVersion,
+                    currentDriver.DeviceId,
+                    Environment.OSVersion.ToString(),
+                    ct);
+
+                if (result.CompatibilityMatrixResult.CompatibilityLevel == CompatibilityLevel.Incompatible)
+                {
+                    _logger.LogError($"Incompatible driver version: {result.CompatibilityMatrixResult.Recommendation}");
+                    result.Success = false;
+                    result.Message = $"Driver is incompatible with system: {result.CompatibilityMatrixResult.Recommendation}";
+                    return result;
+                }
+
+                _logger.LogInformation($"Compatibility check result: {result.CompatibilityMatrixResult.CompatibilityLevel}");
+            }
 
             // Step 1: 事前検証
             if (options.PerformPreValidation)
@@ -447,6 +504,11 @@ public class SafeUpdateResult
     public string Message { get; set; } = string.Empty;
     public string DriverName { get; set; } = string.Empty;
 
+    // Web研究ベースの検証結果
+    public PayloadValidationResult? PayloadValidationResult { get; set; }
+    public CompatibilityMatrixResult? CompatibilityMatrixResult { get; set; }
+
+    // 既存の検証結果
     public ValidationResult? PreValidationResult { get; set; }
     public DriverUpdateResult? UpdateResult { get; set; }
     public HealthCheckResult? PostValidationResult { get; set; }
@@ -517,6 +579,11 @@ public enum HealthSeverity
 /// </summary>
 public class UpdateOptions
 {
+    // Web研究ベースの新規検証オプション（デフォルトで有効）
+    public bool ValidatePayload { get; set; } = true;           // CrowdStrike事件対策
+    public bool CheckCompatibility { get; set; } = true;        // WHCP互換性確認
+
+    // 既存の検証オプション
     public bool PerformPreValidation { get; set; } = true;
     public bool PerformPostValidation { get; set; } = true;
     public bool CreateRestorePoint { get; set; } = true;
