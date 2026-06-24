@@ -21,32 +21,24 @@ namespace AeroDriver.Core.Services
     {
         private readonly ILogger<WhqlDatabaseService> _logger;
         private readonly HttpClient _httpClient;
+        private readonly PciIdDatabase _pciIds;
         private readonly string _cacheDirectory;
-        
-        // Windows Update Catalog URL
+
         private const string CATALOG_BASE_URL = "https://www.catalog.update.microsoft.com";
         private const string CATALOG_SEARCH_URL = CATALOG_BASE_URL + "/Search.aspx";
         private const string CATALOG_DOWNLOAD_URL = CATALOG_BASE_URL + "/DownloadDialog.aspx";
-        
-        /// <summary>
-        /// コンストラクタ
-        /// </summary>
-        public WhqlDatabaseService(ILogger<WhqlDatabaseService> logger)
+
+        public WhqlDatabaseService(ILogger<WhqlDatabaseService> logger, PciIdDatabase pciIds)
         {
-            _logger = logger;
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _pciIds = pciIds ?? throw new ArgumentNullException(nameof(pciIds));
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AeroDriver/1.0");
-            
-            // キャッシュディレクトリの作成
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AeroDriver/1.0 (Windows Driver Manager)");
+
             _cacheDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AeroDriver",
-                "WHQLCache");
-            
-            if (!Directory.Exists(_cacheDirectory))
-            {
-                Directory.CreateDirectory(_cacheDirectory);
-            }
+                "AeroDriver", "WHQLCache");
+            Directory.CreateDirectory(_cacheDirectory);
         }
         
         /// <summary>
@@ -318,42 +310,11 @@ namespace AeroDriver.Core.Services
             try
             {
                 _logger.LogInformation("製造元名 {VendorName} のベンダーIDを取得しています", vendorName);
-                
-                // よく知られたベンダーのマッピング
-                var knownVendors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    { "nvidia", "10DE" },
-                    { "amd", "1002" },
-                    { "ati", "1002" },
-                    { "advanced micro devices", "1002" },
-                    { "intel", "8086" },
-                    { "realtek", "10EC" },
-                    { "broadcom", "14E4" },
-                    { "qualcomm", "168C" },
-                    { "marvell", "11AB" },
-                    { "via", "1106" },
-                    { "asus", "1043" },
-                    { "gigabyte", "1458" },
-                    { "msi", "1462" },
-                    { "hp", "103C" },
-                    { "dell", "1028" },
-                    { "lenovo", "17AA" },
-                    { "toshiba", "1179" },
-                    { "samsung", "144D" }
-                };
-                
-                // 名前でマッチングを試行
-                foreach (var vendor in knownVendors)
-                {
-                    if (vendorName.Contains(vendor.Key, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return vendor.Value;
-                    }
-                }
-                
-                // オンラインのPCI IDデータベースを参照する場合は
-                // ここに実装を追加
-                
+
+                // PCI IDs データベース（50,000+ エントリ）で逆引き
+                var id = await _pciIds.GetVendorIdByNameAsync(vendorName);
+                if (id != null) return id;
+
                 _logger.LogWarning("製造元名 {VendorName} のベンダーIDが見つかりませんでした", vendorName);
                 return null;
             }
@@ -371,17 +332,21 @@ namespace AeroDriver.Core.Services
         {
             try
             {
-                _logger.LogInformation("WHQL認証ドライバーデータベースを更新しています");
-                
-                // キャッシュディレクトリをクリア
-                Directory.GetFiles(_cacheDirectory, "*.json").ToList().ForEach(File.Delete);
-                
-                _logger.LogInformation("WHQL認証ドライバーデータベースのキャッシュをクリアしました");
+                _logger.LogInformation("ドライバーデータベースを更新しています");
+
+                // WHQLキャッシュをクリア
+                foreach (var f in Directory.GetFiles(_cacheDirectory, "*.json"))
+                    File.Delete(f);
+
+                // PCI IDs データベースを最新化
+                await _pciIds.RefreshAsync();
+
+                _logger.LogInformation("ドライバーデータベースの更新が完了しました");
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "WHQL認証ドライバーデータベース更新中にエラーが発生しました");
+                _logger.LogError(ex, "ドライバーデータベース更新中にエラーが発生しました");
                 return false;
             }
         }

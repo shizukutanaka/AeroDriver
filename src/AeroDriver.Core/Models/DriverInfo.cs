@@ -67,6 +67,11 @@ namespace AeroDriver.Core.Models
         /// インストーラータイプ (INF, EXE, MSI, ZIPなど)
         /// </summary>
         public string InstallerType { get; set; }
+
+        /// <summary>
+        /// デバイスクラス (Display adapters, Net, USB など)
+        /// </summary>
+        public string? DeviceClass { get; set; }
     }
     
     /// <summary>
@@ -104,12 +109,7 @@ namespace AeroDriver.Core.Models
         /// デバイスクラスGUID
         /// </summary>
         public string ClassGuid { get; set; }
-        
-        /// <summary>
-        /// デバイスクラス
-        /// </summary>
-        public string DeviceClass { get; set; }
-        
+
         /// <summary>
         /// メーカー名
         /// </summary>
