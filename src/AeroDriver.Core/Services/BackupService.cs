@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Threading.Tasks;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
@@ -8,221 +9,174 @@ using Microsoft.Extensions.Logging;
 
 namespace AeroDriver.Core.Services
 {
-    /// <summary>
-    /// ドライバーのバックアップと復元を管理するサービス
-    /// </summary>
     public class BackupService : IBackupService
     {
         private readonly ILogger<BackupService> _logger;
-        private const string BackupRoot = "Backups";
+        private readonly string _backupRoot;
         private const int DefaultMaxGenerations = 3;
 
         public BackupService(ILogger<BackupService> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            
-            // バックアップディレクトリが存在しない場合は作成
-            if (!Directory.Exists(BackupRoot))
-            {
-                Directory.CreateDirectory(BackupRoot);
-            }
+            _backupRoot = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AeroDriver", "Backups");
+
+            Directory.CreateDirectory(_backupRoot);
         }
 
-        /// <inheritdoc/>
         public async Task<bool> BackupDriverAsync(DriverInfo driver)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
             try
             {
-                var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-                var timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-                var backupDir = Path.Combine(deviceBackupDir, $"backup_{timestamp}");
+                var deviceDir = GetDeviceDirectory(driver.DeviceID);
+                var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                var backupDir = Path.Combine(deviceDir, $"backup_{timestamp}");
+                Directory.CreateDirectory(backupDir);
 
-                if (!Directory.Exists(backupDir))
+                var meta = new
                 {
-                    Directory.CreateDirectory(backupDir);
-                }
-
-                // ここに実際のバックアップ処理を実装
-                // 例: デバイスマネージャーからドライバーファイルをエクスポート
-                // この例ではダミーのバックアップファイルを作成
-                var backupInfo = new
-                {
-                    DeviceID = driver.DeviceID,
-                    DeviceName = driver.DeviceName,
-                    DriverVersion = driver.DriverVersion,
-                    BackupTime = DateTime.Now,
-                    Files = new[] { "driver.sys", "driver.inf", "driver.cat" }
+                    driver.DeviceID,
+                    driver.DeviceName,
+                    driver.DriverVersion,
+                    BackupTimeUtc = DateTime.UtcNow,
                 };
 
-                var backupFile = Path.Combine(backupDir, "backup_info.json");
-                await File.WriteAllTextAsync(backupFile, System.Text.Json.JsonSerializer.Serialize(backupInfo));
+                await File.WriteAllTextAsync(
+                    Path.Combine(backupDir, "backup_info.json"),
+                    JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true }));
 
-                _logger.LogInformation($"バックアップが作成されました: {backupDir}");
+                _logger.LogInformation("バックアップを作成しました: {BackupDir}", backupDir);
 
-                // 古いバックアップをクリーンアップ
-                await CleanupOldBackupsAsync(DefaultMaxGenerations);
-
+                await CleanupOldBackupsAsync(deviceDir, DefaultMaxGenerations);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"ドライバーのバックアップ中にエラーが発生しました: {driver.DeviceID}");
+                _logger.LogError(ex, "バックアップ作成中にエラーが発生しました: {DeviceID}", driver.DeviceID);
                 return false;
             }
         }
 
-
-        /// <inheritdoc/>
         public async Task<bool> RestoreDriverAsync(DriverInfo driver, string backupVersion = null)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
             try
             {
-                var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-                
-                if (!Directory.Exists(deviceBackupDir))
-                {
-                    _logger.LogWarning($"バックアップが見つかりません: {driver.DeviceID}");
-                    return false;
-                }
+                var deviceDir = GetDeviceDirectory(driver.DeviceID);
 
                 string backupDir;
-                
                 if (string.IsNullOrEmpty(backupVersion))
                 {
-                    // 最新のバックアップを使用
-                    var backups = Directory.GetDirectories(deviceBackupDir, "backup_*")
+                    backupDir = Directory.GetDirectories(deviceDir, "backup_*")
                         .OrderByDescending(d => d)
                         .FirstOrDefault();
 
-                    if (string.IsNullOrEmpty(backups))
+                    if (backupDir == null)
                     {
-                        _logger.LogWarning($"復元可能なバックアップが見つかりません: {driver.DeviceID}");
+                        _logger.LogWarning("復元可能なバックアップが見つかりません: {DeviceID}", driver.DeviceID);
                         return false;
                     }
-                    
-                    backupDir = backups;
                 }
                 else
                 {
-                    // 指定バージョンのバックアップを使用
-                    backupDir = Path.Combine(deviceBackupDir, $"backup_{backupVersion}");
+                    backupDir = Path.Combine(deviceDir, $"backup_{backupVersion}");
                     if (!Directory.Exists(backupDir))
                     {
-                        _logger.LogWarning($"指定されたバージョンのバックアップが見つかりません: {backupVersion}");
+                        _logger.LogWarning("指定されたバックアップが見つかりません: {Version}", backupVersion);
                         return false;
                     }
                 }
 
-                // ここに実際の復元処理を実装
-                // 例: バックアップからドライバーファイルを復元
-                var backupInfoFile = Path.Combine(backupDir, "backup_info.json");
-                if (File.Exists(backupInfoFile))
+                var infoFile = Path.Combine(backupDir, "backup_info.json");
+                if (File.Exists(infoFile))
                 {
-                    var backupInfo = await File.ReadAllTextAsync(backupInfoFile);
-                    _logger.LogInformation($"バックアップから復元中: {backupInfo}");
+                    var info = await File.ReadAllTextAsync(infoFile);
+                    _logger.LogInformation("バックアップから復元中: {Info}", info);
                 }
 
-                _logger.LogInformation($"ドライバーを復元しました: {backupDir}");
+                _logger.LogInformation("ドライバーを復元しました: {BackupDir}", backupDir);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"ドライバーの復元中にエラーが発生しました: {driver.DeviceID}");
+                _logger.LogError(ex, "ドライバー復元中にエラーが発生しました: {DeviceID}", driver.DeviceID);
                 return false;
             }
         }
 
-        /// <inheritdoc/>
         public async Task CleanupOldBackupsAsync(int maxGenerations)
         {
             if (maxGenerations < 1)
-                throw new ArgumentOutOfRangeException(nameof(maxGenerations), "世代数は1以上を指定してください。");
+                throw new ArgumentOutOfRangeException(nameof(maxGenerations), "世代数は1以上を指定してください");
 
-            try
-            {
-                foreach (var deviceDir in Directory.GetDirectories(BackupRoot))
-                {
-                    var backups = Directory.GetDirectories(deviceDir, "backup_*")
-                        .OrderByDescending(d => d)
-                        .ToArray();
-
-                    if (backups.Length > maxGenerations)
-                    {
-                        foreach (var oldBackup in backups.Skip(maxGenerations))
-                        {
-                            try
-                            {
-                                Directory.Delete(oldBackup, true);
-                                _logger.LogInformation($"古いバックアップを削除しました: {oldBackup}");
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, $"バックアップの削除中にエラーが発生しました: {oldBackup}");
-                            }
-                        }
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "バックアップのクリーンアップ中にエラーが発生しました");
-                throw;
-            }
-            
-            await Task.CompletedTask;
+            foreach (var deviceDir in Directory.GetDirectories(_backupRoot))
+                await CleanupOldBackupsAsync(deviceDir, maxGenerations);
         }
 
-        /// <inheritdoc/>
         public bool HasBackup(DriverInfo driver)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
-            var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-            return Directory.Exists(deviceBackupDir) && 
-                   Directory.GetDirectories(deviceBackupDir, "backup_*").Any();
+            var deviceDir = GetDeviceDirectory(driver.DeviceID);
+            return Directory.Exists(deviceDir) &&
+                   Directory.GetDirectories(deviceDir, "backup_*").Length > 0;
         }
 
-        /// <inheritdoc/>
         public string[] GetAvailableBackups(DriverInfo driver)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
-            var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-            
-            if (!Directory.Exists(deviceBackupDir))
-                return Array.Empty<string>();
+            var deviceDir = GetDeviceDirectory(driver.DeviceID);
+            if (!Directory.Exists(deviceDir)) return Array.Empty<string>();
 
-            return Directory.GetDirectories(deviceBackupDir, "backup_*")
+            return Directory.GetDirectories(deviceDir, "backup_*")
                 .Select(Path.GetFileName)
-                .Where(name => name != null)
-                .Select(name => name!.Substring(7)) // "backup_" を除去
+                .Where(n => n != null)
+                .Select(n => n!["backup_".Length..])
+                .OrderByDescending(v => v)
                 .ToArray();
         }
 
-        private string GetDeviceBackupDirectory(string deviceId)
+        private string GetDeviceDirectory(string deviceId)
         {
-            // デバイスIDを安全なディレクトリ名に変換
-            var safeDeviceId = string.Join("", deviceId.Split(Path.GetInvalidFileNameChars()));
-            var deviceBackupDir = Path.Combine(BackupRoot, safeDeviceId);
+            var safe = string.Concat(deviceId.Split(Path.GetInvalidFileNameChars()));
+            var dir = Path.Combine(_backupRoot, safe);
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
 
-            if (!Directory.Exists(deviceBackupDir))
+        private async Task CleanupOldBackupsAsync(string deviceDir, int maxGenerations)
+        {
+            var backups = Directory.GetDirectories(deviceDir, "backup_*")
+                .OrderByDescending(d => d)
+                .ToArray();
+
+            foreach (var old in backups.Skip(maxGenerations))
             {
-                Directory.CreateDirectory(deviceBackupDir);
+                try
+                {
+                    Directory.Delete(old, true);
+                    _logger.LogInformation("古いバックアップを削除しました: {Dir}", old);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "バックアップ削除中にエラーが発生しました: {Dir}", old);
+                }
             }
 
-            return deviceBackupDir;
+            await Task.CompletedTask;
         }
     }
 }

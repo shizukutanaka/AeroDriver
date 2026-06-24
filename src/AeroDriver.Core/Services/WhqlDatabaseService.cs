@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using AeroDriver.Core.Helpers;
+using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 
 namespace AeroDriver.Core.Services
@@ -101,7 +102,7 @@ namespace AeroDriver.Core.Services
                 // 最新のドライバーを選択
                 var latestDriver = searchResults
                     .OrderByDescending(d => d.DriverDate)
-                    .ThenByDescending(d => CompareVersions(d.DriverVersion, "0.0.0.0"))
+                    .ThenByDescending(d => d.DriverVersion, StringComparer.OrdinalIgnoreCase)
                     .FirstOrDefault();
                 
                 // ダウンロードリンクを取得
@@ -225,26 +226,7 @@ namespace AeroDriver.Core.Services
                 
                 if (match.Success)
                 {
-                    string downloadLink = match.Groups[1].Value;
-                    
-                    // インストーラータイプを判断
-                    string installerType = "inf"; // デフォルト
-                    
-                    if (downloadLink.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        installerType = "exe";
-                    }
-                    else if (downloadLink.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
-                    {
-                        installerType = "msi";
-                    }
-                    else if (downloadLink.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
-                             downloadLink.EndsWith(".cab", StringComparison.OrdinalIgnoreCase))
-                    {
-                        installerType = "zip";
-                    }
-                    
-                    return downloadLink;
+                    return match.Groups[1].Value;
                 }
                 
                 _logger.LogWarning("ドライバーID {DriverId} のダウンロードリンクが見つかりませんでした", driverId);
@@ -326,58 +308,6 @@ namespace AeroDriver.Core.Services
             string invalidReStr = string.Format(@"[{0}]", invalidChars);
             
             return Regex.Replace(input, invalidReStr, "_");
-        }
-        
-        /// <summary>
-        /// バージョン文字列を比較します
-        /// </summary>
-        private int CompareVersions(string version1, string version2)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(version1) && string.IsNullOrEmpty(version2))
-                {
-                    return 0;
-                }
-                
-                if (string.IsNullOrEmpty(version1))
-                {
-                    return -1;
-                }
-                
-                if (string.IsNullOrEmpty(version2))
-                {
-                    return 1;
-                }
-                
-                // バージョン文字列を分割して比較
-                string[] v1Parts = version1.Split('.', ',');
-                string[] v2Parts = version2.Split('.', ',');
-                
-                int maxLength = Math.Max(v1Parts.Length, v2Parts.Length);
-                
-                for (int i = 0; i < maxLength; i++)
-                {
-                    int v1Value = i < v1Parts.Length && int.TryParse(v1Parts[i], out int temp1) ? temp1 : 0;
-                    int v2Value = i < v2Parts.Length && int.TryParse(v2Parts[i], out int temp2) ? temp2 : 0;
-                    
-                    if (v1Value > v2Value)
-                    {
-                        return 1;
-                    }
-                    else if (v1Value < v2Value)
-                    {
-                        return -1;
-                    }
-                }
-                
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "バージョン比較中にエラーが発生しました: {Version1} vs {Version2}", version1, version2);
-                return 0;
-            }
         }
         
         /// <summary>
