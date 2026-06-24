@@ -9,16 +9,24 @@ namespace AeroDriver.Core.Interfaces
 {
     public interface IDriverService : IDisposable
     {
-        event EventHandler<UpdatesAvailableEventArgs> UpdatesAvailable;
-        event EventHandler<UpdatesInstalledEventArgs> UpdatesInstalled;
+        event EventHandler<UpdatesAvailableEventArgs>? UpdatesAvailable;
+        event EventHandler<UpdatesInstalledEventArgs>? UpdatesInstalled;
 
-        Task<List<DriverInfo>> GetAllDriversAsync(CancellationToken cancellationToken = default);
-        Task<List<DriverInfo>> CheckForUpdatesAsync(CancellationToken cancellationToken = default);
+        /// <summary>インストール済みドライバーをすべて列挙します</summary>
+        Task<List<DriverInfo>> GetAllDriversAsync(
+            IProgress<DriverScanProgress>? progress = null,
+            CancellationToken cancellationToken = default);
+
+        /// <summary>全データソースに更新を問い合わせます</summary>
+        Task<List<DriverInfo>> CheckForUpdatesAsync(
+            IProgress<DriverScanProgress>? progress = null,
+            CancellationToken cancellationToken = default);
+
         Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default);
         Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> DisableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
-        Task<DriverDetailInfo> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default);
+        Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> InstallCustomDriverAsync(string driverPath, CancellationToken cancellationToken = default);
     }
 }

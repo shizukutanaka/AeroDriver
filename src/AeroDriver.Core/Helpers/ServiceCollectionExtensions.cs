@@ -12,11 +12,15 @@ namespace AeroDriver.Core
         {
             services.AddLogging(configure => configure.AddConsole());
 
-            // IHttpClientFactory（ソケット枯渇を防ぐ）
+            // IHttpClientFactory + 標準レジリエンス（リトライ・サーキットブレーカー・タイムアウト）
+            // Microsoft.Extensions.Http.Resilience が提供する AddStandardResilienceHandler() を使用:
+            //   - 最大3回の指数バックオフリトライ
+            //   - サーキットブレーカー（失敗率 10%超で遮断）
+            //   - 合計タイムアウト 30 秒
             services.AddHttpClient(nameof(DriverService))
-                    .ConfigureHttpClient(c => c.Timeout = System.TimeSpan.FromSeconds(60));
+                    .AddStandardResilienceHandler();
             services.AddHttpClient(nameof(PciIdDatabase))
-                    .ConfigureHttpClient(c => c.Timeout = System.TimeSpan.FromSeconds(30));
+                    .AddStandardResilienceHandler();
 
             // PCI IDs データベース（シングルトン: ファイルキャッシュを共有）
             services.AddSingleton<PciIdDatabase>(sp =>

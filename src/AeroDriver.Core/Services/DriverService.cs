@@ -42,7 +42,9 @@ namespace AeroDriver.Core.Services
                           .CreateClient(nameof(DriverService));
         }
 
-        public async Task<List<DriverInfo>> GetAllDriversAsync(CancellationToken cancellationToken = default)
+        public async Task<List<DriverInfo>> GetAllDriversAsync(
+            IProgress<DriverScanProgress>? progress = null,
+            CancellationToken cancellationToken = default)
         {
             var drivers = new List<DriverInfo>();
 
@@ -53,14 +55,29 @@ namespace AeroDriver.Core.Services
                     using var searcher = new ManagementObjectSearcher(
                         "SELECT * FROM Win32_PnPSignedDriver WHERE DriverVersion IS NOT NULL");
 
-                    foreach (ManagementObject obj in searcher.Get())
+                    // WMI は事前に件数を取れないため ManagementObjectCollection を一度列挙
+                    var objects = searcher.Get().Cast<ManagementObject>().ToList();
+                    int total = objects.Count;
+
+                    for (int i = 0; i < total; i++)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
+
+                        var obj = objects[i];
+                        var name = obj["DeviceName"]?.ToString();
+
+                        progress?.Report(new DriverScanProgress
+                        {
+                            Phase = "スキャン中",
+                            Current = i + 1,
+                            Total = total,
+                            CurrentDevice = name,
+                        });
 
                         var driver = new DriverInfo
                         {
                             DeviceID = obj["DeviceID"]?.ToString(),
-                            DeviceName = obj["DeviceName"]?.ToString(),
+                            DeviceName = name,
                             DriverVersion = obj["DriverVersion"]?.ToString(),
                             DriverProviderName = obj["DriverProviderName"]?.ToString(),
                             InfName = obj["InfName"]?.ToString(),
@@ -89,31 +106,57 @@ namespace AeroDriver.Core.Services
             return drivers;
         }
 
-        public async Task<List<DriverInfo>> CheckForUpdatesAsync(CancellationToken cancellationToken = default)
+        public async Task<List<DriverInfo>> CheckForUpdatesAsync(
+            IProgress<DriverScanProgress>? progress = null,
+            CancellationToken cancellationToken = default)
         {
             var updates = new List<DriverInfo>();
 
             try
             {
-                // インストール済みドライバーを取得
-                var installed = await GetAllDriversAsync(cancellationToken);
+                // フェーズ 1: インストール済みドライバーをスキャン
+                var scanProgress = progress == null ? null : new Progress<DriverScanProgress>(p =>
+                    progress.Report(p with { Phase = $"ドライバー検出: {p.Phase}" }));
+
+                var installed = await GetAllDriversAsync(scanProgress, cancellationToken);
 
                 // HardwareID でインデックス化（照合用）
                 var installedByHwId = installed
                     .Where(d => !string.IsNullOrEmpty(d.HardwareID))
                     .ToDictionary(d => d.HardwareID!, StringComparer.OrdinalIgnoreCase);
 
-                // 全データソースに並列クエリ
+                // フェーズ 2: 全データソースに並列クエリ
                 _logger.LogInformation("{Count} 件のデータソースに更新を問い合わせます", _updateSources.Count);
 
-                var sourceTasks = _updateSources.Select(s => QuerySourceAsync(s, cancellationToken));
+                progress?.Report(new DriverScanProgress
+                {
+                    Phase = "更新確認中",
+                    Current = 0,
+                    Total = _updateSources.Count,
+                });
+
+                int sourcesDone = 0;
+                var sourceTasks = _updateSources.Select(async s =>
+                {
+                    var result = await QuerySourceAsync(s, cancellationToken);
+                    var done = Interlocked.Increment(ref sourcesDone);
+                    progress?.Report(new DriverScanProgress
+                    {
+                        Phase = "更新確認中",
+                        Current = done,
+                        Total = _updateSources.Count,
+                        CurrentDevice = s.SourceName,
+                    });
+                    return result;
+                });
+
                 var allCandidates = (await Task.WhenAll(sourceTasks))
                     .SelectMany(x => x)
                     .ToList();
 
                 _logger.LogInformation("データソース合計 {Count} 件の候補を取得", allCandidates.Count);
 
-                // インストール済みと照合して「新しいバージョン」のみ返す
+                // フェーズ 3: インストール済みと照合して「新しいバージョン」のみ返す
                 foreach (var candidate in allCandidates)
                 {
                     cancellationToken.ThrowIfCancellationRequested();

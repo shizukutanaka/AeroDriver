@@ -59,8 +59,8 @@ namespace AeroDriver.Core.Services
                 }
                 
                 // ハードウェアIDからベンダーIDとデバイスIDを抽出
-                string vendorId = null;
-                string deviceId = null;
+                string? vendorId = null;
+                string? deviceId = null;
                 
                 var venMatch = Regex.Match(hardwareId, @"VEN_([0-9A-F]{4})", RegexOptions.IgnoreCase);
                 if (venMatch.Success)
@@ -305,7 +305,7 @@ namespace AeroDriver.Core.Services
         /// <summary>
         /// 製造元名からベンダーIDを取得します
         /// </summary>
-        public async Task<string> GetVendorIdByNameAsync(string vendorName)
+        public async Task<string?> GetVendorIdByNameAsync(string vendorName)
         {
             try
             {
@@ -357,19 +357,8 @@ namespace AeroDriver.Core.Services
     /// </summary>
     internal class CachedDriverInfo
     {
-        /// <summary>
-        /// ハードウェアID
-        /// </summary>
-        public string HardwareId { get; set; }
-        
-        /// <summary>
-        /// ドライバー情報
-        /// </summary>
-        public DriverInfo DriverInfo { get; set; }
-        
-        /// <summary>
-        /// キャッシュ時刻
-        /// </summary>
+        public string? HardwareId { get; set; }
+        public DriverInfo? DriverInfo { get; set; }
         public DateTime CacheTime { get; set; }
     }
 }
