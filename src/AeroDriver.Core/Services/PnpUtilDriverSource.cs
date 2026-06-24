@@ -17,7 +17,7 @@ namespace AeroDriver.Core.Services
     /// 無料・Windows 標準・管理者権限不要（列挙のみ）。
     /// </summary>
     [SupportedOSPlatform("windows")]
-    public sealed class PnpUtilDriverSource : IDriverUpdateSource
+    public class PnpUtilDriverSource : IDriverUpdateSource
     {
         private readonly ILogger<PnpUtilDriverSource> _logger;
 
@@ -113,7 +113,11 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        private IReadOnlyList<DriverInfo> ParseEnumOutput(string output)
+        // テストから呼べるよう protected に（sealed でないため override 可能）
+    protected virtual IReadOnlyList<DriverInfo> ParseEnumOutputPublic(string output)
+        => ParseEnumOutput(output);
+
+    private IReadOnlyList<DriverInfo> ParseEnumOutput(string output)
         {
             var drivers = new List<DriverInfo>();
             if (string.IsNullOrWhiteSpace(output)) return drivers;

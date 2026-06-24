@@ -19,24 +19,27 @@ namespace AeroDriver.Core.Services
         private readonly ILogger<DriverService> _logger;
         private readonly ISettingsService _settingsService;
         private readonly IBackupService _backupService;
-        private readonly IWhqlDatabaseService _whqlDatabaseService;
+        private readonly IReadOnlyList<IDriverUpdateSource> _updateSources;
         private readonly HttpClient _httpClient;
         private bool _disposed;
 
-        public event EventHandler<UpdatesAvailableEventArgs> UpdatesAvailable;
-        public event EventHandler<UpdatesInstalledEventArgs> UpdatesInstalled;
+        public event EventHandler<UpdatesAvailableEventArgs>? UpdatesAvailable;
+        public event EventHandler<UpdatesInstalledEventArgs>? UpdatesInstalled;
 
         public DriverService(
             ILogger<DriverService> logger,
             ISettingsService settingsService,
             IBackupService backupService,
-            IWhqlDatabaseService whqlDatabaseService)
+            IEnumerable<IDriverUpdateSource> updateSources,
+            IHttpClientFactory httpClientFactory)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
-            _whqlDatabaseService = whqlDatabaseService ?? throw new ArgumentNullException(nameof(whqlDatabaseService));
-            _httpClient = new HttpClient();
+            _updateSources = (updateSources ?? throw new ArgumentNullException(nameof(updateSources)))
+                             .ToList().AsReadOnly();
+            _httpClient = (httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory)))
+                          .CreateClient(nameof(DriverService));
         }
 
         public async Task<List<DriverInfo>> GetAllDriversAsync(CancellationToken cancellationToken = default)
@@ -92,24 +95,44 @@ namespace AeroDriver.Core.Services
 
             try
             {
+                // インストール済みドライバーを取得
                 var installed = await GetAllDriversAsync(cancellationToken);
 
-                foreach (var driver in installed)
+                // HardwareID でインデックス化（照合用）
+                var installedByHwId = installed
+                    .Where(d => !string.IsNullOrEmpty(d.HardwareID))
+                    .ToDictionary(d => d.HardwareID!, StringComparer.OrdinalIgnoreCase);
+
+                // 全データソースに並列クエリ
+                _logger.LogInformation("{Count} 件のデータソースに更新を問い合わせます", _updateSources.Count);
+
+                var sourceTasks = _updateSources.Select(s => QuerySourceAsync(s, cancellationToken));
+                var allCandidates = (await Task.WhenAll(sourceTasks))
+                    .SelectMany(x => x)
+                    .ToList();
+
+                _logger.LogInformation("データソース合計 {Count} 件の候補を取得", allCandidates.Count);
+
+                // インストール済みと照合して「新しいバージョン」のみ返す
+                foreach (var candidate in allCandidates)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
 
-                    if (string.IsNullOrEmpty(driver.HardwareID)) continue;
+                    if (string.IsNullOrEmpty(candidate.HardwareID)) continue;
+                    if (!installedByHwId.TryGetValue(candidate.HardwareID, out var current)) continue;
+                    if (!VersionHelper.IsNewer(candidate.DriverVersion, current.DriverVersion)) continue;
 
-                    var latest = await _whqlDatabaseService.FindDriverByHardwareIdAsync(driver.HardwareID);
-                    if (latest == null) continue;
-
-                    if (VersionHelper.IsNewer(latest.DriverVersion, driver.DriverVersion))
-                    {
-                        latest.DeviceID = driver.DeviceID;
-                        latest.DeviceName = driver.DeviceName;
-                        updates.Add(latest);
-                    }
+                    candidate.DeviceID = current.DeviceID;
+                    candidate.DeviceName ??= current.DeviceName;
+                    updates.Add(candidate);
                 }
+
+                // 重複除去（同じ HardwareID で最新バージョンのみ残す）
+                updates = updates
+                    .GroupBy(u => u.HardwareID, StringComparer.OrdinalIgnoreCase)
+                    .Select(g => g.OrderByDescending(u => u.DriverVersion,
+                                     StringComparer.OrdinalIgnoreCase).First())
+                    .ToList();
 
                 if (updates.Count > 0)
                     UpdatesAvailable?.Invoke(this, new UpdatesAvailableEventArgs(updates));
@@ -126,6 +149,22 @@ namespace AeroDriver.Core.Services
             }
 
             return updates;
+        }
+
+        private async Task<IReadOnlyList<DriverInfo>> QuerySourceAsync(
+            IDriverUpdateSource source, CancellationToken ct)
+        {
+            try
+            {
+                var results = await source.SearchUpdatesAsync(ct);
+                _logger.LogInformation("  [{Source}] {Count} 件", source.SourceName, results.Count);
+                return results;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[{Source}] クエリ中にエラーが発生しました", source.SourceName);
+                return Array.Empty<DriverInfo>();
+            }
         }
 
         public async Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default)
@@ -151,7 +190,8 @@ namespace AeroDriver.Core.Services
                 {
                     var response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken);
                     response.EnsureSuccessStatusCode();
-                    await File.WriteAllBytesAsync(tempPath, await response.Content.ReadAsByteArrayAsync(cancellationToken), cancellationToken);
+                    await File.WriteAllBytesAsync(tempPath,
+                        await response.Content.ReadAsByteArrayAsync(cancellationToken), cancellationToken);
 
                     bool success = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
@@ -213,7 +253,6 @@ namespace AeroDriver.Core.Services
             try
             {
                 _logger.LogInformation("ドライバーを無効化します: {DeviceID}", deviceId);
-
                 bool result = await Task.Run(() => SetDriverState(deviceId, enable: false), cancellationToken);
                 _logger.LogInformation("ドライバー無効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
                 return result;
@@ -232,7 +271,6 @@ namespace AeroDriver.Core.Services
             try
             {
                 _logger.LogInformation("ドライバーを有効化します: {DeviceID}", deviceId);
-
                 bool result = await Task.Run(() => SetDriverState(deviceId, enable: true), cancellationToken);
                 _logger.LogInformation("ドライバー有効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
                 return result;
@@ -244,7 +282,7 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        public async Task<DriverDetailInfo> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default)
+        public async Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
 
@@ -316,7 +354,6 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        // --- non-interface public method kept for backward compatibility ---
         public int CompareVersions(string version1, string version2) => VersionHelper.Compare(version1, version2);
 
         private static bool SetDriverState(string deviceId, bool enable)
@@ -326,19 +363,18 @@ namespace AeroDriver.Core.Services
 
             foreach (ManagementObject obj in searcher.Get())
             {
-                var method = enable ? "Enable" : "Disable";
-                var result = obj.InvokeMethod(method, null);
+                var result = obj.InvokeMethod(enable ? "Enable" : "Disable", null);
                 return result != null;
             }
 
             return false;
         }
 
-        private async Task<bool> InstallFromFileAsync(string filePath, string installerType, CancellationToken cancellationToken)
+        private async Task<bool> InstallFromFileAsync(string filePath, string? installerType, CancellationToken ct)
         {
             var ext = (installerType ?? Path.GetExtension(filePath)).ToLowerInvariant().TrimStart('.');
 
-            string args = ext switch
+            string? args = ext switch
             {
                 "inf" => $"/c pnputil /add-driver \"{filePath}\" /install",
                 "exe" => $"/c \"{filePath}\" /quiet /norestart",
@@ -361,7 +397,7 @@ namespace AeroDriver.Core.Services
             using var process = System.Diagnostics.Process.Start(psi);
             if (process == null) return false;
 
-            await process.WaitForExitAsync(cancellationToken);
+            await process.WaitForExitAsync(ct);
             return process.ExitCode == 0;
         }
 
@@ -374,7 +410,7 @@ namespace AeroDriver.Core.Services
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed) return;
-            if (disposing) _httpClient?.Dispose();
+            // HttpClient は IHttpClientFactory が管理するため Dispose しない
             _disposed = true;
         }
     }

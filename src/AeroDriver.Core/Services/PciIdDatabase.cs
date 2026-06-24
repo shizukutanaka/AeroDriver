@@ -29,12 +29,18 @@ namespace AeroDriver.Core.Services
             "https://raw.githubusercontent.com/pciutils/pciids/master/pci.ids";
 
         public PciIdDatabase(ILogger<PciIdDatabase> logger, HttpClient httpClient)
+            : this(logger, httpClient, Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AeroDriver", "pci.ids"))
+        { }
+
+        // テスト用: キャッシュファイルパスを外から指定できる
+        protected PciIdDatabase(ILogger<PciIdDatabase> logger, HttpClient httpClient, string cacheFile)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _httpClient = httpClient ?? throw new ArgumentNullException(nameof(httpClient));
-            _cacheFile = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AeroDriver", "pci.ids");
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", "AeroDriver/1.0");
+            _cacheFile = cacheFile;
         }
 
         /// <summary>

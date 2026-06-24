@@ -12,18 +12,24 @@ namespace AeroDriver.Core
         {
             services.AddLogging(configure => configure.AddConsole());
 
-            // 共有 HttpClient（サービス間で再利用）
-            services.AddSingleton<HttpClient>();
+            // IHttpClientFactory（ソケット枯渇を防ぐ）
+            services.AddHttpClient(nameof(DriverService))
+                    .ConfigureHttpClient(c => c.Timeout = System.TimeSpan.FromSeconds(60));
+            services.AddHttpClient(nameof(PciIdDatabase))
+                    .ConfigureHttpClient(c => c.Timeout = System.TimeSpan.FromSeconds(30));
 
             // PCI IDs データベース（シングルトン: ファイルキャッシュを共有）
-            services.AddSingleton<PciIdDatabase>();
+            services.AddSingleton<PciIdDatabase>(sp =>
+                new PciIdDatabase(
+                    sp.GetRequiredService<ILogger<PciIdDatabase>>(),
+                    sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PciIdDatabase))));
 
             // コアサービス
             services.AddScoped<IDriverService, DriverService>();
             services.AddScoped<IBackupService, BackupService>();
             services.AddScoped<IWhqlDatabaseService, WhqlDatabaseService>();
 
-            // ドライバー更新ソース（複数登録 → IEnumerable<IDriverUpdateSource> で全取得可）
+            // ドライバー更新ソース（IEnumerable<IDriverUpdateSource> で全取得可能）
             services.AddScoped<IDriverUpdateSource, PnpUtilDriverSource>();
             services.AddScoped<IDriverUpdateSource, WindowsUpdateAgentSource>();
 

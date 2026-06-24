@@ -16,12 +16,16 @@ namespace AeroDriver.Core.Services
         private const int DefaultMaxGenerations = 3;
 
         public BackupService(ILogger<BackupService> logger)
+            : this(logger, Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AeroDriver", "Backups"))
+        { }
+
+        // テスト用: バックアップルートを外から指定できる
+        protected BackupService(ILogger<BackupService> logger, string backupRoot)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _backupRoot = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AeroDriver", "Backups");
-
+            _backupRoot = backupRoot;
             Directory.CreateDirectory(_backupRoot);
         }
 
