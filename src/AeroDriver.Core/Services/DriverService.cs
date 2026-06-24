@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Management;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
+using Microsoft.Management.Infrastructure;
 using AeroDriver.Core.Events;
 using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
@@ -23,10 +23,14 @@ namespace AeroDriver.Core.Services
         private readonly HttpClient _httpClient;
         private bool _disposed;
 
-        // WMIクエリ結果を30秒キャッシュ（頻繁な再スキャンを防ぐ）
+        // WMIキャッシュ — SemaphoreSlim(1,1) で async-safe な排他制御
+        // lock() は await をまたげないため使用不可
         private List<DriverInfo>? _cachedDrivers;
         private DateTime _cacheExpiry = DateTime.MinValue;
+        private readonly SemaphoreSlim _cacheLock = new(1, 1);
         private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
+        // WMIスキャン単体のタイムアウト（ユーザーキャンセルとリンク）
+        private static readonly TimeSpan WmiScanTimeout = TimeSpan.FromSeconds(60);
 
         public event EventHandler<UpdatesAvailableEventArgs>? UpdatesAvailable;
         public event EventHandler<UpdatesInstalledEventArgs>? UpdatesInstalled;
@@ -51,32 +55,60 @@ namespace AeroDriver.Core.Services
             IProgress<DriverScanProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
-            // キャッシュが有効かつ呼び出し元がプログレス不要なら即返す
+            // キャッシュヒット確認（ロック前の軽量チェック）
             if (progress == null && _cachedDrivers != null && DateTime.UtcNow < _cacheExpiry)
             {
                 _logger.LogDebug("WMIキャッシュを返します ({Count} 件)", _cachedDrivers.Count);
                 return new List<DriverInfo>(_cachedDrivers);
             }
 
+            // SemaphoreSlim(1,1) で async-safe 排他 — lock() は await をまたげない
+            await _cacheLock.WaitAsync(cancellationToken);
+            try
+            {
+                // ダブルチェック: 待機中に別スレッドがキャッシュを更新した可能性
+                if (progress == null && _cachedDrivers != null && DateTime.UtcNow < _cacheExpiry)
+                    return new List<DriverInfo>(_cachedDrivers);
+
+                return await ScanDriversAsync(progress, cancellationToken);
+            }
+            finally
+            {
+                _cacheLock.Release();
+            }
+        }
+
+        private async Task<List<DriverInfo>> ScanDriversAsync(
+            IProgress<DriverScanProgress>? progress,
+            CancellationToken cancellationToken)
+        {
             var drivers = new List<DriverInfo>();
+
+            // CreateLinkedTokenSource: ユーザーキャンセル OR WMIタイムアウト どちらでも停止
+            using var timeoutCts = new CancellationTokenSource(WmiScanTimeout);
+            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken, timeoutCts.Token);
 
             try
             {
+                // CimSession: ManagementObjectSearcher の後継 (Microsoft.Management.Infrastructure)
+                // 非同期クエリ対応・パフォーマンス向上・modern WMI API
                 await Task.Run(() =>
                 {
-                    using var searcher = new ManagementObjectSearcher(
+                    using var session = CimSession.Create(null); // null = localhost
+                    var instances = session.QueryInstances(
+                        @"root\cimv2", "WQL",
                         "SELECT * FROM Win32_PnPSignedDriver WHERE DriverVersion IS NOT NULL");
 
-                    // WMI は事前に件数を取れないため ManagementObjectCollection を一度列挙
-                    var objects = searcher.Get().Cast<ManagementObject>().ToList();
-                    int total = objects.Count;
+                    var list = instances.ToList();
+                    int total = list.Count;
 
                     for (int i = 0; i < total; i++)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
+                        linkedCts.Token.ThrowIfCancellationRequested();
 
-                        var obj = objects[i];
-                        var name = obj["DeviceName"]?.ToString();
+                        var inst = list[i];
+                        var name = inst.CimInstanceProperties["DeviceName"]?.Value?.ToString();
 
                         progress?.Report(new DriverScanProgress
                         {
@@ -88,25 +120,33 @@ namespace AeroDriver.Core.Services
 
                         var driver = new DriverInfo
                         {
-                            DeviceID = obj["DeviceID"]?.ToString(),
-                            DeviceName = name,
-                            DriverVersion = obj["DriverVersion"]?.ToString(),
-                            DriverProviderName = obj["DriverProviderName"]?.ToString(),
-                            InfName = obj["InfName"]?.ToString(),
-                            HardwareID = obj["HardwareID"]?.ToString(),
-                            IsWHQLCertified = obj["IsSigned"] is bool signed && signed,
+                            DeviceID    = inst.CimInstanceProperties["DeviceID"]?.Value?.ToString(),
+                            DeviceName  = name,
+                            DriverVersion      = inst.CimInstanceProperties["DriverVersion"]?.Value?.ToString(),
+                            DriverProviderName = inst.CimInstanceProperties["DriverProviderName"]?.Value?.ToString(),
+                            InfName     = inst.CimInstanceProperties["InfName"]?.Value?.ToString(),
+                            HardwareID  = inst.CimInstanceProperties["HardwareID"]?.Value?.ToString(),
+                            IsWHQLCertified = inst.CimInstanceProperties["IsSigned"]?.Value is bool signed && signed,
                         };
 
-                        if (DateTime.TryParse(obj["DriverDate"]?.ToString(), out var date))
+                        if (DateTime.TryParse(
+                            inst.CimInstanceProperties["DriverDate"]?.Value?.ToString(), out var date))
                             driver.DriverDate = date;
 
                         drivers.Add(driver);
                     }
-                }, cancellationToken);
+                }, linkedCts.Token);
 
                 _cachedDrivers = drivers;
                 _cacheExpiry = DateTime.UtcNow.Add(CacheTtl);
                 _logger.LogInformation("{Count} 件のドライバーを検出しました", drivers.Count);
+            }
+            catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested
+                                                     && !cancellationToken.IsCancellationRequested)
+            {
+                // タイムアウトの場合は TimeoutException に変換（呼び出し元がキャンセルしたわけではない）
+                _logger.LogError("WMIスキャンがタイムアウトしました ({Timeout}s)", WmiScanTimeout.TotalSeconds);
+                throw new TimeoutException($"WMIドライバースキャンが {WmiScanTimeout.TotalSeconds} 秒でタイムアウトしました");
             }
             catch (OperationCanceledException)
             {
@@ -345,35 +385,42 @@ namespace AeroDriver.Core.Services
 
             try
             {
+                // DeviceID に含まれる ' をエスケープしてWQLインジェクション防止
+                var safeId = deviceId.Replace("\\", "\\\\").Replace("'", "\\'");
+
                 return await Task.Run(() =>
                 {
-                    using var searcher = new ManagementObjectSearcher(
-                        $"SELECT * FROM Win32_PnPSignedDriver WHERE DeviceID = '{deviceId.Replace("'", "''")}'");
+                    using var session = CimSession.Create(null);
+                    var instances = session.QueryInstances(
+                        @"root\cimv2", "WQL",
+                        $"SELECT * FROM Win32_PnPSignedDriver WHERE DeviceID = '{safeId}'");
 
-                    foreach (ManagementObject obj in searcher.Get())
+                    foreach (var inst in instances)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
+                        CimProperty? Prop(string name) => inst.CimInstanceProperties[name];
+
                         var detail = new DriverDetailInfo
                         {
-                            DeviceID = obj["DeviceID"]?.ToString(),
-                            DeviceName = obj["DeviceName"]?.ToString(),
-                            DriverVersion = obj["DriverVersion"]?.ToString(),
-                            DriverProviderName = obj["DriverProviderName"]?.ToString(),
-                            InfName = obj["InfName"]?.ToString(),
-                            HardwareID = obj["HardwareID"]?.ToString(),
-                            IsWHQLCertified = obj["IsSigned"] is bool signed && signed,
-                            Manufacturer = obj["Manufacturer"]?.ToString(),
-                            DeviceClass = obj["DeviceClass"]?.ToString(),
-                            ClassGuid = obj["DeviceClassGUID"]?.ToString(),
-                            Description = obj["Description"]?.ToString(),
-                            Status = obj["Status"]?.ToString(),
+                            DeviceID           = Prop("DeviceID")?.Value?.ToString(),
+                            DeviceName         = Prop("DeviceName")?.Value?.ToString(),
+                            DriverVersion      = Prop("DriverVersion")?.Value?.ToString(),
+                            DriverProviderName = Prop("DriverProviderName")?.Value?.ToString(),
+                            InfName            = Prop("InfName")?.Value?.ToString(),
+                            HardwareID         = Prop("HardwareID")?.Value?.ToString(),
+                            IsWHQLCertified    = Prop("IsSigned")?.Value is bool signed && signed,
+                            Manufacturer       = Prop("Manufacturer")?.Value?.ToString(),
+                            DeviceClass        = Prop("DeviceClass")?.Value?.ToString(),
+                            ClassGuid          = Prop("DeviceClassGUID")?.Value?.ToString(),
+                            Description        = Prop("Description")?.Value?.ToString(),
+                            Status             = Prop("Status")?.Value?.ToString(),
                         };
 
-                        if (DateTime.TryParse(obj["DriverDate"]?.ToString(), out var date))
+                        if (DateTime.TryParse(Prop("DriverDate")?.Value?.ToString(), out var date))
                             detail.DriverDate = date;
 
-                        if (int.TryParse(obj["ConfigManagerErrorCode"]?.ToString(), out int errCode))
+                        if (int.TryParse(Prop("ConfigManagerErrorCode")?.Value?.ToString(), out int errCode))
                             detail.StatusInfo = errCode == 0 ? 1 : 3;
 
                         return detail;
@@ -415,12 +462,15 @@ namespace AeroDriver.Core.Services
 
         private static bool SetDriverState(string deviceId, bool enable)
         {
-            using var searcher = new ManagementObjectSearcher(
-                $"SELECT * FROM Win32_PnPEntity WHERE DeviceID = '{deviceId.Replace("'", "''")}'");
+            var safeId = deviceId.Replace("\\", "\\\\").Replace("'", "\\'");
+            using var session = CimSession.Create(null);
+            var instances = session.QueryInstances(
+                @"root\cimv2", "WQL",
+                $"SELECT * FROM Win32_PnPEntity WHERE DeviceID = '{safeId}'");
 
-            foreach (ManagementObject obj in searcher.Get())
+            foreach (var inst in instances)
             {
-                var result = obj.InvokeMethod(enable ? "Enable" : "Disable", null);
+                var result = session.InvokeMethod(inst, enable ? "Enable" : "Disable", null);
                 return result != null;
             }
 
@@ -489,6 +539,8 @@ namespace AeroDriver.Core.Services
         protected virtual void Dispose(bool disposing)
         {
             if (_disposed) return;
+            if (disposing)
+                _cacheLock.Dispose();
             // HttpClient は IHttpClientFactory が管理するため Dispose しない
             _disposed = true;
         }

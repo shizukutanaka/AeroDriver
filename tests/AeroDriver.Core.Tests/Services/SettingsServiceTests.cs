@@ -5,7 +5,9 @@ using Xunit;
 
 namespace AeroDriver.Core.Tests.Services;
 
-public class SettingsServiceTests : IDisposable
+// IAsyncLifetime: IDisposable の非同期版（xUnit 2025 推奨）
+// DisposeAsync で await が使えるため非同期クリーンアップに対応
+public class SettingsServiceTests : IAsyncLifetime
 {
     private readonly string _tempFile;
     private readonly SettingsService _sut;
@@ -16,9 +18,12 @@ public class SettingsServiceTests : IDisposable
         _sut = new SettingsService(NullLogger<SettingsService>.Instance, _tempFile);
     }
 
-    public void Dispose()
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    public async Task DisposeAsync()
     {
-        if (File.Exists(_tempFile)) File.Delete(_tempFile);
+        if (File.Exists(_tempFile))
+            await Task.Run(() => File.Delete(_tempFile));
     }
 
     [Fact]
