@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Threading;
+using System.Threading.Channels;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Management.Infrastructure;
@@ -89,53 +90,76 @@ namespace AeroDriver.Core.Services
             using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(
                 cancellationToken, timeoutCts.Token);
 
+            // Channel<DriverInfo>: 生産者（WMI列挙スレッド）と消費者（進捗報告 + リスト収集）を分離
+            // SingleWriter=true: 生産者スレッドが1つのため最適化フラグON
+            // SingleReader=true: 消費者（このawait foreachループ）も1つ
+            var channel = Channel.CreateUnbounded<DriverInfo>(new UnboundedChannelOptions
+            {
+                SingleWriter = true,
+                SingleReader = true,
+            });
+
             try
             {
-                // CimSession: ManagementObjectSearcher の後継 (Microsoft.Management.Infrastructure)
-                // 非同期クエリ対応・パフォーマンス向上・modern WMI API
-                await Task.Run(() =>
+                // 生産者: WMIをTask.Runでバックグラウンド実行、結果をチャンネルに書き込む
+                var producer = Task.Run(() =>
                 {
-                    using var session = CimSession.Create(null); // null = localhost
-                    var instances = session.QueryInstances(
-                        @"root\cimv2", "WQL",
-                        "SELECT * FROM Win32_PnPSignedDriver WHERE DriverVersion IS NOT NULL");
-
-                    var list = instances.ToList();
-                    int total = list.Count;
-
-                    for (int i = 0; i < total; i++)
+                    try
                     {
-                        linkedCts.Token.ThrowIfCancellationRequested();
+                        using var session = CimSession.Create(null);
+                        var instances = session.QueryInstances(
+                            @"root\cimv2", "WQL",
+                            "SELECT * FROM Win32_PnPSignedDriver WHERE DriverVersion IS NOT NULL");
 
-                        var inst = list[i];
-                        var name = inst.CimInstanceProperties["DeviceName"]?.Value?.ToString();
-
-                        progress?.Report(new DriverScanProgress
+                        foreach (var inst in instances)
                         {
-                            Phase = "スキャン中",
-                            Current = i + 1,
-                            Total = total,
-                            CurrentDevice = name,
-                        });
+                            linkedCts.Token.ThrowIfCancellationRequested();
 
-                        var driver = new DriverInfo
-                        {
-                            DeviceID    = inst.CimInstanceProperties["DeviceID"]?.Value?.ToString(),
-                            DeviceName  = name,
-                            DriverVersion      = inst.CimInstanceProperties["DriverVersion"]?.Value?.ToString(),
-                            DriverProviderName = inst.CimInstanceProperties["DriverProviderName"]?.Value?.ToString(),
-                            InfName     = inst.CimInstanceProperties["InfName"]?.Value?.ToString(),
-                            HardwareID  = inst.CimInstanceProperties["HardwareID"]?.Value?.ToString(),
-                            IsWHQLCertified = inst.CimInstanceProperties["IsSigned"]?.Value is bool signed && signed,
-                        };
+                            var name = inst.CimInstanceProperties["DeviceName"]?.Value?.ToString();
+                            var driver = new DriverInfo
+                            {
+                                DeviceID           = inst.CimInstanceProperties["DeviceID"]?.Value?.ToString(),
+                                DeviceName         = name,
+                                DriverVersion      = inst.CimInstanceProperties["DriverVersion"]?.Value?.ToString(),
+                                DriverProviderName = inst.CimInstanceProperties["DriverProviderName"]?.Value?.ToString(),
+                                InfName            = inst.CimInstanceProperties["InfName"]?.Value?.ToString(),
+                                HardwareID         = inst.CimInstanceProperties["HardwareID"]?.Value?.ToString(),
+                                IsWHQLCertified    = inst.CimInstanceProperties["IsSigned"]?.Value is bool signed && signed,
+                            };
 
-                        if (DateTime.TryParse(
-                            inst.CimInstanceProperties["DriverDate"]?.Value?.ToString(), out var date))
-                            driver.DriverDate = date;
+                            if (DateTime.TryParse(
+                                inst.CimInstanceProperties["DriverDate"]?.Value?.ToString(), out var date))
+                                driver.DriverDate = date;
 
-                        drivers.Add(driver);
+                            // TryWrite は UnboundedChannel では常に true
+                            channel.Writer.TryWrite(driver);
+                        }
+                    }
+                    finally
+                    {
+                        // 完了通知: 消費者の ReadAllAsync ループが終了する
+                        channel.Writer.Complete();
                     }
                 }, linkedCts.Token);
+
+                // 消費者: チャンネルからストリーミングで受け取り、進捗報告 + リスト収集
+                // Total=0 = 件数不定（ストリーミング中）を表す
+                int count = 0;
+                await foreach (var driver in channel.Reader.ReadAllAsync(linkedCts.Token))
+                {
+                    drivers.Add(driver);
+                    count++;
+                    progress?.Report(new DriverScanProgress
+                    {
+                        Phase = "スキャン中",
+                        Current = count,
+                        Total = 0,        // WMI は事前件数取得不可 → 不定
+                        CurrentDevice = driver.DeviceName,
+                    });
+                }
+
+                // 生産者タスクの完了を待ち、例外があれば再スロー
+                await producer;
 
                 _cachedDrivers = drivers;
                 _cacheExpiry = DateTime.UtcNow.Add(CacheTtl);
@@ -144,7 +168,6 @@ namespace AeroDriver.Core.Services
             catch (OperationCanceledException) when (timeoutCts.Token.IsCancellationRequested
                                                      && !cancellationToken.IsCancellationRequested)
             {
-                // タイムアウトの場合は TimeoutException に変換（呼び出し元がキャンセルしたわけではない）
                 _logger.LogError("WMIスキャンがタイムアウトしました ({Timeout}s)", WmiScanTimeout.TotalSeconds);
                 throw new TimeoutException($"WMIドライバースキャンが {WmiScanTimeout.TotalSeconds} 秒でタイムアウトしました");
             }
@@ -272,6 +295,20 @@ namespace AeroDriver.Core.Services
             {
                 _logger.LogInformation("ドライバーをインストールします: {DeviceName} {Version}",
                     driverUpdate.DeviceName, driverUpdate.DriverVersion);
+
+                // WDAC 事前チェック: カーネル強制モードでは非WHQL署名ドライバーがブロックされる
+                // 2026年4月以降 Windows 11 24H2+ でクロス署名プログラム廃止に伴い必須
+                var wdac = WdacHelper.GetStatus(_logger);
+                if (wdac.IsKernelEnforced && !driverUpdate.IsWHQLCertified)
+                {
+                    _logger.LogWarning(
+                        "WDAC カーネル強制モードが有効です。WHQL非認定ドライバーはブロックされる可能性があります: {DeviceName}",
+                        driverUpdate.DeviceName);
+                }
+                else if (wdac.IsAuditMode)
+                {
+                    _logger.LogInformation("WDAC 監査モード中: ドライバーインストールはログに記録されます");
+                }
 
                 if (_settingsService.BackupEnabled)
                     await _backupService.BackupDriverAsync(driverUpdate);
