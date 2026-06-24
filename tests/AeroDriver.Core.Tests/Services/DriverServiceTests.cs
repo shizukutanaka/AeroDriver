@@ -197,6 +197,21 @@ public class DriverServiceTests
     }
 
     // ──────────────────────────────────────────────
+    // InstallDriverUpdateAsync — インストーラー形式
+    // ──────────────────────────────────────────────
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task InstallDriverUpdate_EmptyUrl_ReturnsFalse(string? url)
+    {
+        _settings.BackupEnabled.Returns(false);
+        var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = url };
+        var result = await _sut.InstallDriverUpdateAsync(driver);
+        result.Should().BeFalse();
+    }
+
+    // ──────────────────────────────────────────────
     // CompareVersions (VersionHelper 委譲)
     // ──────────────────────────────────────────────
 

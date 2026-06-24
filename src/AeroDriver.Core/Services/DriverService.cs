@@ -23,6 +23,11 @@ namespace AeroDriver.Core.Services
         private readonly HttpClient _httpClient;
         private bool _disposed;
 
+        // WMIクエリ結果を30秒キャッシュ（頻繁な再スキャンを防ぐ）
+        private List<DriverInfo>? _cachedDrivers;
+        private DateTime _cacheExpiry = DateTime.MinValue;
+        private static readonly TimeSpan CacheTtl = TimeSpan.FromSeconds(30);
+
         public event EventHandler<UpdatesAvailableEventArgs>? UpdatesAvailable;
         public event EventHandler<UpdatesInstalledEventArgs>? UpdatesInstalled;
 
@@ -46,6 +51,13 @@ namespace AeroDriver.Core.Services
             IProgress<DriverScanProgress>? progress = null,
             CancellationToken cancellationToken = default)
         {
+            // キャッシュが有効かつ呼び出し元がプログレス不要なら即返す
+            if (progress == null && _cachedDrivers != null && DateTime.UtcNow < _cacheExpiry)
+            {
+                _logger.LogDebug("WMIキャッシュを返します ({Count} 件)", _cachedDrivers.Count);
+                return new List<DriverInfo>(_cachedDrivers);
+            }
+
             var drivers = new List<DriverInfo>();
 
             try
@@ -92,6 +104,8 @@ namespace AeroDriver.Core.Services
                     }
                 }, cancellationToken);
 
+                _cachedDrivers = drivers;
+                _cacheExpiry = DateTime.UtcNow.Add(CacheTtl);
                 _logger.LogInformation("{Count} 件のドライバーを検出しました", drivers.Count);
             }
             catch (OperationCanceledException)
@@ -417,25 +431,47 @@ namespace AeroDriver.Core.Services
         {
             var ext = (installerType ?? Path.GetExtension(filePath)).ToLowerInvariant().TrimStart('.');
 
-            string? args = ext switch
+            // ArgumentList を使用して cmd.exe 経由のシェルを排除 → コマンドインジェクション不可
+            System.Diagnostics.ProcessStartInfo psi;
+            switch (ext)
             {
-                "inf" => $"/c pnputil /add-driver \"{filePath}\" /install",
-                "exe" => $"/c \"{filePath}\" /quiet /norestart",
-                "msi" => $"/c msiexec /i \"{filePath}\" /quiet /norestart",
-                _ => null
-            };
+                case "inf":
+                    psi = new System.Diagnostics.ProcessStartInfo("pnputil.exe")
+                    {
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                    };
+                    psi.ArgumentList.Add("/add-driver");
+                    psi.ArgumentList.Add(filePath);
+                    psi.ArgumentList.Add("/install");
+                    break;
 
-            if (args == null)
-            {
-                _logger.LogWarning("未対応のインストーラー形式: {Type}", ext);
-                return false;
+                case "exe":
+                    psi = new System.Diagnostics.ProcessStartInfo(filePath)
+                    {
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                    };
+                    psi.ArgumentList.Add("/quiet");
+                    psi.ArgumentList.Add("/norestart");
+                    break;
+
+                case "msi":
+                    psi = new System.Diagnostics.ProcessStartInfo("msiexec.exe")
+                    {
+                        UseShellExecute = false,
+                        CreateNoWindow = true,
+                    };
+                    psi.ArgumentList.Add("/i");
+                    psi.ArgumentList.Add(filePath);
+                    psi.ArgumentList.Add("/quiet");
+                    psi.ArgumentList.Add("/norestart");
+                    break;
+
+                default:
+                    _logger.LogWarning("未対応のインストーラー形式: {Type}", ext);
+                    return false;
             }
-
-            var psi = new System.Diagnostics.ProcessStartInfo("cmd.exe", args)
-            {
-                UseShellExecute = false,
-                CreateNoWindow = true,
-            };
 
             using var process = System.Diagnostics.Process.Start(psi);
             if (process == null) return false;

@@ -21,13 +21,15 @@ namespace AeroDriver.Core
             services.AddHttpClient(nameof(DriverService))
                     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                     {
-                        PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                     })
                     .AddStandardResilienceHandler();
             services.AddHttpClient(nameof(PciIdDatabase))
                     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                     {
-                        PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                     })
                     .AddStandardResilienceHandler();
 
