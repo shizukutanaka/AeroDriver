@@ -29,6 +29,7 @@ namespace AeroDriver.Core
                     sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PciIdDatabase))));
 
             // コアサービス
+            services.AddSingleton<ISettingsService, SettingsService>();  // 設定はアプリ全体で共有
             services.AddScoped<IDriverService, DriverService>();
             services.AddScoped<IBackupService, BackupService>();
             services.AddScoped<IWhqlDatabaseService, WhqlDatabaseService>();
