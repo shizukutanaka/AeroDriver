@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AeroDriver.Core.Events;
@@ -12,10 +13,14 @@ namespace AeroDriver.Core.Interfaces
         event EventHandler<UpdatesAvailableEventArgs>? UpdatesAvailable;
         event EventHandler<UpdatesInstalledEventArgs>? UpdatesInstalled;
 
-        /// <summary>インストール済みドライバーをすべて列挙します</summary>
+        /// <summary>インストール済みドライバーをすべて列挙します（バッファリング版）</summary>
         Task<List<DriverInfo>> GetAllDriversAsync(
             IProgress<DriverScanProgress>? progress = null,
             CancellationToken cancellationToken = default);
+
+        /// <summary>インストール済みドライバーをストリーミングで列挙します（消費者がペースを制御）</summary>
+        IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
+            [EnumeratorCancellation] CancellationToken cancellationToken = default);
 
         /// <summary>全データソースに更新を問い合わせます</summary>
         Task<List<DriverInfo>> CheckForUpdatesAsync(

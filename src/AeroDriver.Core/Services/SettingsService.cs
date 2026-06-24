@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using AeroDriver.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -59,7 +60,8 @@ namespace AeroDriver.Core.Services
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(_settingsPath)!);
-                var json = JsonSerializer.Serialize(_data, new JsonSerializerOptions { WriteIndented = true });
+                // Source Generation: リフレクション不要 → AOT互換・起動時間短縮
+                var json = JsonSerializer.Serialize(_data, SettingsJsonContext.Default.SettingsData);
                 File.WriteAllText(_settingsPath, json);
                 _logger.LogInformation("設定を保存しました: {Path}", _settingsPath);
             }
@@ -82,7 +84,8 @@ namespace AeroDriver.Core.Services
                 if (!File.Exists(_settingsPath)) return SettingsData.Default;
 
                 var json = File.ReadAllText(_settingsPath);
-                return JsonSerializer.Deserialize<SettingsData>(json) ?? SettingsData.Default;
+                return JsonSerializer.Deserialize(json, SettingsJsonContext.Default.SettingsData)
+                       ?? SettingsData.Default;
             }
             catch (Exception ex)
             {
@@ -104,5 +107,11 @@ namespace AeroDriver.Core.Services
                 BackupEnabled: true,
                 MaxBackupGenerations: 3);
         }
+
+        // JsonSerializerContext: Source Generation でリフレクション不要なシリアライザーを生成
+        // WriteIndented = true でファイルを人間が読める形式に保つ
+        [JsonSourceGenerationOptions(WriteIndented = true)]
+        [JsonSerializable(typeof(SettingsData))]
+        private sealed partial class SettingsJsonContext : JsonSerializerContext { }
     }
 }

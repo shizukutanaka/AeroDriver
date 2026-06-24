@@ -48,7 +48,7 @@ namespace AeroDriver.Core.Services
         /// </summary>
         public async Task<string?> GetVendorNameAsync(string vendorId, CancellationToken ct = default)
         {
-            var db = await EnsureLoadedAsync(ct);
+            var db = await EnsureLoadedAsync(ct).ConfigureAwait(false);
             var key = vendorId.ToUpperInvariant();
             return db.TryGetValue(key, out var entry) ? entry.Name : null;
         }
@@ -58,7 +58,7 @@ namespace AeroDriver.Core.Services
         /// </summary>
         public async Task<string?> GetDeviceNameAsync(string vendorId, string deviceId, CancellationToken ct = default)
         {
-            var db = await EnsureLoadedAsync(ct);
+            var db = await EnsureLoadedAsync(ct).ConfigureAwait(false);
             var vkey = vendorId.ToUpperInvariant();
             var dkey = deviceId.ToUpperInvariant();
 
@@ -74,7 +74,7 @@ namespace AeroDriver.Core.Services
         /// </summary>
         public async Task<string?> GetVendorIdByNameAsync(string vendorName, CancellationToken ct = default)
         {
-            var db = await EnsureLoadedAsync(ct);
+            var db = await EnsureLoadedAsync(ct).ConfigureAwait(false);
             foreach (var (id, entry) in db)
             {
                 if (entry.Name.Contains(vendorName, StringComparison.OrdinalIgnoreCase))
@@ -86,7 +86,7 @@ namespace AeroDriver.Core.Services
         /// <summary>DBを強制更新します（週次更新推奨）</summary>
         public async Task RefreshAsync(CancellationToken ct = default)
         {
-            await DownloadAndParseAsync(ct);
+            await DownloadAndParseAsync(ct).ConfigureAwait(false);
         }
 
         private async Task<Dictionary<string, (string, Dictionary<string, string>)>> EnsureLoadedAsync(CancellationToken ct)
@@ -97,12 +97,12 @@ namespace AeroDriver.Core.Services
             if (File.Exists(_cacheFile) &&
                 (DateTime.UtcNow - File.GetLastWriteTimeUtc(_cacheFile)) < _cacheLifetime)
             {
-                _db = await ParseFileAsync(_cacheFile, ct);
+                _db = await ParseFileAsync(_cacheFile, ct).ConfigureAwait(false);
                 _logger.LogInformation("PCI IDs をキャッシュから読み込みました ({Count} ベンダー)", _db.Count);
                 return _db;
             }
 
-            await DownloadAndParseAsync(ct);
+            await DownloadAndParseAsync(ct).ConfigureAwait(false);
             return _db!;
         }
 
@@ -113,8 +113,8 @@ namespace AeroDriver.Core.Services
                 _logger.LogInformation("PCI IDs データベースをダウンロードしています: {Url}", DatabaseUrl);
                 Directory.CreateDirectory(Path.GetDirectoryName(_cacheFile)!);
 
-                var content = await _httpClient.GetStringAsync(DatabaseUrl, ct);
-                await File.WriteAllTextAsync(_cacheFile, content, ct);
+                var content = await _httpClient.GetStringAsync(DatabaseUrl, ct).ConfigureAwait(false);
+                await File.WriteAllTextAsync(_cacheFile, content, ct).ConfigureAwait(false);
 
                 _db = Parse(content);
                 _logger.LogInformation("PCI IDs を更新しました ({Count} ベンダー)", _db.Count);
@@ -125,7 +125,7 @@ namespace AeroDriver.Core.Services
 
                 // ダウンロード失敗時でもキャッシュがあれば使う
                 if (File.Exists(_cacheFile))
-                    _db = await ParseFileAsync(_cacheFile, ct);
+                    _db = await ParseFileAsync(_cacheFile, ct).ConfigureAwait(false);
                 else
                     _db = new(); // 空でフォールバック
             }
@@ -134,7 +134,7 @@ namespace AeroDriver.Core.Services
         private static async Task<Dictionary<string, (string, Dictionary<string, string>)>> ParseFileAsync(
             string path, CancellationToken ct)
         {
-            var content = await File.ReadAllTextAsync(path, ct);
+            var content = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
             return Parse(content);
         }
 
