@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Net.Sockets;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,8 +19,16 @@ namespace AeroDriver.Core
             //   - サーキットブレーカー（失敗率 10%超で遮断）
             //   - 合計タイムアウト 30 秒
             services.AddHttpClient(nameof(DriverService))
+                    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                    {
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+                    })
                     .AddStandardResilienceHandler();
             services.AddHttpClient(nameof(PciIdDatabase))
+                    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                    {
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(15)
+                    })
                     .AddStandardResilienceHandler();
 
             // PCI IDs データベース（シングルトン: ファイルキャッシュを共有）
