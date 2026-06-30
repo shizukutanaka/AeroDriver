@@ -1,4 +1,5 @@
 using System;
+using System.Buffers;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -15,7 +16,7 @@ using AeroDriver.Core.Models;
 
 namespace AeroDriver.Core.Services
 {
-    public class DriverService : IDriverService, IDisposable
+    public partial class DriverService : IDriverService, IDisposable
     {
         private readonly ILogger<DriverService> _logger;
         private readonly ISettingsService _settingsService;
@@ -59,7 +60,7 @@ namespace AeroDriver.Core.Services
             // キャッシュヒット確認（ロック前の軽量チェック）
             if (progress == null && _cachedDrivers != null && DateTime.UtcNow < _cacheExpiry)
             {
-                _logger.LogDebug("WMIキャッシュを返します ({Count} 件)", _cachedDrivers.Count);
+                LogCacheHit(_logger, _cachedDrivers.Count);
                 return new List<DriverInfo>(_cachedDrivers);
             }
 
@@ -86,7 +87,7 @@ namespace AeroDriver.Core.Services
             var drivers = new List<DriverInfo>();
 
             int count = 0;
-            await foreach (var driver in EnumerateWmiDriversAsync(cancellationToken).ConfigureAwait(false))
+            await foreach (var driver in StreamAllDriversAsync(cancellationToken).ConfigureAwait(false))
             {
                 drivers.Add(driver);
                 count++;
@@ -101,7 +102,7 @@ namespace AeroDriver.Core.Services
 
             _cachedDrivers = drivers;
             _cacheExpiry = DateTime.UtcNow.Add(CacheTtl);
-            _logger.LogInformation("{Count} 件のドライバーを検出しました", drivers.Count);
+            LogDriversFound(_logger, drivers.Count);
             return drivers;
         }
 
@@ -188,10 +189,6 @@ namespace AeroDriver.Core.Services
                 driver.DriverDate = date;
             return driver;
         }
-            }
-
-            return drivers;
-        }
 
         public async Task<List<DriverInfo>> CheckForUpdatesAsync(
             IProgress<DriverScanProgress>? progress = null,
@@ -213,7 +210,7 @@ namespace AeroDriver.Core.Services
                     .ToDictionary(d => d.HardwareID!, StringComparer.OrdinalIgnoreCase);
 
                 // フェーズ 2: 全データソースに並列クエリ
-                _logger.LogInformation("{Count} 件のデータソースに更新を問い合わせます", _updateSources.Count);
+                LogQueryingSources(_logger, _updateSources.Count);
 
                 progress?.Report(new DriverScanProgress
                 {
@@ -241,7 +238,7 @@ namespace AeroDriver.Core.Services
                     .SelectMany(x => x)
                     .ToList();
 
-                _logger.LogInformation("データソース合計 {Count} 件の候補を取得", allCandidates.Count);
+                LogCandidatesFound(_logger, allCandidates.Count);
 
                 // フェーズ 3: インストール済みと照合して「新しいバージョン」のみ返す
                 foreach (var candidate in allCandidates)
@@ -267,7 +264,7 @@ namespace AeroDriver.Core.Services
                 if (updates.Count > 0)
                     UpdatesAvailable?.Invoke(this, new UpdatesAvailableEventArgs(updates));
 
-                _logger.LogInformation("{Count} 件の更新が見つかりました", updates.Count);
+                LogUpdatesFound(_logger, updates.Count);
             }
             catch (OperationCanceledException)
             {
@@ -334,8 +331,22 @@ namespace AeroDriver.Core.Services
                 {
                     var response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken);
                     response.EnsureSuccessStatusCode();
-                    await File.WriteAllBytesAsync(tempPath,
-                        await response.Content.ReadAsByteArrayAsync(cancellationToken), cancellationToken);
+                    // ArrayPool でダウンロードバッファを再利用: ReadAsByteArrayAsync は LOH に大きな配列を確保するため
+                    var contentLength = (int)(response.Content.Headers.ContentLength ?? 4 * 1024 * 1024);
+                    var buffer = ArrayPool<byte>.Shared.Rent(contentLength);
+                    try
+                    {
+                        using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                            bufferSize: 81920, useAsync: true);
+                        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                        int read;
+                        while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                            await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                    }
+                    finally
+                    {
+                        ArrayPool<byte>.Shared.Return(buffer);
+                    }
 
                     bool success = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
@@ -576,6 +587,28 @@ namespace AeroDriver.Core.Services
             await process.WaitForExitAsync(ct);
             return process.ExitCode == 0;
         }
+
+        // [LoggerMessage] source generation: ホットパスでのボクシング・文字列アロケーションをゼロにする
+        // コンパイル時にIL生成 → LogLevel有効チェックがインライン化され無効時は完全ノーコスト
+        [LoggerMessage(Level = LogLevel.Debug,
+            Message = "WMIキャッシュを返します ({Count} 件)")]
+        private static partial void LogCacheHit(ILogger logger, int count);
+
+        [LoggerMessage(Level = LogLevel.Information,
+            Message = "{Count} 件のドライバーを検出しました")]
+        private static partial void LogDriversFound(ILogger logger, int count);
+
+        [LoggerMessage(Level = LogLevel.Information,
+            Message = "{Count} 件のデータソースに更新を問い合わせます")]
+        private static partial void LogQueryingSources(ILogger logger, int count);
+
+        [LoggerMessage(Level = LogLevel.Information,
+            Message = "データソース合計 {Count} 件の候補を取得")]
+        private static partial void LogCandidatesFound(ILogger logger, int count);
+
+        [LoggerMessage(Level = LogLevel.Information,
+            Message = "{Count} 件の更新が見つかりました")]
+        private static partial void LogUpdatesFound(ILogger logger, int count);
 
         public void Dispose()
         {
