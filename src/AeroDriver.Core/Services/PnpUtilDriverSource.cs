@@ -61,7 +61,9 @@ namespace AeroDriver.Core.Services
         /// </summary>
         public async Task<bool> AddDriverAsync(string infPath, CancellationToken cancellationToken = default)
         {
-            var output = await RunPnpUtilAsync($"/add-driver \"{infPath}\" /install", cancellationToken);
+            // ArgumentList: 文字列結合ではなく引数トークンを個別指定 → インジェクション不可
+            var output = await RunPnpUtilAsync(["/add-driver", infPath, "/install"], cancellationToken)
+                .ConfigureAwait(false);
             bool success = output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
                            output.Contains("正常", StringComparison.OrdinalIgnoreCase);
             _logger.LogInformation("pnputil /add-driver {Path}: {Result}", infPath, success ? "成功" : "失敗");
@@ -73,22 +75,25 @@ namespace AeroDriver.Core.Services
         /// </summary>
         public async Task<bool> DeleteDriverAsync(string oemInfName, CancellationToken cancellationToken = default)
         {
-            var output = await RunPnpUtilAsync($"/delete-driver {oemInfName} /force", cancellationToken);
+            var output = await RunPnpUtilAsync(["/delete-driver", oemInfName, "/force"], cancellationToken)
+                .ConfigureAwait(false);
             bool success = output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
                            output.Contains("正常", StringComparison.OrdinalIgnoreCase);
             _logger.LogInformation("pnputil /delete-driver {Inf}: {Result}", oemInfName, success ? "成功" : "失敗");
             return success;
         }
 
-        private async Task<string> RunPnpUtilAsync(string args, CancellationToken ct)
+        private async Task<string> RunPnpUtilAsync(string[] args, CancellationToken ct)
         {
-            var psi = new ProcessStartInfo("pnputil.exe", args)
+            var psi = new ProcessStartInfo("pnputil.exe")
             {
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 CreateNoWindow = true,
             };
+            foreach (var arg in args)
+                psi.ArgumentList.Add(arg);
 
             try
             {
@@ -108,7 +113,8 @@ namespace AeroDriver.Core.Services
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "pnputil.exe の実行中にエラーが発生しました: {Args}", args);
+                _logger.LogError(ex, "pnputil.exe の実行中にエラーが発生しました: {Args}",
+                    string.Join(" ", args));
                 return string.Empty;
             }
         }

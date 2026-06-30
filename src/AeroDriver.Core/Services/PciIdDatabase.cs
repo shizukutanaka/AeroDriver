@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Net.Http;
@@ -21,8 +22,9 @@ namespace AeroDriver.Core.Services
         private readonly string _cacheFile;
         private readonly TimeSpan _cacheLifetime = TimeSpan.FromDays(7);
 
-        // メモリキャッシュ: vendorId -> (vendorName, deviceId -> deviceName)
-        private Dictionary<string, (string Name, Dictionary<string, string> Devices)>? _db;
+        // FrozenDictionary: 起動後は読み取りのみ → ロックレス O(1) ルックアップ
+        // 通常の Dictionary より構築コストは高いが、50,000+ ベンダーへの繰り返し検索で元が取れる
+        private FrozenDictionary<string, (string Name, FrozenDictionary<string, string> Devices)>? _db;
 
         // GitHub ミラー（ucw.czより安定している）
         private const string DatabaseUrl =
@@ -89,7 +91,7 @@ namespace AeroDriver.Core.Services
             await DownloadAndParseAsync(ct).ConfigureAwait(false);
         }
 
-        private async Task<Dictionary<string, (string, Dictionary<string, string>)>> EnsureLoadedAsync(CancellationToken ct)
+        private async Task<FrozenDictionary<string, (string, FrozenDictionary<string, string>)>> EnsureLoadedAsync(CancellationToken ct)
         {
             if (_db != null) return _db;
 
@@ -131,16 +133,17 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        private static async Task<Dictionary<string, (string, Dictionary<string, string>)>> ParseFileAsync(
+        private static async Task<FrozenDictionary<string, (string, FrozenDictionary<string, string>)>> ParseFileAsync(
             string path, CancellationToken ct)
         {
             var content = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
             return Parse(content);
         }
 
-        private static Dictionary<string, (string, Dictionary<string, string>)> Parse(string content)
+        private static FrozenDictionary<string, (string, FrozenDictionary<string, string>)> Parse(string content)
         {
-            var db = new Dictionary<string, (string, Dictionary<string, string>)>(StringComparer.OrdinalIgnoreCase);
+            // 中間バッファ: パース中は mutable Dictionary、完成後に FrozenDictionary へ変換
+            var builder = new Dictionary<string, (string, Dictionary<string, string>)>(StringComparer.OrdinalIgnoreCase);
             string? currentVendorId = null;
             var currentDevices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             string? currentVendorName = null;
@@ -171,7 +174,7 @@ namespace AeroDriver.Core.Services
                     // ベンダー行: "XXXX  Vendor Name"
                     if (currentVendorId != null && currentVendorName != null)
                     {
-                        db[currentVendorId] = (currentVendorName, currentDevices);
+                        builder[currentVendorId] = (currentVendorName, currentDevices);
                         currentDevices = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                     }
 
@@ -186,9 +189,14 @@ namespace AeroDriver.Core.Services
 
             // 最後のベンダーを追加
             if (currentVendorId != null && currentVendorName != null)
-                db[currentVendorId] = (currentVendorName, currentDevices);
+                builder[currentVendorId] = (currentVendorName, currentDevices);
 
-            return db;
+            // FrozenDictionary に変換: 以降は読み取り専用、ロックレス O(1) ルックアップ
+            return builder.ToFrozenDictionary(
+                kvp => kvp.Key,
+                kvp => (kvp.Value.Item1, kvp.Value.Item2.ToFrozenDictionary(
+                    StringComparer.OrdinalIgnoreCase)),
+                StringComparer.OrdinalIgnoreCase);
         }
     }
 }
