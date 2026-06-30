@@ -297,6 +297,7 @@ namespace AeroDriver.Core.Services
         public async Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default)
         {
             if (driverUpdate == null) throw new ArgumentNullException(nameof(driverUpdate));
+            ElevationGuard.ThrowIfNotElevated("ドライバーのインストール");
 
             try
             {
@@ -372,6 +373,7 @@ namespace AeroDriver.Core.Services
         public async Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
+            ElevationGuard.ThrowIfNotElevated("ドライバーのロールバック");
 
             try
             {
@@ -404,6 +406,7 @@ namespace AeroDriver.Core.Services
         public async Task<bool> DisableDriverAsync(string deviceId, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
+            ElevationGuard.ThrowIfNotElevated("ドライバーの無効化");
 
             try
             {
@@ -422,6 +425,7 @@ namespace AeroDriver.Core.Services
         public async Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
+            ElevationGuard.ThrowIfNotElevated("ドライバーの有効化");
 
             try
             {
@@ -443,8 +447,8 @@ namespace AeroDriver.Core.Services
 
             try
             {
-                // DeviceID に含まれる ' をエスケープしてWQLインジェクション防止
-                var safeId = deviceId.Replace("\\", "\\\\").Replace("'", "\\'");
+                // アローリスト検証 + WQL エスケープ（WqlSanitizer で多層防御）
+                var safeId = WqlSanitizer.SanitizeDeviceId(deviceId);
 
                 return await Task.Run(() =>
                 {
@@ -502,6 +506,7 @@ namespace AeroDriver.Core.Services
         {
             if (string.IsNullOrEmpty(driverPath)) throw new ArgumentException("ドライバーパスが必要です", nameof(driverPath));
             if (!File.Exists(driverPath)) throw new FileNotFoundException("ドライバーファイルが見つかりません", driverPath);
+            ElevationGuard.ThrowIfNotElevated("カスタムドライバーのインストール");
 
             try
             {
@@ -520,7 +525,7 @@ namespace AeroDriver.Core.Services
 
         private static bool SetDriverState(string deviceId, bool enable)
         {
-            var safeId = deviceId.Replace("\\", "\\\\").Replace("'", "\\'");
+            var safeId = WqlSanitizer.SanitizeDeviceId(deviceId);
             using var session = CimSession.Create(null);
             var instances = session.QueryInstances(
                 @"root\cimv2", "WQL",

@@ -32,6 +32,13 @@ namespace AeroDriver.Core
                         PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                     })
                     .AddStandardResilienceHandler();
+            services.AddHttpClient(nameof(WhqlDatabaseService))
+                    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                    {
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                    })
+                    .AddStandardResilienceHandler();
 
             // PCI IDs データベース（シングルトン: ファイルキャッシュを共有）
             services.AddSingleton<PciIdDatabase>(sp =>

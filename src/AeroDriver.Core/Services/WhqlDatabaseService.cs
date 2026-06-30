@@ -28,12 +28,18 @@ namespace AeroDriver.Core.Services
         private const string CATALOG_SEARCH_URL = CATALOG_BASE_URL + "/Search.aspx";
         private const string CATALOG_DOWNLOAD_URL = CATALOG_BASE_URL + "/DownloadDialog.aspx";
 
-        public WhqlDatabaseService(ILogger<WhqlDatabaseService> logger, PciIdDatabase pciIds)
+        public WhqlDatabaseService(
+            ILogger<WhqlDatabaseService> logger,
+            PciIdDatabase pciIds,
+            IHttpClientFactory httpClientFactory)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _pciIds = pciIds ?? throw new ArgumentNullException(nameof(pciIds));
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AeroDriver/1.0 (Windows Driver Manager)");
+            // IHttpClientFactory: 接続プール管理・SocketsHttpHandler の再利用・レジリエンスハンドラー適用
+            _httpClient = (httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory)))
+                .CreateClient(nameof(WhqlDatabaseService));
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(
+                "User-Agent", "AeroDriver/1.0 (Windows Driver Manager)");
 
             _cacheDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
