@@ -50,7 +50,7 @@ namespace AeroDriver.Core.Services
         /// <summary>
         /// ハードウェアIDに基づいてドライバーを検索します
         /// </summary>
-        public async Task<DriverInfo> FindDriverByHardwareIdAsync(string hardwareId)
+        public async Task<DriverInfo?> FindDriverByHardwareIdAsync(string hardwareId)
         {
             try
             {
@@ -106,7 +106,7 @@ namespace AeroDriver.Core.Services
                 // ダウンロードリンクを取得
                 if (latestDriver != null)
                 {
-                    string downloadUrl = await GetDownloadLinkAsync(latestDriver.Id);
+                    string? downloadUrl = await GetDownloadLinkAsync(latestDriver.Id);
                     if (!string.IsNullOrEmpty(downloadUrl))
                     {
                         latestDriver.DownloadUrl = downloadUrl;
@@ -201,7 +201,7 @@ namespace AeroDriver.Core.Services
         /// <summary>
         /// ドライバーのダウンロードリンクを取得します
         /// </summary>
-        private async Task<string> GetDownloadLinkAsync(string driverId)
+        private async Task<string?> GetDownloadLinkAsync(string driverId)
         {
             try
             {
@@ -240,27 +240,35 @@ namespace AeroDriver.Core.Services
         /// <summary>
         /// キャッシュからドライバー情報を取得します
         /// </summary>
-        private DriverInfo CheckCache(string hardwareId)
+        private DriverInfo? CheckCache(string hardwareId)
         {
             try
             {
                 string cacheFile = Path.Combine(_cacheDirectory, $"{GetSafeFileName(hardwareId)}.json");
-                
+
                 if (!File.Exists(cacheFile))
                 {
                     return null;
                 }
-                
+
                 string json = File.ReadAllText(cacheFile);
                 var cachedInfo = JsonConvert.DeserializeObject<CachedDriverInfo>(json);
-                
+
+                // 破損・空JSON("null"等)の場合、DeserializeObject は null を返しうる。
+                // 未チェックで cachedInfo.CacheTime にアクセスすると NullReferenceException になる。
+                if (cachedInfo == null)
+                {
+                    _logger.LogWarning("キャッシュファイルが破損しています: {HardwareId}", hardwareId);
+                    return null;
+                }
+
                 // キャッシュの有効期限をチェック (24時間)
                 if (cachedInfo.CacheTime.AddHours(24) < DateTime.Now)
                 {
                     _logger.LogInformation("キャッシュの有効期限が切れています: {HardwareId}", hardwareId);
                     return null;
                 }
-                
+
                 return cachedInfo.DriverInfo;
             }
             catch (Exception ex)
