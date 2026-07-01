@@ -544,7 +544,11 @@ namespace AeroDriver.Core.Services
             foreach (var inst in instances)
             {
                 var result = session.InvokeMethod(inst, enable ? "Enable" : "Disable", null);
-                return result != null;
+
+                // 呼び出しが非nullを返しても、CIMメソッドの ReturnValue が 0 (成功) とは限らない。
+                // Win32_PnPEntity.Enable/Disable: 0=成功, 非0=各種失敗コード（権限不足・デバイス使用中等）
+                // CimMethodResult.ReturnValue は object 型でボックス化された生の戻り値を保持する
+                return result?.ReturnValue is uint code && code == 0;
             }
 
             return false;
