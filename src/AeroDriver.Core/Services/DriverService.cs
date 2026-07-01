@@ -406,6 +406,10 @@ namespace AeroDriver.Core.Services
 
                 return result;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ロールバック中にエラーが発生しました: {DeviceID}", deviceId);
@@ -425,6 +429,10 @@ namespace AeroDriver.Core.Services
                 _logger.LogInformation("ドライバー無効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
                 return result;
             }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ドライバー無効化中にエラーが発生しました: {DeviceID}", deviceId);
@@ -443,6 +451,10 @@ namespace AeroDriver.Core.Services
                 bool result = await Task.Run(() => SetDriverState(deviceId, enable: true), cancellationToken);
                 _logger.LogInformation("ドライバー有効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
                 return result;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
