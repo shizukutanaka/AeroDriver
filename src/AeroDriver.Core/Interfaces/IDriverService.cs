@@ -41,7 +41,13 @@ namespace AeroDriver.Core.Interfaces
         Task<DriverInstallResult> InstallDriverUpdateWithResultAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default);
 
         Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default);
-        Task<bool> DisableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// デバイスを無効化します。ストレージコントローラーやシステムデバイスなど
+        /// ブートクリティカルなクラスは誤操作防止のため既定で拒否されます。
+        /// 意図的に無効化したい場合は <paramref name="force"/> を true にしてください。
+        /// </summary>
+        Task<bool> DisableDriverAsync(string deviceId, bool force = false, CancellationToken cancellationToken = default);
         Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> InstallCustomDriverAsync(string driverPath, CancellationToken cancellationToken = default);

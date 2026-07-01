@@ -450,13 +450,32 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        public async Task<bool> DisableDriverAsync(string deviceId, CancellationToken cancellationToken = default)
+        // ブートクリティカルな PnP デバイスクラス GUID（無効化すると起動不能になりうる）
+        // Microsoft の Device Class GUID 一覧（公開・無料）より抜粋
+        private static readonly HashSet<string> BootCriticalClassGuids = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "{4D36E967-E325-11CE-BFC1-08002BE10318}", // DiskDrive
+            "{4D36E97B-E325-11CE-BFC1-08002BE10318}", // SCSIAdapter
+            "{4D36E97D-E325-11CE-BFC1-08002BE10318}", // System
+            "{4D36E966-E325-11CE-BFC1-08002BE10318}", // Computer
+            "{4D36E97E-E325-11CE-BFC1-08002BE10318}", // Volume/VolumeSnapshot
+        };
+
+        public async Task<bool> DisableDriverAsync(string deviceId, bool force = false, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
             ElevationGuard.ThrowIfNotElevated("ドライバーの無効化");
 
             try
             {
+                if (!force && await IsBootCriticalAsync(deviceId, cancellationToken).ConfigureAwait(false))
+                {
+                    _logger.LogWarning(
+                        "ブートクリティカルなデバイスのため無効化を拒否しました（force=true で強制可能）: {DeviceID}",
+                        deviceId);
+                    return false;
+                }
+
                 _logger.LogInformation("ドライバーを無効化します: {DeviceID}", deviceId);
                 bool result = await Task.Run(() => SetDriverState(deviceId, enable: false), cancellationToken);
                 _logger.LogInformation("ドライバー無効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
@@ -471,6 +490,27 @@ namespace AeroDriver.Core.Services
                 _logger.LogError(ex, "ドライバー無効化中にエラーが発生しました: {DeviceID}", deviceId);
                 return false;
             }
+        }
+
+        private static Task<bool> IsBootCriticalAsync(string deviceId, CancellationToken ct)
+        {
+            return Task.Run(() =>
+            {
+                var safeId = WqlSanitizer.SanitizeDeviceId(deviceId);
+                using var session = CimSession.Create(null);
+                var instances = session.QueryInstances(
+                    @"root\cimv2", "WQL",
+                    $"SELECT ClassGuid FROM Win32_PnPEntity WHERE DeviceID = '{safeId}'");
+
+                foreach (var inst in instances)
+                {
+                    var classGuid = inst.CimInstanceProperties["ClassGuid"]?.Value?.ToString();
+                    if (classGuid != null && BootCriticalClassGuids.Contains(classGuid))
+                        return true;
+                }
+
+                return false;
+            }, ct);
         }
 
         public async Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default)
