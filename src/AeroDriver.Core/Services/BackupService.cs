@@ -1,8 +1,11 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -40,13 +43,30 @@ namespace AeroDriver.Core.Services
                 var deviceDir = GetDeviceDirectory(driver.DeviceID);
                 var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
                 var backupDir = Path.Combine(deviceDir, $"backup_{timestamp}");
-                Directory.CreateDirectory(backupDir);
+                var filesDir = Path.Combine(backupDir, "files");
+                Directory.CreateDirectory(filesDir);
+
+                // pnputil /export-driver: ドライバーストアから実際のパッケージ（INF + SYS + 全付属ファイル）を
+                // コピーする。Windows 標準・無料。OEM 名（oemN.inf）がある場合のみ実行可能。
+                bool exported = false;
+                if (!string.IsNullOrEmpty(driver.InfName))
+                    exported = await ExportDriverFilesAsync(driver.InfName, filesDir).ConfigureAwait(false);
+
+                if (!exported)
+                {
+                    _logger.LogWarning(
+                        "ドライバーファイルのエクスポートに失敗しました。メタデータのみバックアップします: {DeviceID}",
+                        driver.DeviceID);
+                    Directory.Delete(filesDir, true);
+                }
 
                 var meta = new
                 {
                     driver.DeviceID,
                     driver.DeviceName,
                     driver.DriverVersion,
+                    driver.InfName,
+                    HasFiles = exported,
                     BackupTimeUtc = DateTime.UtcNow,
                 };
 
@@ -54,7 +74,8 @@ namespace AeroDriver.Core.Services
                     Path.Combine(backupDir, "backup_info.json"),
                     JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true }));
 
-                _logger.LogInformation("バックアップを作成しました: {BackupDir}", backupDir);
+                _logger.LogInformation("バックアップを作成しました: {BackupDir} (ファイル含む: {HasFiles})",
+                    backupDir, exported);
 
                 await CleanupOldBackupsAsync(deviceDir, DefaultMaxGenerations);
                 return true;
@@ -62,6 +83,46 @@ namespace AeroDriver.Core.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "バックアップ作成中にエラーが発生しました: {DeviceID}", driver.DeviceID);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// pnputil /export-driver でドライバーストアから実ファイル一式をコピーします。
+        /// </summary>
+        private async Task<bool> ExportDriverFilesAsync(string infName, string destination)
+        {
+            var psi = new ProcessStartInfo("pnputil.exe")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add("/export-driver");
+            psi.ArgumentList.Add(infName);
+            psi.ArgumentList.Add(destination);
+
+            try
+            {
+                using var process = Process.Start(psi);
+                if (process == null) return false;
+
+                await process.WaitForExitAsync().ConfigureAwait(false);
+
+                if (process.ExitCode != 0)
+                {
+                    var err = await process.StandardError.ReadToEndAsync().ConfigureAwait(false);
+                    _logger.LogWarning("pnputil /export-driver 終了コード {Code}: {Error}",
+                        process.ExitCode, err);
+                    return false;
+                }
+
+                return Directory.EnumerateFileSystemEntries(destination).Any();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "pnputil /export-driver の実行中にエラーが発生しました: {Inf}", infName);
                 return false;
             }
         }
@@ -106,14 +167,65 @@ namespace AeroDriver.Core.Services
                     _logger.LogInformation("バックアップから復元中: {Info}", info);
                 }
 
-                _logger.LogInformation("ドライバーを復元しました: {BackupDir}", backupDir);
-                return true;
+                var filesDir = Path.Combine(backupDir, "files");
+                if (!Directory.Exists(filesDir))
+                {
+                    _logger.LogWarning(
+                        "このバックアップにはドライバーファイルが含まれていません（メタデータのみ）: {BackupDir}",
+                        backupDir);
+                    return false;
+                }
+
+                var infPath = Directory.EnumerateFiles(filesDir, "*.inf", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (infPath == null)
+                {
+                    _logger.LogWarning("バックアップ内に INF ファイルが見つかりません: {BackupDir}", backupDir);
+                    return false;
+                }
+
+                ElevationGuard.ThrowIfNotElevated("ドライバーの復元");
+
+                bool installed = await ReinstallDriverFileAsync(infPath).ConfigureAwait(false);
+                if (installed)
+                    _logger.LogInformation("ドライバーを復元しました: {BackupDir}", backupDir);
+                else
+                    _logger.LogError("ドライバー復元失敗（pnputil /add-driver）: {BackupDir}", backupDir);
+
+                return installed;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ドライバー復元中にエラーが発生しました: {DeviceID}", driver.DeviceID);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// pnputil /add-driver でバックアップからドライバーストアへ再インストールします。
+        /// </summary>
+        private async Task<bool> ReinstallDriverFileAsync(string infPath)
+        {
+            var psi = new ProcessStartInfo("pnputil.exe")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add("/add-driver");
+            psi.ArgumentList.Add(infPath);
+            psi.ArgumentList.Add("/install");
+
+            using var process = Process.Start(psi);
+            if (process == null) return false;
+
+            var output = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
+            await process.WaitForExitAsync().ConfigureAwait(false);
+
+            return process.ExitCode == 0 &&
+                   (output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
+                    output.Contains("正常", StringComparison.OrdinalIgnoreCase));
         }
 
         public async Task CleanupOldBackupsAsync(int maxGenerations)

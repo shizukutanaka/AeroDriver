@@ -93,17 +93,19 @@ public class BackupServiceTests : IDisposable
         result.Should().BeFalse();
     }
 
+    // pnputil /export-driver が利用できない環境（テスト実行機に対象 INF がない、または非Windows）では
+    // バックアップはメタデータのみとなり、実ファイルが伴わない復元は安全側に倒して false を返すべき。
     [Fact]
-    public async Task RestoreDriverAsync_WithBackup_ReturnsTrue()
+    public async Task RestoreDriverAsync_MetadataOnlyBackup_ReturnsFalse()
     {
         var driver = MakeDriver();
         await _sut.BackupDriverAsync(driver);
         var result = await _sut.RestoreDriverAsync(driver);
-        result.Should().BeTrue();
+        result.Should().BeFalse();
     }
 
     [Fact]
-    public async Task RestoreDriverAsync_SpecificVersion_RestoresCorrectVersion()
+    public async Task RestoreDriverAsync_SpecificVersion_MetadataOnly_ReturnsFalse()
     {
         var driver = MakeDriver();
         await _sut.BackupDriverAsync(driver);
@@ -111,7 +113,7 @@ public class BackupServiceTests : IDisposable
         versions.Should().HaveCount(1);
 
         var result = await _sut.RestoreDriverAsync(driver, versions[0]);
-        result.Should().BeTrue();
+        result.Should().BeFalse();
     }
 
     // --- ArgumentNullException ガード ---
