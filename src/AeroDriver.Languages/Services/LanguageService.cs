@@ -49,19 +49,19 @@ namespace AeroDriver.Languages.Services
         private CultureInfo _currentCulture;
         private bool _disposed = false;
 
+        // 注意: Resources/ 配下には10言語分の .resx ファイルが存在するが、
+        // 実際に文字列が入力済みなのは ja-JP と en-US のみ（他8言語は空のスキーマのみで
+        // <data> 要素が0件）。SupportedCultures に空の言語を含めると GetString() が
+        // "[キー名]" というプレースホルダーをユーザーに見せてしまうため、
+        // 実際に翻訳済みの言語のみをここに列挙する。
+        // 翻訳を追加した場合は該当言語をこのリストに追加すること。
         private static readonly Lazy<IReadOnlyList<CultureInfo>> _supportedCultures = new Lazy<IReadOnlyList<CultureInfo>>(() =>
             new List<CultureInfo>
             {
-                new CultureInfo("en-US"), // English (United States)
-                new CultureInfo("ja-JP"), // Japanese (Japan)
-                new CultureInfo("zh-CN"), // Chinese (Simplified, China)
-                new CultureInfo("ko-KR"), // Korean (Korea)
-                new CultureInfo("fr-FR"), // French (France)
-                new CultureInfo("es-ES"), // Spanish (Spain)
-                new CultureInfo("de-DE"), // German (Germany)
-                new CultureInfo("it-IT"), // Italian (Italy)
-                new CultureInfo("pt-BR"), // Portuguese (Brazil)
-                new CultureInfo("ru-RU"), // Russian (Russia)
+                new CultureInfo("en-US"), // English (United States) — 翻訳済み
+                new CultureInfo("ja-JP"), // Japanese (Japan) — 翻訳済み
+                // 以下は .resx が空のため未対応（翻訳募集中）:
+                // zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU
             }.AsReadOnly()
         );
 

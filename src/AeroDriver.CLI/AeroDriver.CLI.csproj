@@ -19,5 +19,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AeroDriver.Core\AeroDriver.Core.csproj" />
+    <ProjectReference Include="..\AeroDriver.Languages\AeroDriver.Languages.csproj" />
   </ItemGroup>
 </Project>

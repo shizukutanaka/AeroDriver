@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using AeroDriver.Core;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
+using AeroDriver.Languages.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -15,9 +16,14 @@ namespace AeroDriver.CLI
         private static async Task<int> Main(string[] args)
         {
             var services = new ServiceCollection().ConfigureServices();
+            // AeroDriver.Languages: 10言語分のリソースがビルド済みだったが未接続だったため接続。
+            // OS の UI カルチャに自動追従し、未対応言語は en-US にフォールバックする。
+            services.AddSingleton<ILanguageService, LanguageService>();
             using var serviceProvider = services.BuildServiceProvider();
 
-            var rootCommand = new RootCommand("AeroDriver - Windows ドライバー管理ツール（無料・オープンソース）");
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
+
+            var rootCommand = new RootCommand($"{lang.GetString("AppName")} - {lang.GetString("AppDescription")}");
 
             var deviceIdOption = new Option<string?>("--device-id", "対象デバイスの DeviceID を指定します");
 
@@ -50,21 +56,30 @@ namespace AeroDriver.CLI
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
+                Console.WriteLine(lang.GetString("Status_Scanning"));
+
                 var progress = new Progress<DriverScanProgress>(p =>
                     Console.Write($"\r{p.Phase}: {p.Current} 件..."));
 
                 var drivers = await driverService.GetAllDriversAsync(progress);
                 Console.WriteLine();
                 foreach (var d in drivers)
-                    Console.WriteLine($"{d.DeviceName,-40} {d.DriverVersion,-15} {(d.IsWHQLCertified ? "WHQL" : "未署名")}");
+                {
+                    var whqlLabel = d.IsWHQLCertified
+                        ? "WHQL"
+                        : lang.GetString("Driver_Status_NotWHQL");
+                    Console.WriteLine($"{d.DeviceName,-40} {d.DriverVersion,-15} {whqlLabel}");
+                }
 
-                Console.WriteLine($"\n合計 {drivers.Count} 件のドライバーを検出しました。");
+                Console.WriteLine($"\n{lang.GetString("Status_Complete")} ({drivers.Count})");
             }
             catch (Exception ex)
             {
+                Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
                 logger.LogError(ex, "ドライバースキャン中にエラーが発生しました");
             }
         }
@@ -74,23 +89,30 @@ namespace AeroDriver.CLI
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
+                Console.WriteLine(lang.GetString("Status_Updating"));
+
                 var updates = await driverService.CheckForUpdatesAsync();
                 if (updates.Count == 0)
                 {
-                    Console.WriteLine("利用可能な更新はありません。");
+                    Console.WriteLine(lang.GetString("Driver_Status_UpToDate"));
                     return;
                 }
 
                 foreach (var u in updates)
-                    Console.WriteLine($"{u.DeviceName,-40} → {u.DriverVersion,-15} ({u.UpdateSource})  [DeviceID: {u.DeviceID}]");
+                {
+                    var label = lang.GetString("Driver_Status_UpdateAvailable", u.DriverVersion ?? "?");
+                    Console.WriteLine($"{u.DeviceName,-40} {label} ({u.UpdateSource})  [DeviceID: {u.DeviceID}]");
+                }
 
-                Console.WriteLine($"\n{updates.Count} 件の更新が利用可能です。'aerodriver install --device-id <ID>' でインストールできます。");
+                Console.WriteLine($"\n{lang.GetString("Status_Complete")} ({updates.Count})");
             }
             catch (Exception ex)
             {
+                Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
                 logger.LogError(ex, "更新確認中にエラーが発生しました");
             }
         }
