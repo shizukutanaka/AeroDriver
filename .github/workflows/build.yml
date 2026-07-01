@@ -1,0 +1,31 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    # AeroDriver.UI targets net8.0-windows (WPF) and AeroDriver.Core uses
+    # Windows-only APIs (CimSession, pnputil, WDAC) — windows-latest is
+    # required for the whole solution to build and test correctly.
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Restore
+        run: dotnet restore AeroDriver.sln
+
+      - name: Build
+        run: dotnet build AeroDriver.sln --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test tests/AeroDriver.Core.Tests/AeroDriver.Core.Tests.csproj --no-build --configuration Release
