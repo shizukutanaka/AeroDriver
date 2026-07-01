@@ -1,103 +1,164 @@
-// System 名前空間
 using System;
+using System.CommandLine;
+using System.Linq;
 using System.Threading.Tasks;
-
-// Microsoft 拡張機能
+using AeroDriver.Core;
+using AeroDriver.Core.Interfaces;
+using AeroDriver.Core.Models;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
-// コマンドライン関連の型を直接参照
-using System.CommandLine;
-
-// エイリアス
-using ILogger = Microsoft.Extensions.Logging.ILogger<Program>;
-
-// ダミーのサービスインターフェース（実際の実装に置き換えてください）
-public interface IDriverService
+namespace AeroDriver.CLI
 {
-    Task<int> GetAllDriversAsync();
-}
-
-public class DriverService : IDriverService
-{
-    public Task<int> GetAllDriversAsync()
+    public static class Program
     {
-        // ダミーの実装
-        return Task.FromResult(0);
-    }
-}
+        private static async Task<int> Main(string[] args)
+        {
+            var services = new ServiceCollection().ConfigureServices();
+            using var serviceProvider = services.BuildServiceProvider();
 
-public class Program
-{
-    static async Task<int> Main(string[] args)
-    {
-        // サービスのセットアップ
-        var services = new ServiceCollection();
-        ConfigureServices(services);
-        var serviceProvider = services.BuildServiceProvider();
+            var rootCommand = new RootCommand("AeroDriver - Windows ドライバー管理ツール（無料・オープンソース）");
 
-        // コマンドの作成
-        var rootCommand = new RootCommand("AeroDriver - Windowsドライバー管理ツール");
+            var deviceIdOption = new Option<string?>("--device-id", "対象デバイスの DeviceID を指定します");
 
-        // サブコマンドの作成
-        var scanCommand = new Command("scan", "システム内のドライバーをスキャンします");
-        var updateCommand = new Command("update", "ドライバーを更新します");
-        var backupCommand = new Command("backup", "ドライバーのバックアップを作成します");
-        var restoreCommand = new Command("restore", "ドライバーをバックアップから復元します");
+            var scanCommand = new Command("scan", "システム内のドライバーをスキャンします");
+            scanCommand.SetHandler(async () => await RunScanAsync(serviceProvider));
 
-        // オプションの追加
-        var deviceIdOption = new Option<string>("--device-id", "更新するデバイスのIDを指定します");
-        var outputOption = new Option<string>("--output", "出力先ディレクトリを指定します");
+            var updateCommand = new Command("update", "ドライバー更新を確認し、必要なら一覧表示します");
+            updateCommand.SetHandler(async () => await RunCheckUpdatesAsync(serviceProvider));
 
-        // コマンドにオプションを追加
-        updateCommand.AddOption(deviceIdOption);
-        backupCommand.AddOption(outputOption);
-        restoreCommand.AddOption(outputOption);
+            var installCommand = new Command("install", "指定した DeviceID の更新をインストールします（管理者権限が必要）")
+            { deviceIdOption };
+            installCommand.SetHandler(async (string? deviceId) => await RunInstallAsync(serviceProvider, deviceId),
+                deviceIdOption);
 
-        // コマンドハンドラの設定
-        scanCommand.SetHandler(async () =>
+            var rollbackCommand = new Command("rollback", "指定した DeviceID をバックアップから復元します（管理者権限が必要）")
+            { deviceIdOption };
+            rollbackCommand.SetHandler(async (string? deviceId) => await RunRollbackAsync(serviceProvider, deviceId),
+                deviceIdOption);
+
+            rootCommand.AddCommand(scanCommand);
+            rootCommand.AddCommand(updateCommand);
+            rootCommand.AddCommand(installCommand);
+            rootCommand.AddCommand(rollbackCommand);
+
+            return await rootCommand.InvokeAsync(args);
+        }
+
+        private static async Task RunScanAsync(IServiceProvider serviceProvider)
         {
             using var scope = serviceProvider.CreateScope();
-            var logger = scope.ServiceProvider.GetRequiredService<ILogger>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
-            
+
             try
             {
-                logger.LogInformation("ドライバースキャンを開始します...");
-                var driverCount = await driverService.GetAllDriversAsync();
-                logger.LogInformation($"{driverCount} 個のドライバーが見つかりました。");
+                var progress = new Progress<DriverScanProgress>(p =>
+                    Console.Write($"\r{p.Phase}: {p.Current} 件..."));
+
+                var drivers = await driverService.GetAllDriversAsync(progress);
+                Console.WriteLine();
+                foreach (var d in drivers)
+                    Console.WriteLine($"{d.DeviceName,-40} {d.DriverVersion,-15} {(d.IsWHQLCertified ? "WHQL" : "未署名")}");
+
+                Console.WriteLine($"\n合計 {drivers.Count} 件のドライバーを検出しました。");
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "ドライバーのスキャン中にエラーが発生しました");
+                logger.LogError(ex, "ドライバースキャン中にエラーが発生しました");
             }
-        });
+        }
 
-        // 他のコマンドハンドラも同様に実装
+        private static async Task RunCheckUpdatesAsync(IServiceProvider serviceProvider)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
 
-        // サブコマンドをルートコマンドに追加
-        rootCommand.AddCommand(scanCommand);
-        rootCommand.AddCommand(updateCommand);
-        rootCommand.AddCommand(backupCommand);
-        rootCommand.AddCommand(restoreCommand);
+            try
+            {
+                var updates = await driverService.CheckForUpdatesAsync();
+                if (updates.Count == 0)
+                {
+                    Console.WriteLine("利用可能な更新はありません。");
+                    return;
+                }
 
-        // コマンドを実行
-        return await rootCommand.InvokeAsync(args);
-    }
+                foreach (var u in updates)
+                    Console.WriteLine($"{u.DeviceName,-40} → {u.DriverVersion,-15} ({u.UpdateSource})  [DeviceID: {u.DeviceID}]");
 
-    static void ConfigureServices(IServiceCollection services)
-    {
-        // ロギングの設定
-        services.AddLogging(configure => 
-            configure.AddConsole()
-                .SetMinimumLevel(LogLevel.Information));
+                Console.WriteLine($"\n{updates.Count} 件の更新が利用可能です。'aerodriver install --device-id <ID>' でインストールできます。");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "更新確認中にエラーが発生しました");
+            }
+        }
 
-        // サービスの登録
-        services.AddScoped<IDriverService, DriverService>();
-        
-        // 他の必要なサービスをここに登録
-        // services.AddScoped<IBackupService, BackupService>();
-        // services.AddScoped<ISettingsService, SettingsService>();
+        private static async Task RunInstallAsync(IServiceProvider serviceProvider, string? deviceId)
+        {
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                return;
+            }
+
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+
+            try
+            {
+                var updates = await driverService.CheckForUpdatesAsync();
+                var target = updates.FirstOrDefault(u =>
+                    string.Equals(u.DeviceID, deviceId, StringComparison.OrdinalIgnoreCase));
+
+                if (target == null)
+                {
+                    Console.Error.WriteLine($"DeviceID '{deviceId}' に対する更新が見つかりませんでした。");
+                    return;
+                }
+
+                bool success = await driverService.InstallDriverUpdateAsync(target);
+                Console.WriteLine(success
+                    ? $"インストール完了: {target.DeviceName} {target.DriverVersion}"
+                    : $"インストール失敗: {target.DeviceName}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.Error.WriteLine($"権限エラー: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "ドライバーインストール中にエラーが発生しました: {DeviceID}", deviceId);
+            }
+        }
+
+        private static async Task RunRollbackAsync(IServiceProvider serviceProvider, string? deviceId)
+        {
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                return;
+            }
+
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+
+            try
+            {
+                bool success = await driverService.RollbackDriverAsync(deviceId);
+                Console.WriteLine(success ? $"ロールバック完了: {deviceId}" : $"ロールバック失敗: {deviceId}");
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.Error.WriteLine($"権限エラー: {ex.Message}");
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "ロールバック中にエラーが発生しました: {DeviceID}", deviceId);
+            }
+        }
     }
 }

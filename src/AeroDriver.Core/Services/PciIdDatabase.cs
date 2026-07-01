@@ -15,7 +15,7 @@ namespace AeroDriver.Core.Services
     /// ベンダーID・デバイスIDから名称を解決します。
     /// ライセンス: CC-BY-SA 3.0（帰属表示が必要）
     /// </summary>
-    public sealed class PciIdDatabase
+    public class PciIdDatabase
     {
         private readonly ILogger<PciIdDatabase> _logger;
         private readonly HttpClient _httpClient;
