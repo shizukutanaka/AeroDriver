@@ -536,6 +536,42 @@ namespace AeroDriver.Core.Services
             }
         }
 
+        /// <summary>
+        /// Win32_PnPEntity.ConfigManagerErrorCode からデバイス状態を判定します。
+        /// 0=正常, 22=ユーザーにより無効化, その他非0=エラー, プロパティ取得不可=不明。
+        /// コード一覧は Microsoft 公開のデバイスマネージャーエラーコード（無料・公開情報）に基づく。
+        /// </summary>
+        private static int GetStatusInfo(CimSession session, string safeId)
+        {
+            try
+            {
+                var instances = session.QueryInstances(
+                    @"root\cimv2", "WQL",
+                    $"SELECT ConfigManagerErrorCode FROM Win32_PnPEntity WHERE DeviceID = '{safeId}'");
+
+                foreach (var inst in instances)
+                {
+                    if (!int.TryParse(
+                        inst.CimInstanceProperties["ConfigManagerErrorCode"]?.Value?.ToString(),
+                        out int errCode))
+                        continue;
+
+                    return errCode switch
+                    {
+                        0 => 1,  // 正常
+                        22 => 4, // ユーザーにより無効化されたデバイス
+                        _ => 3,  // その他のエラーコード
+                    };
+                }
+            }
+            catch (Exception)
+            {
+                // 状態判定に失敗しても詳細取得自体は継続する（不明のまま返す）
+            }
+
+            return 0; // 不明
+        }
+
         public async Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
@@ -577,8 +613,9 @@ namespace AeroDriver.Core.Services
                         if (DateTime.TryParse(Prop("DriverDate")?.Value?.ToString(), out var date))
                             detail.DriverDate = date;
 
-                        if (int.TryParse(Prop("ConfigManagerErrorCode")?.Value?.ToString(), out int errCode))
-                            detail.StatusInfo = errCode == 0 ? 1 : 3;
+                        // ConfigManagerErrorCode は Win32_PnPSignedDriver には存在しない
+                        // （Win32_PnPEntity 固有のプロパティ）ため、別途取得する。
+                        detail.StatusInfo = GetStatusInfo(session, safeId);
 
                         return detail;
                     }

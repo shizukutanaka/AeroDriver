@@ -29,7 +29,12 @@ namespace AeroDriver.Core.Models
         public string? Description { get; set; }
         public string? Status { get; set; }
 
-        /// <summary>0: 不明, 1: 正常, 2: 警告, 3: エラー, 4: 無効</summary>
+        /// <summary>
+        /// Win32_PnPEntity.ConfigManagerErrorCode に基づくデバイス状態。
+        /// 0: 不明（コード取得不可）, 1: 正常（コード0）, 3: エラー（0/22以外の非0コード）,
+        /// 4: 無効（コード22＝ユーザーにより無効化）。
+        /// 2（警告）は ConfigManagerErrorCode に対応する概念が存在しないため未使用。
+        /// </summary>
         public int StatusInfo { get; set; }
 
         public string? ClassGuid { get; set; }
