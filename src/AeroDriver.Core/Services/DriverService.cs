@@ -327,6 +327,16 @@ namespace AeroDriver.Core.Services
                     return false;
                 }
 
+                // HTTPS以外は拒否: HTTP経由だと中間者攻撃でダウンロード内容を差し替えられる
+                // （インストーラーが任意コード実行に直結するため特に重要）
+                if (!Uri.TryCreate(driverUpdate.DownloadUrl, UriKind.Absolute, out var downloadUri) ||
+                    downloadUri.Scheme != Uri.UriSchemeHttps)
+                {
+                    _logger.LogWarning(
+                        "ダウンロードURLがHTTPSではないため拒否しました: {Url}", driverUpdate.DownloadUrl);
+                    return false;
+                }
+
                 var tempPath = Path.Combine(Path.GetTempPath(), $"aerodriver_{Guid.NewGuid():N}.tmp");
                 try
                 {

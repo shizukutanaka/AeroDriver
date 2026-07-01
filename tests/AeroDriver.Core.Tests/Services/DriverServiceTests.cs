@@ -211,6 +211,19 @@ public class DriverServiceTests
         result.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("http://example.com/driver.exe")]
+    [InlineData("ftp://example.com/driver.exe")]
+    [InlineData("not-a-url")]
+    public async Task InstallDriverUpdate_NonHttpsUrl_ReturnsFalseWithoutDownloading(string url)
+    {
+        // HTTP等の非HTTPS URLは中間者攻撃でインストーラーを差し替えられるため拒否する
+        _settings.BackupEnabled.Returns(false);
+        var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = url };
+        var result = await _sut.InstallDriverUpdateAsync(driver);
+        result.Should().BeFalse();
+    }
+
     // ──────────────────────────────────────────────
     // CompareVersions (VersionHelper 委譲)
     // ──────────────────────────────────────────────

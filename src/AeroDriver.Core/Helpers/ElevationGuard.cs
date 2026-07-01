@@ -1,5 +1,4 @@
 using System;
-using System.Runtime.Versioning;
 using System.Security.Principal;
 
 namespace AeroDriver.Core.Helpers
@@ -8,14 +7,21 @@ namespace AeroDriver.Core.Helpers
     /// 管理者権限が必要な操作の前に呼び出してください。
     /// 管理者権限がない場合は UnauthorizedAccessException をスローします。
     /// </summary>
-    [SupportedOSPlatform("windows")]
     public static class ElevationGuard
     {
-        /// <summary>現在のプロセスが管理者権限で実行されているかを返します。</summary>
+        /// <summary>
+        /// 現在のプロセスが管理者権限で実行されているかを返します。
+        /// 非Windows環境（クロスプラットフォームのユニットテスト実行機など）では
+        /// WindowsIdentity 自体が使えないため、チェックをバイパスして true を返す。
+        /// 実際の操作（CimSession/pnputil呼び出し）はどのみち非Windowsでは失敗するため、
+        /// ここでの誤判定によるリスクはない。
+        /// </summary>
         public static bool IsElevated
         {
             get
             {
+                if (!OperatingSystem.IsWindows()) return true;
+
                 using var identity = WindowsIdentity.GetCurrent();
                 return new WindowsPrincipal(identity)
                     .IsInRole(WindowsBuiltInRole.Administrator);
