@@ -27,7 +27,19 @@ namespace AeroDriver.Core.Interfaces
             IProgress<DriverScanProgress>? progress = null,
             CancellationToken cancellationToken = default);
 
+        /// <summary>
+        /// ドライバーをインストールします。成功/失敗のみが必要な場合の簡易版。
+        /// 失敗理由を区別したい場合は <see cref="InstallDriverUpdateWithResultAsync"/> を使用してください。
+        /// </summary>
         Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// ドライバーをインストールし、失敗理由を区別できる詳細結果を返します。
+        /// 管理者権限不足は例外ではなく <see cref="DriverInstallResult.AdminRequired"/> として返されます
+        /// （他の Enable/Disable/Rollback 系メソッドは例外ベースの <c>ElevationGuard.ThrowIfNotElevated</c> のままです）。
+        /// </summary>
+        Task<DriverInstallResult> InstallDriverUpdateWithResultAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default);
+
         Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> DisableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default);

@@ -296,8 +296,24 @@ namespace AeroDriver.Core.Services
 
         public async Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default)
         {
+            var result = await InstallDriverUpdateWithResultAsync(driverUpdate, cancellationToken).ConfigureAwait(false);
+            return result == DriverInstallResult.Success;
+        }
+
+        /// <summary>
+        /// ドライバーをインストールし、失敗理由を区別できる詳細結果を返します。
+        /// UI 側はこれを見て「再試行」「管理者として再起動」「手動確認」など適切な導線を選べます。
+        /// </summary>
+        public async Task<DriverInstallResult> InstallDriverUpdateWithResultAsync(
+            DriverInfo driverUpdate, CancellationToken cancellationToken = default)
+        {
             if (driverUpdate == null) throw new ArgumentNullException(nameof(driverUpdate));
-            ElevationGuard.ThrowIfNotElevated("ドライバーのインストール");
+
+            if (!ElevationGuard.IsElevated)
+            {
+                _logger.LogWarning("管理者権限がないためインストールを開始できません: {DeviceID}", driverUpdate.DeviceID);
+                return DriverInstallResult.AdminRequired;
+            }
 
             try
             {
@@ -324,7 +340,8 @@ namespace AeroDriver.Core.Services
                 if (string.IsNullOrEmpty(driverUpdate.DownloadUrl))
                 {
                     _logger.LogWarning("ダウンロードURLが指定されていません: {DeviceID}", driverUpdate.DeviceID);
-                    return false;
+                    UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, false, "ダウンロードURLが指定されていません"));
+                    return DriverInstallResult.NoDownloadUrl;
                 }
 
                 // HTTPS以外は拒否: HTTP経由だと中間者攻撃でダウンロード内容を差し替えられる
@@ -334,34 +351,49 @@ namespace AeroDriver.Core.Services
                 {
                     _logger.LogWarning(
                         "ダウンロードURLがHTTPSではないため拒否しました: {Url}", driverUpdate.DownloadUrl);
-                    return false;
+                    UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, false, "ダウンロードURLがHTTPSではありません"));
+                    return DriverInstallResult.InsecureDownloadUrl;
                 }
 
                 var tempPath = Path.Combine(Path.GetTempPath(), $"aerodriver_{Guid.NewGuid():N}.tmp");
                 try
                 {
-                    var response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken);
-                    response.EnsureSuccessStatusCode();
-                    // ArrayPool でダウンロードバッファを再利用: ReadAsByteArrayAsync は LOH に大きな配列を確保するため
-                    var contentLength = (int)(response.Content.Headers.ContentLength ?? 4 * 1024 * 1024);
-                    var buffer = ArrayPool<byte>.Shared.Rent(contentLength);
+                    HttpResponseMessage response;
                     try
                     {
-                        using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
-                            bufferSize: 81920, useAsync: true);
-                        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
-                        int read;
-                        while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
-                            await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                        response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken);
+                        response.EnsureSuccessStatusCode();
                     }
-                    finally
+                    catch (HttpRequestException ex)
                     {
-                        ArrayPool<byte>.Shared.Return(buffer);
+                        _logger.LogError(ex, "ドライバーダウンロード失敗: {Url}", driverUpdate.DownloadUrl);
+                        UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, false, ex.Message));
+                        return DriverInstallResult.DownloadFailed;
+                    }
+
+                    using (response)
+                    {
+                        // ArrayPool でダウンロードバッファを再利用: ReadAsByteArrayAsync は LOH に大きな配列を確保するため
+                        var contentLength = (int)(response.Content.Headers.ContentLength ?? 4 * 1024 * 1024);
+                        var buffer = ArrayPool<byte>.Shared.Rent(contentLength);
+                        try
+                        {
+                            using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
+                                bufferSize: 81920, useAsync: true);
+                            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                            int read;
+                            while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                                await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                        }
+                        finally
+                        {
+                            ArrayPool<byte>.Shared.Return(buffer);
+                        }
                     }
 
                     bool success = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
-                    return success;
+                    return success ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
                 }
                 finally
                 {
@@ -370,13 +402,14 @@ namespace AeroDriver.Core.Services
             }
             catch (OperationCanceledException)
             {
+                // 既存の規約に合わせ、キャンセルは呼び出し元に伝播させる（CheckForUpdatesAsync 等と統一）
                 throw;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ドライバーインストール中にエラーが発生しました: {DeviceID}", driverUpdate.DeviceID);
                 UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, false, ex.Message));
-                return false;
+                return DriverInstallResult.UnknownError;
             }
         }
 

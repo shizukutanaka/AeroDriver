@@ -124,6 +124,41 @@ public class DriverServiceTests
         result.Should().BeFalse();
     }
 
+    // ──────────────────────────────────────────────
+    // InstallDriverUpdateWithResultAsync — 理由付き結果
+    // ──────────────────────────────────────────────
+
+    [Fact]
+    public async Task InstallDriverUpdateWithResult_NoDownloadUrl_ReturnsNoDownloadUrl()
+    {
+        _settings.BackupEnabled.Returns(false);
+        var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = null };
+
+        var result = await _sut.InstallDriverUpdateWithResultAsync(driver);
+
+        result.Should().Be(DriverInstallResult.NoDownloadUrl);
+    }
+
+    [Theory]
+    [InlineData("http://example.com/driver.exe")]
+    [InlineData("ftp://example.com/driver.exe")]
+    public async Task InstallDriverUpdateWithResult_NonHttpsUrl_ReturnsInsecureDownloadUrl(string url)
+    {
+        _settings.BackupEnabled.Returns(false);
+        var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = url };
+
+        var result = await _sut.InstallDriverUpdateWithResultAsync(driver);
+
+        result.Should().Be(DriverInstallResult.InsecureDownloadUrl);
+    }
+
+    [Fact]
+    public async Task InstallDriverUpdateWithResult_NullArg_Throws()
+    {
+        Func<Task> act = () => _sut.InstallDriverUpdateWithResultAsync(null!);
+        await act.Should().ThrowAsync<ArgumentNullException>();
+    }
+
     [Fact]
     public async Task InstallDriverUpdate_BackupEnabled_CallsBackupService()
     {

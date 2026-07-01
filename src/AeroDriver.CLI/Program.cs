@@ -119,10 +119,19 @@ namespace AeroDriver.CLI
                     return;
                 }
 
-                bool success = await driverService.InstallDriverUpdateAsync(target);
-                Console.WriteLine(success
-                    ? $"インストール完了: {target.DeviceName} {target.DriverVersion}"
-                    : $"インストール失敗: {target.DeviceName}");
+                var result = await driverService.InstallDriverUpdateWithResultAsync(target);
+                Console.WriteLine(result switch
+                {
+                    DriverInstallResult.Success => $"インストール完了: {target.DeviceName} {target.DriverVersion}",
+                    DriverInstallResult.AdminRequired => "インストール失敗: 管理者権限が必要です。アプリケーションを管理者として実行してください。",
+                    DriverInstallResult.NoDownloadUrl => "インストール失敗: ダウンロードURLがありません。",
+                    DriverInstallResult.InsecureDownloadUrl => "インストール失敗: ダウンロードURLがHTTPSではありません。",
+                    DriverInstallResult.DownloadFailed => "インストール失敗: ダウンロードに失敗しました。ネットワーク接続を確認してください。",
+                    DriverInstallResult.SignatureInvalid => "インストール失敗: インストーラーの署名が無効です。",
+                    DriverInstallResult.InstallerFailed => $"インストール失敗: {target.DeviceName}",
+                    DriverInstallResult.Cancelled => "インストールがキャンセルされました。",
+                    _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",
+                });
             }
             catch (UnauthorizedAccessException ex)
             {
