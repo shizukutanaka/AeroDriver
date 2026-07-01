@@ -554,6 +554,14 @@ namespace AeroDriver.Core.Services
         {
             var ext = (installerType ?? Path.GetExtension(filePath)).ToLowerInvariant().TrimStart('.');
 
+            // EXE/MSI は任意コード実行そのものなので Authenticode 署名を必須にする。
+            // HTTPS で配信元の完全性は守られても、ファイル自体の発行元検証は別問題。
+            if (ext is "exe" or "msi" && !AuthenticodeHelper.HasValidSignature(filePath))
+            {
+                _logger.LogWarning("Authenticode 署名が無効または存在しないためインストールを拒否しました: {Path}", filePath);
+                return false;
+            }
+
             // ArgumentList を使用して cmd.exe 経由のシェルを排除 → コマンドインジェクション不可
             System.Diagnostics.ProcessStartInfo psi;
             switch (ext)
