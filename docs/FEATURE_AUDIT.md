@@ -78,17 +78,18 @@
 
 ## 3. 死んでいるAPI(宣言のみで未使用、読み書きゼロ)
 
-`src/AeroDriver.Core/Models/DriverInfo.cs` の `DriverDetailInfo` クラスに以下のプロパティが
-存在するが、**セッション全体を通じて代入も参照も一度も行われていない**ことを確認済み:
+`src/AeroDriver.Core/Models/DriverInfo.cs` の `DriverDetailInfo` クラス(および基底の`DriverInfo`)に
+以下のプロパティが存在するが、**セッション中盤時点では代入も参照も一度も行われていなかった**:
 
-- `IsGraphicsDriver`
+- ~~`IsGraphicsDriver`~~ → **解消済み**。`DriverService.MapCimInstance`/`GetDriverDetailsAsync`で
+  `DeviceClass == "DISPLAY"`から算出するよう実装し、CLIの`scan`出力で`[GPU]`タグとして表示するようにした
 - `DriverPath`
 - `DriverSize`
 - `InfContent`
 - `Properties`
 - `CertificateInfo`
 
-削除はしていない。将来GUIを実装する際に使う想定の先行宣言と思われるため、実装時に
+上記5件は削除していない。将来GUIを実装する際に使う想定の先行宣言と思われるため、実装時に
 中身を埋めるか、不要と判断されれば削除すること。
 
 `src/AeroDriver.Languages/Resources/` 配下の8言語(`de-DE`/`es-ES`/`fr-FR`/`it-IT`/`ko-KR`/

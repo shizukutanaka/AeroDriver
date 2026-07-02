@@ -174,6 +174,7 @@ namespace AeroDriver.Core.Services
 
         private static DriverInfo MapCimInstance(CimInstance inst)
         {
+            var deviceClass = inst.CimInstanceProperties["DeviceClass"]?.Value?.ToString();
             var driver = new DriverInfo
             {
                 DeviceID           = inst.CimInstanceProperties["DeviceID"]?.Value?.ToString(),
@@ -183,6 +184,9 @@ namespace AeroDriver.Core.Services
                 InfName            = inst.CimInstanceProperties["InfName"]?.Value?.ToString(),
                 HardwareID         = inst.CimInstanceProperties["HardwareID"]?.Value?.ToString(),
                 IsWHQLCertified    = inst.CimInstanceProperties["IsSigned"]?.Value is bool signed && signed,
+                DeviceClass        = deviceClass,
+                // Win32_PnPSignedDriver.DeviceClass は "DISPLAY" を返す（大文字・小文字の揺れあり）
+                IsGraphicsDriver   = string.Equals(deviceClass, "DISPLAY", StringComparison.OrdinalIgnoreCase),
             };
             if (DateTime.TryParse(
                 inst.CimInstanceProperties["DriverDate"]?.Value?.ToString(), out var date))
@@ -609,6 +613,8 @@ namespace AeroDriver.Core.Services
                             Description        = Prop("Description")?.Value?.ToString(),
                             Status             = Prop("Status")?.Value?.ToString(),
                         };
+                        detail.IsGraphicsDriver = string.Equals(
+                            detail.DeviceClass, "DISPLAY", StringComparison.OrdinalIgnoreCase);
 
                         if (DateTime.TryParse(Prop("DriverDate")?.Value?.ToString(), out var date))
                             detail.DriverDate = date;

@@ -72,7 +72,8 @@ namespace AeroDriver.CLI
                     var whqlLabel = d.IsWHQLCertified
                         ? "WHQL"
                         : lang.GetString("Driver_Status_NotWHQL");
-                    Console.WriteLine($"{d.DeviceName,-40} {d.DriverVersion,-15} {whqlLabel}");
+                    var gpuTag = d.IsGraphicsDriver ? " [GPU]" : "";
+                    Console.WriteLine($"{d.DeviceName,-40} {d.DriverVersion,-15} {whqlLabel}{gpuTag}");
                 }
 
                 Console.WriteLine($"\n{lang.GetString("Status_Complete")} ({drivers.Count})");
