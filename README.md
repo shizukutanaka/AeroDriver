@@ -46,6 +46,9 @@ dotnet run --project src/AeroDriver.CLI -- scan
 - [ ] Additional language translations (zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU — resource files exist but are currently empty)
 - [ ] Driver dependency ordering (e.g. chipset before GPU)
 
+For a detailed breakdown of what's implemented, what's dead code, and what's
+still an open decision, see [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md).
+
 ## 🛠️ Development
 
 ```bash
