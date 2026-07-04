@@ -105,7 +105,7 @@
 |------|------------|------|
 | `SetDriverState`成功判定 | `DriverService.cs` | `InvokeMethod != null`のみ確認、実際の`ReturnValue`(成功/失敗コード)未検証 |
 | `StatusInfo`常時0 | `DriverService.cs` | 誤ったWMIクラス(`Win32_PnPSignedDriver`)から`ConfigManagerErrorCode`取得を試みており、常にnull→常に不明のまま。`Win32_PnPEntity`への別クエリで修正 |
-| キャンセル伝播不統一 | `DriverService.cs` | Rollback/Enable/Disableが`OperationCanceledException`を握りつぶし`false`を返していた。Install/GetDriverDetailsと同じ再スローパターンに統一 |
+| キャンセル伝播不統一 | `DriverService.cs` | Rollback/Enable/Disable/InstallCustomDriver/QuerySourceAsync(更新元への並列問い合わせ)が`OperationCanceledException`を握りつぶし`false`や空配列を返していた。全`catch (Exception)`を横断的に洗い出し、Install/GetDriverDetailsと同じ再スローパターンに統一 |
 | null注釈の虚偽 | `WhqlDatabaseService.cs` | `Task<DriverInfo>`(非null)と宣言しつつ4箇所でnull返却。インターフェースの`Task<DriverInfo?>`と不一致 |
 | キャッシュ破損時のNRE | `WhqlDatabaseService.cs` | `JsonConvert.DeserializeObject`のnull戻り値を未チェックで`.CacheTime`にアクセス |
 | 幽霊プロジェクト参照 | `AeroDriver.sln` | `AeroDriver.UI.Tests`がディスク上に存在せず、`dotnet build`が確実に失敗する状態だった |
