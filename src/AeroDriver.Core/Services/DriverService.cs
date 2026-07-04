@@ -291,6 +291,12 @@ namespace AeroDriver.Core.Services
                 _logger.LogInformation("  [{Source}] {Count} 件", source.SourceName, results.Count);
                 return results;
             }
+            catch (OperationCanceledException)
+            {
+                // ユーザーによる明示的キャンセルは個別ソースの技術的失敗とは異なり、
+                // 「このソースは0件」に矮小化せず呼び出し元（CheckForUpdatesAsync）へ伝播させる
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "[{Source}] クエリ中にエラーが発生しました", source.SourceName);
@@ -651,6 +657,10 @@ namespace AeroDriver.Core.Services
                 _logger.LogInformation("カスタムドライバーをインストールします: {Path}", driverPath);
                 string ext = Path.GetExtension(driverPath).ToLowerInvariant();
                 return await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
