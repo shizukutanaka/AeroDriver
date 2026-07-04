@@ -102,6 +102,24 @@ public class DriverServiceTests
         await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
+    [Fact]
+    public async Task CheckForUpdates_SourceThrowsCancellation_PropagatesInsteadOfEmptyResult()
+    {
+        // QuerySourceAsync 内で個別ソースが OperationCanceledException を投げた場合、
+        // 「このソースは0件」に矮小化せず呼び出し元へ伝播しなければならない
+        // (ネットワークエラー等の通常の障害とは異なる扱いが必要)
+        using var cts = new CancellationTokenSource();
+
+        _source1.SearchUpdatesAsync(Arg.Any<CancellationToken>())
+                .Returns(_ => throw new OperationCanceledException(cts.Token));
+        _source2.SearchUpdatesAsync(Arg.Any<CancellationToken>())
+                .Returns(Array.Empty<DriverInfo>());
+
+        Func<Task> act = () => _sut.CheckForUpdatesAsync();
+
+        await act.Should().ThrowAsync<OperationCanceledException>();
+    }
+
     // ──────────────────────────────────────────────
     // InstallDriverUpdateAsync
     // ──────────────────────────────────────────────
