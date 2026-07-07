@@ -17,7 +17,7 @@ implemented (see [Roadmap](#-roadmap) below).
 - **Real file backup/restore**: `pnputil /export-driver` + `/add-driver` — not just metadata
 - **Security-hardened installs**: HTTPS-only downloads, Authenticode signature verification, elevation checks, WQL-injection-safe queries
 - **CLI**: `scan`, `update`, `install --device-id <id>`, `rollback --device-id <id>`
-- **Partial localization**: English and Japanese strings are wired in; the framework supports more languages but only these two have translated content today
+- **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback
 
 ## 📋 System Requirements
 
@@ -43,7 +43,7 @@ dotnet run --project src/AeroDriver.CLI -- scan
 ## 🗺️ Roadmap
 
 - [ ] WPF GUI (`AeroDriver.UI` project scaffolded, not yet implemented)
-- [ ] Additional language translations (zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU — resource files exist but are currently empty)
+- [x] Language translations for zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU (all 10 supported cultures now have translated content)
 - [ ] Driver dependency ordering (e.g. chipset before GPU)
 
 For a detailed breakdown of what's implemented, what's dead code, and what's

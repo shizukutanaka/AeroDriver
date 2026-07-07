@@ -7,9 +7,63 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AppName" xml:space="preserve">
+    <value>AeroDriver</value>
+  </data>
+  <data name="AppDescription" xml:space="preserve">
+    <value>Инструмент управления драйверами Windows с WHQL-сертифицированными драйверами</value>
+  </data>
+  <data name="Button_Scan" xml:space="preserve">
+    <value>Сканировать</value>
+  </data>
+  <data name="Button_Update" xml:space="preserve">
+    <value>Обновить</value>
+  </data>
+  <data name="Button_Backup" xml:space="preserve">
+    <value>Резервная копия</value>
+  </data>
+  <data name="Button_Restore" xml:space="preserve">
+    <value>Восстановить</value>
+  </data>
+  <data name="Button_Exit" xml:space="preserve">
+    <value>Выход</value>
+  </data>
+  <data name="Status_Scanning" xml:space="preserve">
+    <value>Поиск драйверов...</value>
+  </data>
+  <data name="Status_Updating" xml:space="preserve">
+    <value>Обновление драйверов...</value>
+  </data>
+  <data name="Status_Complete" xml:space="preserve">
+    <value>Операция успешно завершена</value>
+  </data>
+  <data name="Status_Error" xml:space="preserve">
+    <value>Произошла ошибка: {0}</value>
+  </data>
+  <data name="Driver_Status_UpToDate" xml:space="preserve">
+    <value>Актуальная версия</value>
+  </data>
+  <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
+    <value>Доступно обновление: {0}</value>
+  </data>
+  <data name="Driver_Status_NotWHQL" xml:space="preserve">
+    <value>Нет сертификации WHQL</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Язык</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Тема</value>
+  </data>
+  <data name="Settings_CheckForUpdates" xml:space="preserve">
+    <value>Проверять обновления при запуске</value>
+  </data>
+  <data name="Settings_CreateRestorePoint" xml:space="preserve">
+    <value>Создавать точку восстановления системы перед обновлением</value>
+  </data>
 </root>

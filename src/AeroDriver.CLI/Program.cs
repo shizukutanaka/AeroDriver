@@ -13,6 +13,11 @@ namespace AeroDriver.CLI
 {
     public static class Program
     {
+        // スクリプト/CI から成否判定できるよう、POSIX 慣例に従った終了コードを返す
+        private const int ExitSuccess = 0;
+        private const int ExitFailure = 1;
+        private const int ExitUsageError = 2;
+
         private static async Task<int> Main(string[] args)
         {
             var services = new ServiceCollection().ConfigureServices();
@@ -27,20 +32,26 @@ namespace AeroDriver.CLI
 
             var deviceIdOption = new Option<string?>("--device-id", "対象デバイスの DeviceID を指定します");
 
+            // System.CommandLine beta4 の SetHandler は戻り値を直接返せないため、
+            // 各ハンドラーの結果は Environment.ExitCode 経由でプロセス終了コードに反映する
             var scanCommand = new Command("scan", "システム内のドライバーをスキャンします");
-            scanCommand.SetHandler(async () => await RunScanAsync(serviceProvider));
+            scanCommand.SetHandler(async () =>
+                Environment.ExitCode = await RunScanAsync(serviceProvider));
 
             var updateCommand = new Command("update", "ドライバー更新を確認し、必要なら一覧表示します");
-            updateCommand.SetHandler(async () => await RunCheckUpdatesAsync(serviceProvider));
+            updateCommand.SetHandler(async () =>
+                Environment.ExitCode = await RunCheckUpdatesAsync(serviceProvider));
 
             var installCommand = new Command("install", "指定した DeviceID の更新をインストールします（管理者権限が必要）")
             { deviceIdOption };
-            installCommand.SetHandler(async (string? deviceId) => await RunInstallAsync(serviceProvider, deviceId),
+            installCommand.SetHandler(async (string? deviceId) =>
+                Environment.ExitCode = await RunInstallAsync(serviceProvider, deviceId),
                 deviceIdOption);
 
             var rollbackCommand = new Command("rollback", "指定した DeviceID をバックアップから復元します（管理者権限が必要）")
             { deviceIdOption };
-            rollbackCommand.SetHandler(async (string? deviceId) => await RunRollbackAsync(serviceProvider, deviceId),
+            rollbackCommand.SetHandler(async (string? deviceId) =>
+                Environment.ExitCode = await RunRollbackAsync(serviceProvider, deviceId),
                 deviceIdOption);
 
             rootCommand.AddCommand(scanCommand);
@@ -48,10 +59,13 @@ namespace AeroDriver.CLI
             rootCommand.AddCommand(installCommand);
             rootCommand.AddCommand(rollbackCommand);
 
-            return await rootCommand.InvokeAsync(args);
+            var parseResult = await rootCommand.InvokeAsync(args);
+            // InvokeAsync はパースエラー等で非0を返す。ハンドラー内の失敗は Environment.ExitCode に
+            // 設定済みのため、両者のうち「失敗を示す方」を最終終了コードとして採用する
+            return parseResult != 0 ? parseResult : Environment.ExitCode;
         }
 
-        private static async Task RunScanAsync(IServiceProvider serviceProvider)
+        private static async Task<int> RunScanAsync(IServiceProvider serviceProvider)
         {
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
@@ -77,15 +91,17 @@ namespace AeroDriver.CLI
                 }
 
                 Console.WriteLine($"\n{lang.GetString("Status_Complete")} ({drivers.Count})");
+                return ExitSuccess;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
                 logger.LogError(ex, "ドライバースキャン中にエラーが発生しました");
+                return ExitFailure;
             }
         }
 
-        private static async Task RunCheckUpdatesAsync(IServiceProvider serviceProvider)
+        private static async Task<int> RunCheckUpdatesAsync(IServiceProvider serviceProvider)
         {
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
@@ -100,7 +116,7 @@ namespace AeroDriver.CLI
                 if (updates.Count == 0)
                 {
                     Console.WriteLine(lang.GetString("Driver_Status_UpToDate"));
-                    return;
+                    return ExitSuccess;
                 }
 
                 foreach (var u in updates)
@@ -110,20 +126,22 @@ namespace AeroDriver.CLI
                 }
 
                 Console.WriteLine($"\n{lang.GetString("Status_Complete")} ({updates.Count})");
+                return ExitSuccess;
             }
             catch (Exception ex)
             {
                 Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
                 logger.LogError(ex, "更新確認中にエラーが発生しました");
+                return ExitFailure;
             }
         }
 
-        private static async Task RunInstallAsync(IServiceProvider serviceProvider, string? deviceId)
+        private static async Task<int> RunInstallAsync(IServiceProvider serviceProvider, string? deviceId)
         {
             if (string.IsNullOrEmpty(deviceId))
             {
                 Console.Error.WriteLine("エラー: --device-id を指定してください。");
-                return;
+                return ExitUsageError;
             }
 
             using var scope = serviceProvider.CreateScope();
@@ -139,7 +157,7 @@ namespace AeroDriver.CLI
                 if (target == null)
                 {
                     Console.Error.WriteLine($"DeviceID '{deviceId}' に対する更新が見つかりませんでした。");
-                    return;
+                    return ExitFailure;
                 }
 
                 var result = await driverService.InstallDriverUpdateWithResultAsync(target);
@@ -155,23 +173,26 @@ namespace AeroDriver.CLI
                     DriverInstallResult.Cancelled => "インストールがキャンセルされました。",
                     _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",
                 });
+                return result == DriverInstallResult.Success ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)
             {
                 Console.Error.WriteLine($"権限エラー: {ex.Message}");
+                return ExitFailure;
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "ドライバーインストール中にエラーが発生しました: {DeviceID}", deviceId);
+                return ExitFailure;
             }
         }
 
-        private static async Task RunRollbackAsync(IServiceProvider serviceProvider, string? deviceId)
+        private static async Task<int> RunRollbackAsync(IServiceProvider serviceProvider, string? deviceId)
         {
             if (string.IsNullOrEmpty(deviceId))
             {
                 Console.Error.WriteLine("エラー: --device-id を指定してください。");
-                return;
+                return ExitUsageError;
             }
 
             using var scope = serviceProvider.CreateScope();
@@ -182,14 +203,17 @@ namespace AeroDriver.CLI
             {
                 bool success = await driverService.RollbackDriverAsync(deviceId);
                 Console.WriteLine(success ? $"ロールバック完了: {deviceId}" : $"ロールバック失敗: {deviceId}");
+                return success ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)
             {
                 Console.Error.WriteLine($"権限エラー: {ex.Message}");
+                return ExitFailure;
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "ロールバック中にエラーが発生しました: {DeviceID}", deviceId);
+                return ExitFailure;
             }
         }
     }

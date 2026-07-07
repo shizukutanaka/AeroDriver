@@ -1,0 +1,27 @@
+# EditorConfig — コントリビューター間でエディタ設定を統一する
+# https://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+
+# C# コードスタイル(既存コードベースの慣習に合わせた控えめなルールのみ)
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_new_lines_before_open_brace = all
+dotnet_sort_system_directives_first = true
+
+[*.{csproj,props,resx,xml}]
+indent_style = space
+indent_size = 2
+
+[*.{md,yml,yaml,json}]
+indent_style = space
+indent_size = 2
+trim_trailing_whitespace = false

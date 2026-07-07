@@ -7,9 +7,63 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AppName" xml:space="preserve">
+    <value>AeroDriver</value>
+  </data>
+  <data name="AppDescription" xml:space="preserve">
+    <value>Ferramenta de gerenciamento de drivers do Windows com drivers certificados WHQL</value>
+  </data>
+  <data name="Button_Scan" xml:space="preserve">
+    <value>Verificar</value>
+  </data>
+  <data name="Button_Update" xml:space="preserve">
+    <value>Atualizar</value>
+  </data>
+  <data name="Button_Backup" xml:space="preserve">
+    <value>Backup</value>
+  </data>
+  <data name="Button_Restore" xml:space="preserve">
+    <value>Restaurar</value>
+  </data>
+  <data name="Button_Exit" xml:space="preserve">
+    <value>Sair</value>
+  </data>
+  <data name="Status_Scanning" xml:space="preserve">
+    <value>Procurando drivers...</value>
+  </data>
+  <data name="Status_Updating" xml:space="preserve">
+    <value>Atualizando drivers...</value>
+  </data>
+  <data name="Status_Complete" xml:space="preserve">
+    <value>Operação concluída com êxito</value>
+  </data>
+  <data name="Status_Error" xml:space="preserve">
+    <value>Ocorreu um erro: {0}</value>
+  </data>
+  <data name="Driver_Status_UpToDate" xml:space="preserve">
+    <value>Atualizado</value>
+  </data>
+  <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
+    <value>Atualização disponível: {0}</value>
+  </data>
+  <data name="Driver_Status_NotWHQL" xml:space="preserve">
+    <value>Sem certificação WHQL</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Idioma</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Tema</value>
+  </data>
+  <data name="Settings_CheckForUpdates" xml:space="preserve">
+    <value>Verificar atualizações ao iniciar</value>
+  </data>
+  <data name="Settings_CreateRestorePoint" xml:space="preserve">
+    <value>Criar ponto de restauração do sistema antes das atualizações</value>
+  </data>
 </root>

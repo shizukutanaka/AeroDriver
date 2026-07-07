@@ -7,9 +7,63 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AppName" xml:space="preserve">
+    <value>AeroDriver</value>
+  </data>
+  <data name="AppDescription" xml:space="preserve">
+    <value>使用 WHQL 认证驱动程序的 Windows 驱动程序管理工具</value>
+  </data>
+  <data name="Button_Scan" xml:space="preserve">
+    <value>扫描</value>
+  </data>
+  <data name="Button_Update" xml:space="preserve">
+    <value>更新</value>
+  </data>
+  <data name="Button_Backup" xml:space="preserve">
+    <value>备份</value>
+  </data>
+  <data name="Button_Restore" xml:space="preserve">
+    <value>还原</value>
+  </data>
+  <data name="Button_Exit" xml:space="preserve">
+    <value>退出</value>
+  </data>
+  <data name="Status_Scanning" xml:space="preserve">
+    <value>正在扫描驱动程序...</value>
+  </data>
+  <data name="Status_Updating" xml:space="preserve">
+    <value>正在更新驱动程序...</value>
+  </data>
+  <data name="Status_Complete" xml:space="preserve">
+    <value>操作已成功完成</value>
+  </data>
+  <data name="Status_Error" xml:space="preserve">
+    <value>发生错误：{0}</value>
+  </data>
+  <data name="Driver_Status_UpToDate" xml:space="preserve">
+    <value>已是最新版本</value>
+  </data>
+  <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
+    <value>有可用更新：{0}</value>
+  </data>
+  <data name="Driver_Status_NotWHQL" xml:space="preserve">
+    <value>未通过 WHQL 认证</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>语言</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>主题</value>
+  </data>
+  <data name="Settings_CheckForUpdates" xml:space="preserve">
+    <value>启动时检查更新</value>
+  </data>
+  <data name="Settings_CreateRestorePoint" xml:space="preserve">
+    <value>更新前创建系统还原点</value>
+  </data>
 </root>

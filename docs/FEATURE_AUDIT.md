@@ -92,10 +92,10 @@
 上記5件は削除していない。将来GUIを実装する際に使う想定の先行宣言と思われるため、実装時に
 中身を埋めるか、不要と判断されれば削除すること。
 
-`src/AeroDriver.Languages/Resources/` 配下の8言語(`de-DE`/`es-ES`/`fr-FR`/`it-IT`/`ko-KR`/
-`pt-BR`/`ru-RU`/`zh-CN`)の`.resx`は、XMLスキーマの骨格のみで`<data>`要素が0件。
-`LanguageService.SupportedCultures`からは意図的に除外済み(空言語への切り替えで
-`[KeyName]`がユーザーに表示されるのを防ぐため)。
+~~`src/AeroDriver.Languages/Resources/` 配下の8言語の`.resx`が空~~ → **解消済み**。
+de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と同じ18キーの
+翻訳を追加し、`LanguageService.SupportedCultures`を10言語に復元した。
+(補足: 空だった8ファイルはresheaderのアセンブリ名まで`...`と壊れていたため全面書き直した)
 
 ---
 
