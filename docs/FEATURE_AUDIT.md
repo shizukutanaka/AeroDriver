@@ -97,6 +97,15 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 翻訳を追加し、`LanguageService.SupportedCultures`を10言語に復元した。
 (補足: 空だった8ファイルはresheaderのアセンブリ名まで`...`と壊れていたため全面書き直した)
 
+### セキュリティ系ヘルパーのテストカバレッジ状況
+
+| ヘルパー | テスト | 備考 |
+|---------|--------|------|
+| `WqlSanitizer` | ✅ `WqlSanitizerTests.cs` | 純粋・静的なので完全にテスト可能 |
+| `ElevationGuard` | ✅ `ElevationGuardTests.cs` | 非Windows側のバイパス経路のみ検証(Windows側は環境依存のため未検証) |
+| `WdacHelper` | ✅ `WdacHelperTests.cs` | 非Windows環境での`WdacStatus.Disabled`フォールバックのみ検証。実際のCIポリシー読み取りはWindows実機でしか検証不可 |
+| `AuthenticodeHelper` | ❌ 未テスト | 実際に署名されたバイナリファイルが必要で、テスト環境に用意できないため保留 |
+
 ---
 
 ## 4. 修正済みバグ一覧(宣言と実装の不一致が原因だったもの)
