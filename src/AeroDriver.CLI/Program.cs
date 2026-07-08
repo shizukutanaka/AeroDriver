@@ -1,5 +1,6 @@
 using System;
 using System.CommandLine;
+using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AeroDriver.Core;
@@ -20,6 +21,20 @@ namespace AeroDriver.CLI
 
         private static async Task<int> Main(string[] args)
         {
+            // 10言語対応（日本語/中国語/韓国語/ロシア語等の非ASCII文字を含む）の出力を
+            // Windowsコンソールの既定コードページ(地域依存の CP932/CP1252 等)で文字化け
+            // させないため、明示的にUTF-8へ切り替える。標準出力がリダイレクトされている等
+            // 一部の環境では設定に失敗しうるため、失敗しても起動は継続する。
+            try
+            {
+                Console.OutputEncoding = System.Text.Encoding.UTF8;
+            }
+            catch (IOException)
+            {
+                // リダイレクト/パイプ等でエンコーディング変更ができない環境。文字化けは
+                // 許容し、アプリケーションの起動自体は継続する。
+            }
+
             var services = new ServiceCollection().ConfigureServices();
             // AeroDriver.Languages: 10言語分のリソースがビルド済みだったが未接続だったため接続。
             // OS の UI カルチャに自動追従し、未対応言語は en-US にフォールバックする。
