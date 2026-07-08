@@ -1,5 +1,7 @@
 using System;
+using System.IO;
 using System.Runtime.Versioning;
+using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
 
 namespace AeroDriver.Core.Helpers
@@ -13,7 +15,8 @@ namespace AeroDriver.Core.Helpers
     {
         /// <summary>
         /// ファイルが有効な Authenticode 署名（信頼された証明書チェーン）を
-        /// 持っているかを検証します。署名が存在しない、または無効な場合は false。
+        /// 持っているかを検証します。署名が存在しない、無効、またはファイル自体に
+        /// アクセスできない場合はすべて false（フェイルクローズ）。
         /// </summary>
         public static bool HasValidSignature(string filePath)
         {
@@ -28,9 +31,21 @@ namespace AeroDriver.Core.Helpers
 
                 return chain.Build(cert);
             }
-            catch (System.Security.Cryptography.CryptographicException)
+            // CreateFromSignedFile はファイルが実際に開けない場合（存在しない・
+            // 権限不足・ダウンロード中に削除された等）に CryptographicException 以外
+            // （FileNotFoundException / UnauthorizedAccessException / IOException）も
+            // 投げうる。また Windows 専用のネイティブ暗号API（WinTrust）に依存するため
+            // 非Windows環境では PlatformNotSupportedException を投げる場合もある。
+            // 署名検証の目的上、いずれの失敗も「信頼できない」= false として
+            // フェイルクローズさせる必要がある（想定外の例外を呼び出し元へ漏らして
+            // インストール可否判定を誤らせてはならない）。
+            catch (Exception ex) when (
+                ex is CryptographicException or
+                      IOException or
+                      UnauthorizedAccessException or
+                      ArgumentException or
+                      PlatformNotSupportedException)
             {
-                // 署名なし、または破損した署名
                 return false;
             }
         }
