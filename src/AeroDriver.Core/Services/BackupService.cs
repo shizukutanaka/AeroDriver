@@ -152,7 +152,17 @@ namespace AeroDriver.Core.Services
                 }
                 else
                 {
-                    backupDir = Path.Combine(deviceDir, $"backup_{backupVersion}");
+                    // "backup_" プレフィックスは先頭セグメントが単独の ".." になることは防ぐが、
+                    // backupVersion 内部に埋め込まれた "../" までは防げない
+                    // (例: "../../../../Windows/System32" → deviceDir の外へ脱出可能)。
+                    // GetDeviceDirectory と同じ多層防御: 正規化後の絶対パスが
+                    // deviceDir 配下に収まっていることを確認する。
+                    backupDir = Path.GetFullPath(Path.Combine(deviceDir, $"backup_{backupVersion}"));
+                    var normalizedDeviceDir = Path.GetFullPath(deviceDir) + Path.DirectorySeparatorChar;
+                    if (!backupDir.StartsWith(normalizedDeviceDir, StringComparison.OrdinalIgnoreCase))
+                        throw new ArgumentException(
+                            $"バックアップバージョンに無効な文字が含まれています: {backupVersion}", nameof(backupVersion));
+
                     if (!Directory.Exists(backupDir))
                     {
                         _logger.LogWarning("指定されたバックアップが見つかりません: {Version}", backupVersion);

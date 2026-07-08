@@ -123,7 +123,7 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 | 署名検証の例外漏れ | `AuthenticodeHelper.cs` | `CryptographicException`のみ捕捉していたが、ファイル不在/権限不足/非Windows環境では`FileNotFoundException`/`IOException`/`PlatformNotSupportedException`等も投げられうる。フェイルクローズ(いずれもfalse)するよう捕捉範囲を拡大 |
 | シェルインジェクション | `PnpUtilDriverSource.cs`, `DriverService.cs` | 文字列結合の引数→`ProcessStartInfo.ArgumentList`に変更 |
 | コンパイル不能コード | `AeroDriver.Core/Program.cs`(削除済み) | `DriverInfo`/`Task`のusing不足で存在自体がビルドを壊していた重複ファイル |
-| **パストラバーサル** | `BackupService.cs` | `GetDeviceDirectory`が`Path.GetInvalidFileNameChars()`(`.`を含まない)でのみサニタイズしており、`DeviceID=".."`が素通りしてバックアップルート外を指せた。CLIの`rollback --device-id ..`から到達可能。`Path.GetFullPath`で正規化しルート配下かを検証する多層防御を追加 |
+| **パストラバーサル(2件)** | `BackupService.cs` | ①`GetDeviceDirectory`が`Path.GetInvalidFileNameChars()`(`.`を含まない)でのみサニタイズしており、`DeviceID=".."`が素通りしてバックアップルート外を指せた。CLIの`rollback --device-id ..`から到達可能。②`RestoreDriverAsync`の`backupVersion`も同種: `"backup_"`プレフィックスは先頭セグメントの単独`".."`は防ぐが、内部に埋め込まれた`"../"`(例: `"../../../../Windows/System32"`)は防げず、`deviceDir`の外を指せた。両方とも`Path.GetFullPath`で正規化しルート配下かを検証する多層防御を追加 |
 | コンソール文字化け | `AeroDriver.CLI/Program.cs` | 10言語対応を追加したのに`Console.OutputEncoding`未設定のままで、Windows既定コードページでは中国語/韓国語/ロシア語等が文字化けしていた。起動時にUTF-8へ明示的に切り替え |
 
 ---

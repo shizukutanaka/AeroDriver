@@ -166,6 +166,22 @@ public class BackupServiceTests : IDisposable
             .Should().OnlyContain(d => d.StartsWith(_tempRoot));
     }
 
+    // RestoreDriverAsync の backupVersion にも同種のパストラバーサルがあった:
+    // "backup_" プレフィックスは先頭セグメントが単独の ".." になることは防ぐが、
+    // backupVersion 内部に埋め込まれた "../" までは防げない
+    // (例: "../../../../Windows/System32" が deviceDir の外を指してしまう)。
+
+    [Fact]
+    public async Task RestoreDriverAsync_BackupVersionWithEmbeddedTraversal_ThrowsInsteadOfEscaping()
+    {
+        var driver = MakeDriver();
+        await _sut.BackupDriverAsync(driver); // deviceDir を実在させる
+
+        Func<Task> act = () => _sut.RestoreDriverAsync(driver, "../../../../etc");
+
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
     // テスト用サブクラス: バックアップルートを一時ディレクトリに向ける
     private sealed class TestableBackupService : BackupService
     {
