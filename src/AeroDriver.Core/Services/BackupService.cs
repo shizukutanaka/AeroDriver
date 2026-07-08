@@ -267,8 +267,22 @@ namespace AeroDriver.Core.Services
 
         private string GetDeviceDirectory(string deviceId)
         {
+            if (string.IsNullOrWhiteSpace(deviceId))
+                throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
+
             var safe = string.Concat(deviceId.Split(Path.GetInvalidFileNameChars()));
-            var dir = Path.Combine(_backupRoot, safe);
+
+            // Path.GetInvalidFileNameChars() には '.' が含まれないため、deviceId が
+            // ".." 等の場合そのまま素通りしパストラバーサルを許してしまう
+            // (例: --device-id ".." → _backupRoot の親ディレクトリを指してしまう)。
+            // 多層防御として、正規化後の絶対パスが _backupRoot 配下に収まっている
+            // ことを最終確認する。
+            var dir = Path.GetFullPath(Path.Combine(_backupRoot, safe));
+            var normalizedRoot = Path.GetFullPath(_backupRoot) + Path.DirectorySeparatorChar;
+            if (!dir.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    $"デバイスIDに無効な文字が含まれています: {deviceId}", nameof(deviceId));
+
             Directory.CreateDirectory(dir);
             return dir;
         }

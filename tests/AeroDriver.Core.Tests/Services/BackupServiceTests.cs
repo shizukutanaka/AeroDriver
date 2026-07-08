@@ -132,6 +132,40 @@ public class BackupServiceTests : IDisposable
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
+    // --- パストラバーサル対策 ---
+    // Path.GetInvalidFileNameChars() には '.' が含まれないため、DeviceID が ".." そのものの
+    // 場合、区切り文字を含まないためサニタイズ処理を素通りしバックアップルート外を
+    // 指してしまう(スラッシュを含む入力は Split 処理自体で区切り文字が失われ、結果的に
+    // 安全な文字列へ変換されるため、素の ".." のみが実際に危険なケースとなる)。
+
+    [Fact]
+    public async Task BackupDriverAsync_BareParentDirDeviceId_ThrowsInsteadOfEscapingBackupRoot()
+    {
+        Func<Task> act = () => _sut.BackupDriverAsync(new DriverInfo { DeviceID = ".." });
+        await act.Should().ThrowAsync<ArgumentException>();
+    }
+
+    [Fact]
+    public void HasBackup_BareParentDirDeviceId_ThrowsInsteadOfEscapingBackupRoot()
+    {
+        Action act = () => _sut.HasBackup(new DriverInfo { DeviceID = ".." });
+        act.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
+    public async Task BackupDriverAsync_SlashContainingDeviceId_StaysWithinBackupRoot()
+    {
+        // スラッシュ等の区切り文字を含む入力は Split+Concat で区切りが失われ、
+        // 意図せず変な名前のフォルダにはなるが、バックアップルート外には出ない
+        var driver = new DriverInfo { DeviceID = "../../etc" };
+
+        var result = await _sut.BackupDriverAsync(driver);
+
+        result.Should().BeTrue();
+        Directory.GetDirectories(_tempRoot, "*", SearchOption.AllDirectories)
+            .Should().OnlyContain(d => d.StartsWith(_tempRoot));
+    }
+
     // テスト用サブクラス: バックアップルートを一時ディレクトリに向ける
     private sealed class TestableBackupService : BackupService
     {
