@@ -104,7 +104,7 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 | `WqlSanitizer` | ✅ `WqlSanitizerTests.cs` | 純粋・静的なので完全にテスト可能 |
 | `ElevationGuard` | ✅ `ElevationGuardTests.cs` | 非Windows側のバイパス経路のみ検証(Windows側は環境依存のため未検証) |
 | `WdacHelper` | ✅ `WdacHelperTests.cs` | 非Windows環境での`WdacStatus.Disabled`フォールバックのみ検証。実際のCIポリシー読み取りはWindows実機でしか検証不可 |
-| `AuthenticodeHelper` | ❌ 未テスト | 実際に署名されたバイナリファイルが必要で、テスト環境に用意できないため保留 |
+| `AuthenticodeHelper` | 🟡 `AuthenticodeHelperTests.cs`(部分) | フェイルクローズ経路(ファイル不在/不正形式)のみ検証。「実際に有効な署名を持つ」正常系は実署名バイナリが必要でテスト環境に用意できないため未検証 |
 
 ---
 
@@ -120,6 +120,7 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 | 幽霊プロジェクト参照 | `AeroDriver.sln` | `AeroDriver.UI.Tests`がディスク上に存在せず、`dotnet build`が確実に失敗する状態だった |
 | WQLインジェクション | `DriverService.cs` | 手動`Replace('\\'/'\'')`のみだったものをアローリスト検証(`WqlSanitizer`)に強化 |
 | HttpClientソケット枯渇 | `WhqlDatabaseService.cs` | `new HttpClient()`直接生成→`IHttpClientFactory`経由に変更 |
+| 署名検証の例外漏れ | `AuthenticodeHelper.cs` | `CryptographicException`のみ捕捉していたが、ファイル不在/権限不足/非Windows環境では`FileNotFoundException`/`IOException`/`PlatformNotSupportedException`等も投げられうる。フェイルクローズ(いずれもfalse)するよう捕捉範囲を拡大 |
 | シェルインジェクション | `PnpUtilDriverSource.cs`, `DriverService.cs` | 文字列結合の引数→`ProcessStartInfo.ArgumentList`に変更 |
 | コンパイル不能コード | `AeroDriver.Core/Program.cs`(削除済み) | `DriverInfo`/`Task`のusing不足で存在自体がビルドを壊していた重複ファイル |
 
