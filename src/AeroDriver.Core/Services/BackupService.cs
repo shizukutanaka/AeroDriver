@@ -127,7 +127,7 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        public async Task<bool> RestoreDriverAsync(DriverInfo driver, string backupVersion = null)
+        public async Task<bool> RestoreDriverAsync(DriverInfo driver, string? backupVersion = null)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))

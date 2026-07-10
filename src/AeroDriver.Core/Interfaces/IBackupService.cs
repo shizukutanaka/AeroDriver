@@ -21,7 +21,7 @@ namespace AeroDriver.Core.Interfaces
         /// <param name="driver">復元するドライバー情報</param>
         /// <param name="backupVersion">復元するバックアップのバージョン（省略時は最新）</param>
         /// <returns>復元が成功したかどうか</returns>
-        Task<bool> RestoreDriverAsync(DriverInfo driver, string backupVersion = null);
+        Task<bool> RestoreDriverAsync(DriverInfo driver, string? backupVersion = null);
         
         /// <summary>
         /// 古いバックアップをクリーンアップする

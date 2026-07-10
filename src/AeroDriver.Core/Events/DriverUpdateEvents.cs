@@ -39,16 +39,16 @@ namespace AeroDriver.Core.Events
         public bool IsSuccess { get; }
 
         /// <summary>
-        /// エラーメッセージ（失敗した場合）
+        /// エラーメッセージ（失敗した場合。成功時は null）
         /// </summary>
-        public string ErrorMessage { get; }
+        public string? ErrorMessage { get; }
 
         /// <summary>
         /// コンストラクタ
         /// </summary>
-        public UpdatesInstalledEventArgs(DriverInfo installedDriver, bool isSuccess, string errorMessage = null)
+        public UpdatesInstalledEventArgs(DriverInfo installedDriver, bool isSuccess, string? errorMessage = null)
         {
-            InstalledDriver = installedDriver;
+            InstalledDriver = installedDriver ?? throw new ArgumentNullException(nameof(installedDriver));
             IsSuccess = isSuccess;
             ErrorMessage = errorMessage;
         }
