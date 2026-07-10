@@ -19,6 +19,7 @@
 - `update`: 全`IDriverUpdateSource`に問い合わせ、更新候補を一覧表示
 - `install --device-id <id>`: `DriverInstallResult` enumで失敗理由を区別して表示
 - `rollback --device-id <id>`: バックアップから実ファイル復元
+- `details --device-id <id>`: 個別マッピング済みフィールド+生のWMIプロパティ全件を表示
 
 ### ドライバー検出・更新 (`src/AeroDriver.Core/Services/DriverService.cs`)
 - `CimSession`(現行WMI API)によるドライバー列挙。`ManagementObjectSearcher`は完全廃止済み
@@ -84,14 +85,17 @@
 
 - ~~`IsGraphicsDriver`~~ → **解消済み**。`DriverService.MapCimInstance`/`GetDriverDetailsAsync`で
   `DeviceClass == "DISPLAY"`から算出するよう実装し、CLIの`scan`出力で`[GPU]`タグとして表示するようにした
+- ~~`Properties`~~ → **解消済み**。`GetDriverDetailsAsync`が`Win32_PnPSignedDriver`から
+  取得する全`CimInstanceProperties`をそのまま格納するようにし、新設したCLIの
+  `details --device-id <id>`コマンドで実際に表示するようにした
 - `DriverPath`
 - `DriverSize`
 - `InfContent`
-- `Properties`
 - `CertificateInfo`
 
-上記5件は削除していない。将来GUIを実装する際に使う想定の先行宣言と思われるため、実装時に
-中身を埋めるか、不要と判断されれば削除すること。
+上記4件は削除していない。`Win32_PnPSignedDriver`から正確な値を取得する手段がなく
+(ファイルパス自体が公開されていない、署名検証にはパスが必要等)、将来GUIを実装する際に
+使う想定の先行宣言と思われるため、実装時に中身を埋めるか、不要と判断されれば削除すること。
 
 ~~`src/AeroDriver.Languages/Resources/` 配下の8言語の`.resx`が空~~ → **解消済み**。
 de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と同じ18キーの

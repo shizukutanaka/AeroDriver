@@ -69,10 +69,17 @@ namespace AeroDriver.CLI
                 Environment.ExitCode = await RunRollbackAsync(serviceProvider, deviceId),
                 deviceIdOption);
 
+            var detailsCommand = new Command("details", "指定した DeviceID の詳細情報を表示します")
+            { deviceIdOption };
+            detailsCommand.SetHandler(async (string? deviceId) =>
+                Environment.ExitCode = await RunDetailsAsync(serviceProvider, deviceId),
+                deviceIdOption);
+
             rootCommand.AddCommand(scanCommand);
             rootCommand.AddCommand(updateCommand);
             rootCommand.AddCommand(installCommand);
             rootCommand.AddCommand(rollbackCommand);
+            rootCommand.AddCommand(detailsCommand);
 
             var parseResult = await rootCommand.InvokeAsync(args);
             // InvokeAsync はパースエラー等で非0を返す。ハンドラー内の失敗は Environment.ExitCode に
@@ -228,6 +235,50 @@ namespace AeroDriver.CLI
             catch (Exception ex)
             {
                 logger.LogError(ex, "ロールバック中にエラーが発生しました: {DeviceID}", deviceId);
+                return ExitFailure;
+            }
+        }
+
+        private static async Task<int> RunDetailsAsync(IServiceProvider serviceProvider, string? deviceId)
+        {
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                return ExitUsageError;
+            }
+
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+
+            try
+            {
+                var detail = await driverService.GetDriverDetailsAsync(deviceId);
+                if (detail == null)
+                {
+                    Console.Error.WriteLine($"DeviceID '{deviceId}' が見つかりませんでした。");
+                    return ExitFailure;
+                }
+
+                Console.WriteLine($"DeviceName:    {detail.DeviceName}");
+                Console.WriteLine($"DriverVersion: {detail.DriverVersion}");
+                Console.WriteLine($"Manufacturer:  {detail.Manufacturer}");
+                Console.WriteLine($"DeviceClass:   {detail.DeviceClass}{(detail.IsGraphicsDriver ? " [GPU]" : "")}");
+                Console.WriteLine($"WHQL:          {(detail.IsWHQLCertified ? "はい" : "いいえ")}");
+                Console.WriteLine($"Status:        {detail.Status} (StatusInfo={detail.StatusInfo})");
+
+                if (detail.Properties.Count > 0)
+                {
+                    Console.WriteLine("\n--- 生のWMIプロパティ ---");
+                    foreach (var (key, value) in detail.Properties.OrderBy(p => p.Key))
+                        Console.WriteLine($"{key,-32} {value}");
+                }
+
+                return ExitSuccess;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "詳細情報取得中にエラーが発生しました: {DeviceID}", deviceId);
                 return ExitFailure;
             }
         }

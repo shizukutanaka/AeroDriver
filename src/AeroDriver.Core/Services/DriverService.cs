@@ -622,6 +622,15 @@ namespace AeroDriver.Core.Services
                         detail.IsGraphicsDriver = string.Equals(
                             detail.DeviceClass, "DISPLAY", StringComparison.OrdinalIgnoreCase);
 
+                        // Win32_PnPSignedDriver が公開する全プロパティを生データとして保持する。
+                        // 上記で個別マッピングした項目以外にも DriverInstalled/DeviceID 等
+                        // 診断に有用な情報が含まれるため、無加工でそのまま渡す
+                        foreach (var property in inst.CimInstanceProperties)
+                        {
+                            if (property.Value is not null)
+                                detail.Properties[property.Name] = property.Value.ToString() ?? string.Empty;
+                        }
+
                         if (DateTime.TryParse(Prop("DriverDate")?.Value?.ToString(), out var date))
                             detail.DriverDate = date;
 
