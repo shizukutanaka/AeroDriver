@@ -1,7 +1,9 @@
+using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using AeroDriver.Core.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using NSubstitute;
 using Xunit;
 
 namespace AeroDriver.Core.Tests.Services;
@@ -12,13 +14,18 @@ namespace AeroDriver.Core.Tests.Services;
 public class BackupServiceTests : IDisposable
 {
     private readonly string _tempRoot;
+    private readonly ISettingsService _settings;
     private readonly BackupService _sut;
 
     public BackupServiceTests()
     {
         _tempRoot = Path.Combine(Path.GetTempPath(), $"aerodriver_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempRoot);
-        _sut = new TestableBackupService(NullLogger<BackupService>.Instance, _tempRoot);
+
+        _settings = Substitute.For<ISettingsService>();
+        _settings.MaxBackupGenerations.Returns(3); // SettingsData.Default と同じ既定値
+
+        _sut = new TestableBackupService(NullLogger<BackupService>.Instance, _settings, _tempRoot);
     }
 
     public void Dispose() => Directory.Delete(_tempRoot, true);
@@ -56,6 +63,25 @@ public class BackupServiceTests : IDisposable
         backups.Should().HaveCount(2);
         // 降順（新しい順）を確認
         string.CompareOrdinal(backups[0], backups[1]).Should().BePositive();
+    }
+
+    // BackupDriverAsync は毎回自動でクリーンアップを走らせるが、以前は
+    // ISettingsService.MaxBackupGenerations を無視してハードコードされた3世代を
+    // 常に使っていた(ユーザーが設定を変更しても一切反映されないバグ)。
+    // 実際に注入した設定値が使われることを検証する。
+    [Fact]
+    public async Task BackupDriverAsync_AutoCleanup_HonorsInjectedMaxBackupGenerationsSetting()
+    {
+        _settings.MaxBackupGenerations.Returns(2);
+        var driver = MakeDriver();
+
+        for (int i = 0; i < 5; i++)
+        {
+            await _sut.BackupDriverAsync(driver);
+            await Task.Delay(5);
+        }
+
+        _sut.GetAvailableBackups(driver).Should().HaveCount(2);
     }
 
     // --- CleanupOldBackupsAsync ---
@@ -187,7 +213,8 @@ public class BackupServiceTests : IDisposable
     {
         public TestableBackupService(
             Microsoft.Extensions.Logging.ILogger<BackupService> logger,
+            ISettingsService settings,
             string backupRoot)
-            : base(logger, backupRoot) { }
+            : base(logger, settings, backupRoot) { }
     }
 }

@@ -29,7 +29,7 @@
 ### バックアップ/復元 (`src/AeroDriver.Core/Services/BackupService.cs`)
 - `pnputil /export-driver`で実際のドライバーファイル一式(INF+SYS+関連ファイル)をコピー
 - `pnputil /add-driver /install`で実際に再インストールして復元
-- 3世代自動ローテーション
+- `ISettingsService.MaxBackupGenerations`(既定3)に基づく自動ローテーション
 
 ### セキュリティ多層防御
 - `src/AeroDriver.Core/Helpers/ElevationGuard.cs`: 管理者権限チェック(非Windowsではバイパス)
@@ -126,6 +126,8 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 | コンパイル不能コード | `AeroDriver.Core/Program.cs`(削除済み) | `DriverInfo`/`Task`のusing不足で存在自体がビルドを壊していた重複ファイル |
 | **パストラバーサル(2件)** | `BackupService.cs` | ①`GetDeviceDirectory`が`Path.GetInvalidFileNameChars()`(`.`を含まない)でのみサニタイズしており、`DeviceID=".."`が素通りしてバックアップルート外を指せた。CLIの`rollback --device-id ..`から到達可能。②`RestoreDriverAsync`の`backupVersion`も同種: `"backup_"`プレフィックスは先頭セグメントの単独`".."`は防ぐが、内部に埋め込まれた`"../"`(例: `"../../../../Windows/System32"`)は防げず、`deviceDir`の外を指せた。両方とも`Path.GetFullPath`で正規化しルート配下かを検証する多層防御を追加 |
 | コンソール文字化け | `AeroDriver.CLI/Program.cs` | 10言語対応を追加したのに`Console.OutputEncoding`未設定のままで、Windows既定コードページでは中国語/韓国語/ロシア語等が文字化けしていた。起動時にUTF-8へ明示的に切り替え |
+| nullable注釈の虚偽(2件目) | `IBackupService.cs`, `DriverUpdateEvents.cs` | `RestoreDriverAsync(..., string backupVersion = null)`と`UpdatesInstalledEventArgs.ErrorMessage`が非null宣言のままnullを扱っていた。`string?`に修正し、`InstalledDriver`にも欠けていたnullガードを追加 |
+| **設定が反映されない** | `BackupService.cs` | `ISettingsService.MaxBackupGenerations`をユーザーが変更しても、`BackupService`はハードコードされた`DefaultMaxGenerations = 3`を常に使っており一切反映されなかった。`BackupService`に`ISettingsService`を注入し実際の設定値を参照するよう修正 |
 
 ---
 

@@ -15,19 +15,20 @@ namespace AeroDriver.Core.Services
     public class BackupService : IBackupService
     {
         private readonly ILogger<BackupService> _logger;
+        private readonly ISettingsService _settings;
         private readonly string _backupRoot;
-        private const int DefaultMaxGenerations = 3;
 
-        public BackupService(ILogger<BackupService> logger)
-            : this(logger, Path.Combine(
+        public BackupService(ILogger<BackupService> logger, ISettingsService settings)
+            : this(logger, settings, Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "AeroDriver", "Backups"))
         { }
 
         // テスト用: バックアップルートを外から指定できる
-        protected BackupService(ILogger<BackupService> logger, string backupRoot)
+        protected BackupService(ILogger<BackupService> logger, ISettingsService settings, string backupRoot)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _backupRoot = backupRoot;
             Directory.CreateDirectory(_backupRoot);
         }
@@ -77,7 +78,10 @@ namespace AeroDriver.Core.Services
                 _logger.LogInformation("バックアップを作成しました: {BackupDir} (ファイル含む: {HasFiles})",
                     backupDir, exported);
 
-                await CleanupOldBackupsAsync(deviceDir, DefaultMaxGenerations);
+                // ISettingsService.MaxBackupGenerations 未実装時は BackupService が
+                // 常に固定3世代でクリーンアップしており、ユーザーが設定を変更しても
+                // 一切反映されないバグだった。実際の設定値を参照するよう修正。
+                await CleanupOldBackupsAsync(deviceDir, _settings.MaxBackupGenerations);
                 return true;
             }
             catch (Exception ex)
