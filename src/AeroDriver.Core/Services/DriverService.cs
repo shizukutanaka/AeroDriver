@@ -638,6 +638,11 @@ namespace AeroDriver.Core.Services
                         // （Win32_PnPEntity 固有のプロパティ）ため、別途取得する。
                         detail.StatusInfo = GetStatusInfo(session, safeId);
 
+                        // DriverName は Win32_PnPSignedDriver 上では実体ファイル（.sys 等）への
+                        // フルパスを指す。実在すればサイズ取得・署名検証・INF本文の読み取りに使う。
+                        detail.DriverPath = Prop("DriverName")?.Value?.ToString();
+                        PopulateFileDerivedInfo(detail);
+
                         return detail;
                     }
 
@@ -652,6 +657,38 @@ namespace AeroDriver.Core.Services
             {
                 _logger.LogError(ex, "ドライバー詳細取得中にエラーが発生しました: {DeviceID}", deviceId);
                 return null;
+            }
+        }
+
+        /// <summary>
+        /// <see cref="DriverDetailInfo.DriverPath"/> が実在するファイルを指している場合に限り、
+        /// そこから導出できる情報（サイズ・Authenticode署名・同ディレクトリのINF本文）を埋める。
+        /// ファイルアクセス系の例外はすべて握りつぶし、該当フィールドを未設定のまま返す
+        /// （詳細情報の欠落であって致命的エラーではないため、ここで全体を失敗させない）。
+        /// </summary>
+        private static void PopulateFileDerivedInfo(DriverDetailInfo detail)
+        {
+            if (string.IsNullOrEmpty(detail.DriverPath) || !File.Exists(detail.DriverPath))
+                return;
+
+            try
+            {
+                detail.DriverSize = new FileInfo(detail.DriverPath).Length;
+                detail.CertificateInfo = AuthenticodeHelper.GetCertificateInfo(detail.DriverPath);
+
+                if (!string.IsNullOrEmpty(detail.InfName))
+                {
+                    var infPath = Path.Combine(Path.GetDirectoryName(detail.DriverPath) ?? string.Empty, detail.InfName);
+                    if (File.Exists(infPath))
+                        detail.InfContent = File.ReadAllText(infPath);
+                }
+            }
+            catch (Exception ex) when (
+                ex is IOException or
+                      UnauthorizedAccessException or
+                      System.Security.SecurityException)
+            {
+                // ファイルアクセス失敗はベストエフォート項目の欠落として扱う
             }
         }
 

@@ -267,6 +267,22 @@ namespace AeroDriver.CLI
                 Console.WriteLine($"WHQL:          {(detail.IsWHQLCertified ? "はい" : "いいえ")}");
                 Console.WriteLine($"Status:        {detail.Status} (StatusInfo={detail.StatusInfo})");
 
+                if (!string.IsNullOrEmpty(detail.DriverPath))
+                {
+                    Console.WriteLine($"DriverPath:    {detail.DriverPath}");
+                    Console.WriteLine($"DriverSize:    {detail.DriverSize:N0} bytes");
+                }
+
+                if (detail.CertificateInfo is { } cert)
+                {
+                    Console.WriteLine("\n--- Authenticode署名 ---");
+                    Console.WriteLine($"Subject:       {cert.Subject}");
+                    Console.WriteLine($"Issuer:        {cert.Issuer}");
+                    Console.WriteLine($"ValidFrom:     {cert.ValidFrom}");
+                    Console.WriteLine($"ValidTo:       {cert.ValidTo}");
+                    Console.WriteLine($"信頼チェーン:  {(cert.IsWHQLSigned ? "検証成功" : "検証失敗")}");
+                }
+
                 if (detail.Properties.Count > 0)
                 {
                     Console.WriteLine("\n--- 生のWMIプロパティ ---");

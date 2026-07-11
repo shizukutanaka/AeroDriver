@@ -3,6 +3,7 @@ using System.IO;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Security.Cryptography.X509Certificates;
+using AeroDriver.Core.Models;
 
 namespace AeroDriver.Core.Helpers
 {
@@ -47,6 +48,43 @@ namespace AeroDriver.Core.Helpers
                       PlatformNotSupportedException)
             {
                 return false;
+            }
+        }
+
+        /// <summary>
+        /// ファイルの Authenticode 署名から発行者/サブジェクト/有効期間を読み取ります。
+        /// 署名が存在しない、無効、またはファイル自体にアクセスできない場合は null
+        /// （フェイルクローズ。<see cref="HasValidSignature"/> と同じ例外方針）。
+        /// </summary>
+        public static CertificateInfo? GetCertificateInfo(string filePath)
+        {
+            try
+            {
+#pragma warning disable SYSLIB0057 // CreateFromSignedFile は .NET 9 で非推奨だが .NET 8 では利用可能
+                using var cert = X509Certificate2.CreateFromSignedFile(filePath);
+#pragma warning restore SYSLIB0057
+                using var chain = new X509Chain();
+                chain.ChainPolicy.RevocationMode = X509RevocationMode.Online;
+                chain.ChainPolicy.VerificationFlags = X509VerificationFlags.NoFlag;
+                bool isTrusted = chain.Build(cert);
+
+                return new CertificateInfo
+                {
+                    Issuer = cert.Issuer,
+                    Subject = cert.Subject,
+                    ValidFrom = cert.NotBefore.ToString("o"),
+                    ValidTo = cert.NotAfter.ToString("o"),
+                    IsWHQLSigned = isTrusted,
+                };
+            }
+            catch (Exception ex) when (
+                ex is CryptographicException or
+                      IOException or
+                      UnauthorizedAccessException or
+                      ArgumentException or
+                      PlatformNotSupportedException)
+            {
+                return null;
             }
         }
     }

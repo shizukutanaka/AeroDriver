@@ -88,14 +88,14 @@
 - ~~`Properties`~~ → **解消済み**。`GetDriverDetailsAsync`が`Win32_PnPSignedDriver`から
   取得する全`CimInstanceProperties`をそのまま格納するようにし、新設したCLIの
   `details --device-id <id>`コマンドで実際に表示するようにした
-- `DriverPath`
-- `DriverSize`
-- `InfContent`
-- `CertificateInfo`
-
-上記4件は削除していない。`Win32_PnPSignedDriver`から正確な値を取得する手段がなく
-(ファイルパス自体が公開されていない、署名検証にはパスが必要等)、将来GUIを実装する際に
-使う想定の先行宣言と思われるため、実装時に中身を埋めるか、不要と判断されれば削除すること。
+- ~~`DriverPath`/`DriverSize`/`InfContent`/`CertificateInfo`~~ → **解消済み**。
+  `Win32_PnPSignedDriver.DriverName`が実体ファイル(.sys等)へのフルパスを返すことを利用し、
+  `GetDriverDetailsAsync`内の`PopulateFileDerivedInfo`で
+  `DriverPath`(そのパス)・`DriverSize`(`FileInfo.Length`)・
+  `CertificateInfo`(新設した`AuthenticodeHelper.GetCertificateInfo`でAuthenticode署名の
+  発行者/サブジェクト/有効期間/信頼チェーン検証結果を取得)・
+  `InfContent`(同ディレクトリの`InfName`ファイルが実在すれば本文を読み取り)を埋めるようにした。
+  ファイルアクセス系の例外はベストエフォート項目の欠落として握りつぶし、詳細取得全体は失敗させない。
 
 ~~`src/AeroDriver.Languages/Resources/` 配下の8言語の`.resx`が空~~ → **解消済み**。
 de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と同じ18キーの
