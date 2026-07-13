@@ -706,7 +706,8 @@ namespace AeroDriver.Core.Services
             catch (Exception ex) when (
                 ex is IOException or
                       UnauthorizedAccessException or
-                      System.Security.SecurityException)
+                      System.Security.SecurityException or
+                      ArgumentException) // InfName(WMI由来の未検証文字列)がPath.Combineに渡せない文字を含む場合
             {
                 // ファイルアクセス失敗はベストエフォート項目の欠落として扱う
             }

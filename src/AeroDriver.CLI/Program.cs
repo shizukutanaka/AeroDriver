@@ -281,7 +281,7 @@ namespace AeroDriver.CLI
                     Console.WriteLine($"Issuer:        {cert.Issuer}");
                     Console.WriteLine($"ValidFrom:     {cert.ValidFrom}");
                     Console.WriteLine($"ValidTo:       {cert.ValidTo}");
-                    Console.WriteLine($"信頼チェーン:  {(cert.IsWHQLSigned ? "検証成功" : "検証失敗")}");
+                    Console.WriteLine($"信頼チェーン:  {(cert.IsTrustedChain ? "検証成功" : "検証失敗")}");
                 }
 
                 if (detail.Properties.Count > 0)

@@ -1,7 +1,9 @@
+using System.Net.Http;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using AeroDriver.Core.Services;
 using FluentAssertions;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
 using Xunit;
@@ -208,13 +210,116 @@ public class BackupServiceTests : IDisposable
         await act.Should().ThrowAsync<ArgumentException>();
     }
 
+    // --- RestoreDriverAsync: 脆弱ドライバー照合(ロールバック経由のバイパス防止) ---
+
+    [Fact]
+    public async Task RestoreDriverAsync_BackupContainsKnownVulnerableFile_BlocksBeforeReinstallAttempt()
+    {
+        var driver = MakeDriver();
+        var logger = new RecordingLogger<BackupService>();
+        var sut = await CreateBackupWithFilesAsync(driver, blocklistMatches: true, logger: logger);
+
+        var result = await sut.RestoreDriverAsync(driver);
+
+        result.Should().BeFalse();
+        // ブロックリスト一致の警告が出ていること = pnputil を試す前にここで止まったことの証拠
+        // (pnputil が無いテスト環境では通っても失敗するため、result==false だけでは
+        // 「ブロックリストで拒否された」のか「pnputil起動失敗」なのか区別できない)
+        logger.Messages.Should().Contain(m => m.Contains("既知の脆弱ドライバー"));
+        logger.Messages.Should().NotContain(m => m.Contains("復元失敗（pnputil"));
+    }
+
+    [Fact]
+    public async Task RestoreDriverAsync_NoVulnerableDriverBlocklistRegistered_ProceedsPastBlocklistCheck()
+    {
+        // ブロックリスト未登録(既定コンストラクタ相当)なら照合はスキップされ、
+        // 通常どおり pnputil 呼び出しに進む(pnputilが無いテスト環境では最終的に失敗するが、
+        // ブロックリストの警告ログが一切出ないことで「照合自体が実行されなかった」ことを確認する)
+        var driver = MakeDriver();
+        var logger = new RecordingLogger<BackupService>();
+        var sut = await CreateBackupWithFilesAsync(driver, blocklistMatches: false, injectBlocklist: false, logger: logger);
+
+        var result = await sut.RestoreDriverAsync(driver);
+
+        result.Should().BeFalse();
+        logger.Messages.Should().NotContain(m => m.Contains("既知の脆弱ドライバー"));
+    }
+
+    // バックアップの files/ 配下に実ファイルを作り、必要ならブロックリスト一致のハッシュを持たせる
+    private async Task<BackupService> CreateBackupWithFilesAsync(
+        DriverInfo driver, bool blocklistMatches, bool injectBlocklist = true, ILogger<BackupService>? logger = null)
+    {
+        await _sut.BackupDriverAsync(driver); // deviceDir とメタデータを作る
+
+        var deviceDir = Directory.GetDirectories(_tempRoot).Single();
+        var backupDir = Directory.GetDirectories(deviceDir, "backup_*").Single();
+        var filesDir = Path.Combine(backupDir, "files");
+        Directory.CreateDirectory(filesDir);
+        await File.WriteAllTextAsync(Path.Combine(filesDir, "test.inf"), "; dummy inf");
+        var driverFile = Path.Combine(filesDir, "test.sys");
+        await File.WriteAllTextAsync(driverFile, "dummy driver bytes");
+
+        VulnerableDriverBlocklist? blocklist = null;
+        if (injectBlocklist)
+        {
+            var sha256 = blocklistMatches
+                ? Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(await File.ReadAllBytesAsync(driverFile)))
+                : "0000000000000000000000000000000000000000000000000000000000000000";
+
+            var cacheFile = Path.Combine(_tempRoot, $"blocklist_{Guid.NewGuid():N}.json");
+            await File.WriteAllTextAsync(cacheFile, $$"""
+                [{"KnownVulnerableSamples":[{"SHA256":"{{sha256}}"}]}]
+                """);
+            File.SetLastWriteTimeUtc(cacheFile, DateTime.UtcNow);
+
+            blocklist = new TestableVulnerableDriverBlocklist(
+                NullLogger<VulnerableDriverBlocklist>.Instance,
+                new HttpClient(new NotImplementedHandler()),
+                cacheFile);
+        }
+
+        return new TestableBackupService(
+            logger ?? NullLogger<BackupService>.Instance, _settings, _tempRoot, blocklist);
+    }
+
+    // ログメッセージを検証用に記録するだけの最小実装
+    private sealed class RecordingLogger<T> : ILogger<T>
+    {
+        public List<string> Messages { get; } = new();
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(
+            LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+            => Messages.Add(formatter(state, exception));
+    }
+
+    private sealed class TestableVulnerableDriverBlocklist : VulnerableDriverBlocklist
+    {
+        public TestableVulnerableDriverBlocklist(
+            Microsoft.Extensions.Logging.ILogger<VulnerableDriverBlocklist> logger,
+            HttpClient client,
+            string cacheFile)
+            : base(logger, client, cacheFile) { }
+    }
+
+    private sealed class NotImplementedHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+            => throw new NotImplementedException("テスト中はHTTPを呼んではいけません");
+    }
+
     // テスト用サブクラス: バックアップルートを一時ディレクトリに向ける
     private sealed class TestableBackupService : BackupService
     {
         public TestableBackupService(
             Microsoft.Extensions.Logging.ILogger<BackupService> logger,
             ISettingsService settings,
-            string backupRoot)
-            : base(logger, settings, backupRoot) { }
+            string backupRoot,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
+            : base(logger, settings, backupRoot, vulnerableDriverBlocklist) { }
     }
 }

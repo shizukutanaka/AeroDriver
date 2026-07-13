@@ -74,7 +74,7 @@ namespace AeroDriver.Core.Helpers
                     Subject = cert.Subject,
                     ValidFrom = cert.NotBefore.ToString("o"),
                     ValidTo = cert.NotAfter.ToString("o"),
-                    IsWHQLSigned = isTrusted,
+                    IsTrustedChain = isTrusted,
                 };
             }
             catch (Exception ex) when (

@@ -20,12 +20,17 @@ namespace AeroDriver.Core.Services
     public class PnpUtilDriverSource : IDriverUpdateSource
     {
         private readonly ILogger<PnpUtilDriverSource> _logger;
+        // null 許容: 未登録(テスト等)なら照合はスキップされる
+        private readonly VulnerableDriverBlocklist? _vulnerableDriverBlocklist;
 
         public string SourceName => "pnputil";
 
-        public PnpUtilDriverSource(ILogger<PnpUtilDriverSource> logger)
+        public PnpUtilDriverSource(
+            ILogger<PnpUtilDriverSource> logger,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _vulnerableDriverBlocklist = vulnerableDriverBlocklist;
         }
 
         public async Task<IReadOnlyList<DriverInfo>> SearchUpdatesAsync(CancellationToken cancellationToken = default)
@@ -61,6 +66,30 @@ namespace AeroDriver.Core.Services
         /// </summary>
         public async Task<bool> AddDriverAsync(string infPath, CancellationToken cancellationToken = default)
         {
+            // DriverService.InstallDriverUpdateWithResultAsync/InstallCustomDriverAsync と同じ
+            // 既知の脆弱ドライバー(BYOVD)照合。この経路からもドライバーストアへの追加が
+            // 可能なため、単一のチョークポイントに頼らずここでも適用する
+            if (_vulnerableDriverBlocklist != null)
+            {
+                try
+                {
+                    if (await _vulnerableDriverBlocklist.IsKnownVulnerableAsync(infPath, cancellationToken).ConfigureAwait(false))
+                    {
+                        _logger.LogWarning(
+                            "既知の脆弱ドライバー(BYOVD悪用実績あり)のため追加を拒否しました: {Path}", infPath);
+                        return false;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "脆弱ドライバー照合中にエラーが発生しました(照合をスキップします): {Path}", infPath);
+                }
+            }
+
             // ArgumentList: 文字列結合ではなく引数トークンを個別指定 → インジェクション不可
             var output = await RunPnpUtilAsync(["/add-driver", infPath, "/install"], cancellationToken)
                 .ConfigureAwait(false);

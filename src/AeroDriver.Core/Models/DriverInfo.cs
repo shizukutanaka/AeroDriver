@@ -50,6 +50,13 @@ namespace AeroDriver.Core.Models
         public string? Subject { get; set; }
         public string? ValidFrom { get; set; }
         public string? ValidTo { get; set; }
-        public bool IsWHQLSigned { get; set; }
+
+        /// <summary>
+        /// 証明書チェーンがローカルマシンの信頼されたルートまで構築できたか。
+        /// WHQL/WHCP固有の検証(EKU OID、Microsoft署名用中間CAへのピン留め等)は行っていない
+        /// ため、これ単独では「WHQL認定済み」を意味しない。WHQL認定の判定には
+        /// <see cref="DriverInfo.IsWHQLCertified"/>(Win32_PnPSignedDriver.IsSigned由来)を使うこと。
+        /// </summary>
+        public bool IsTrustedChain { get; set; }
     }
 }

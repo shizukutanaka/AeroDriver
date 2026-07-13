@@ -17,19 +17,29 @@ namespace AeroDriver.Core.Services
         private readonly ILogger<BackupService> _logger;
         private readonly ISettingsService _settings;
         private readonly string _backupRoot;
+        // null 許容: 未登録(テスト等)なら復元時の照合はスキップされる
+        private readonly VulnerableDriverBlocklist? _vulnerableDriverBlocklist;
 
-        public BackupService(ILogger<BackupService> logger, ISettingsService settings)
+        public BackupService(
+            ILogger<BackupService> logger,
+            ISettingsService settings,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
             : this(logger, settings, Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AeroDriver", "Backups"))
+                "AeroDriver", "Backups"), vulnerableDriverBlocklist)
         { }
 
         // テスト用: バックアップルートを外から指定できる
-        protected BackupService(ILogger<BackupService> logger, ISettingsService settings, string backupRoot)
+        protected BackupService(
+            ILogger<BackupService> logger,
+            ISettingsService settings,
+            string backupRoot,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settings = settings ?? throw new ArgumentNullException(nameof(settings));
             _backupRoot = backupRoot;
+            _vulnerableDriverBlocklist = vulnerableDriverBlocklist;
             Directory.CreateDirectory(_backupRoot);
         }
 
@@ -200,6 +210,16 @@ namespace AeroDriver.Core.Services
 
                 ElevationGuard.ThrowIfNotElevated("ドライバーの復元");
 
+                // 復元は pnputil /add-driver で実ファイルを再登録するインストールと同義のため、
+                // DriverService.InstallDriverUpdateWithResultAsync/InstallCustomDriverAsync と同じ
+                // 既知の脆弱ドライバー(BYOVD)照合を適用する。バックアップ取得時点では
+                // ブロックリストに存在しなかった(後日追加された)ドライバーを素通りさせないため。
+                if (await IsAnyFileBlockedAsVulnerableAsync(filesDir).ConfigureAwait(false))
+                {
+                    _logger.LogWarning("既知の脆弱ドライバーを含むためバックアップからの復元を拒否しました: {BackupDir}", backupDir);
+                    return false;
+                }
+
                 bool installed = await ReinstallDriverFileAsync(infPath).ConfigureAwait(false);
                 if (installed)
                     _logger.LogInformation("ドライバーを復元しました: {BackupDir}", backupDir);
@@ -211,6 +231,36 @@ namespace AeroDriver.Core.Services
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ドライバー復元中にエラーが発生しました: {DeviceID}", driver.DeviceID);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// バックアップディレクトリ配下の全ファイルを既知の脆弱ドライバー(LOLDriversリスト)と
+        /// 照合する。ブロックリスト未登録(null)や照合自体の失敗はfalse(フェイルオープン)—
+        /// DriverService.IsBlockedAsVulnerableAsync と同じ方針。
+        /// </summary>
+        private async Task<bool> IsAnyFileBlockedAsVulnerableAsync(string filesDir)
+        {
+            if (_vulnerableDriverBlocklist == null) return false;
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(filesDir, "*", SearchOption.AllDirectories))
+                {
+                    if (await _vulnerableDriverBlocklist.IsKnownVulnerableAsync(file).ConfigureAwait(false))
+                    {
+                        _logger.LogWarning(
+                            "既知の脆弱ドライバー(BYOVD悪用実績あり)を検出しました: {Path}。" +
+                            "詳細は https://www.loldrivers.io/ を参照してください", file);
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "脆弱ドライバー照合中にエラーが発生しました(照合をスキップします): {Dir}", filesDir);
                 return false;
             }
         }
