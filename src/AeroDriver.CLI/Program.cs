@@ -191,6 +191,7 @@ namespace AeroDriver.CLI
                     DriverInstallResult.InsecureDownloadUrl => "インストール失敗: ダウンロードURLがHTTPSではありません。",
                     DriverInstallResult.DownloadFailed => "インストール失敗: ダウンロードに失敗しました。ネットワーク接続を確認してください。",
                     DriverInstallResult.SignatureInvalid => "インストール失敗: インストーラーの署名が無効です。",
+                    DriverInstallResult.KnownVulnerableDriver => "インストール失敗: 既知の脆弱ドライバー(BYOVD悪用実績あり)のためブロックしました。詳細: https://www.loldrivers.io/",
                     DriverInstallResult.InstallerFailed => $"インストール失敗: {target.DeviceName}",
                     DriverInstallResult.Cancelled => "インストールがキャンセルされました。",
                     _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",

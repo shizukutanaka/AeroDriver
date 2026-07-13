@@ -32,6 +32,13 @@ namespace AeroDriver.Core
                         PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                     })
                     .AddStandardResilienceHandler();
+            services.AddHttpClient(nameof(VulnerableDriverBlocklist))
+                    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
+                    {
+                        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
+                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
+                    })
+                    .AddStandardResilienceHandler();
             services.AddHttpClient(nameof(WhqlDatabaseService))
                     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                     {
@@ -45,6 +52,12 @@ namespace AeroDriver.Core
                 new PciIdDatabase(
                     sp.GetRequiredService<ILogger<PciIdDatabase>>(),
                     sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PciIdDatabase))));
+
+            // 脆弱ドライバーブロックリスト（シングルトン: ファイルキャッシュを共有）
+            services.AddSingleton<VulnerableDriverBlocklist>(sp =>
+                new VulnerableDriverBlocklist(
+                    sp.GetRequiredService<ILogger<VulnerableDriverBlocklist>>(),
+                    sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(VulnerableDriverBlocklist))));
 
             // コアサービス
             services.AddSingleton<ISettingsService, SettingsService>();  // 設定はアプリ全体で共有

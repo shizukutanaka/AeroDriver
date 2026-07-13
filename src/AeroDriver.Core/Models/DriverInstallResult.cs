@@ -13,6 +13,8 @@ namespace AeroDriver.Core.Models
         InsecureDownloadUrl,
         DownloadFailed,
         SignatureInvalid,
+        /// <summary>ダウンロードしたファイルが既知の脆弱ドライバー(LOLDriversリスト)と一致した</summary>
+        KnownVulnerableDriver,
         InstallerFailed,
         Cancelled,
         UnknownError,

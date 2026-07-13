@@ -23,6 +23,8 @@ namespace AeroDriver.Core.Services
         private readonly IBackupService _backupService;
         private readonly IReadOnlyList<IDriverUpdateSource> _updateSources;
         private readonly HttpClient _httpClient;
+        // null 許容: 未登録(テスト等)なら照合はスキップされる
+        private readonly VulnerableDriverBlocklist? _vulnerableDriverBlocklist;
         private bool _disposed;
 
         // WMIキャッシュ — SemaphoreSlim(1,1) で async-safe な排他制御
@@ -42,8 +44,10 @@ namespace AeroDriver.Core.Services
             ISettingsService settingsService,
             IBackupService backupService,
             IEnumerable<IDriverUpdateSource> updateSources,
-            IHttpClientFactory httpClientFactory)
+            IHttpClientFactory httpClientFactory,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
         {
+            _vulnerableDriverBlocklist = vulnerableDriverBlocklist;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
@@ -401,6 +405,14 @@ namespace AeroDriver.Core.Services
                         }
                     }
 
+                    // 既知の脆弱ドライバー(BYOVD悪用実績あり)との照合。
+                    // Authenticode 署名が有効でも脆弱なドライバーは存在するため、署名検証とは独立した層
+                    if (await IsBlockedAsVulnerableAsync(tempPath, cancellationToken).ConfigureAwait(false))
+                    {
+                        UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, false, "既知の脆弱ドライバーです"));
+                        return DriverInstallResult.KnownVulnerableDriver;
+                    }
+
                     bool success = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
                     return success ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
@@ -701,6 +713,10 @@ namespace AeroDriver.Core.Services
             try
             {
                 _logger.LogInformation("カスタムドライバーをインストールします: {Path}", driverPath);
+
+                if (await IsBlockedAsVulnerableAsync(driverPath, cancellationToken).ConfigureAwait(false))
+                    return false;
+
                 string ext = Path.GetExtension(driverPath).ToLowerInvariant();
                 return await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
             }
@@ -736,6 +752,37 @@ namespace AeroDriver.Core.Services
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// ファイルが既知の脆弱ドライバー(LOLDriversリスト)ならtrueを返しログに記録する。
+        /// ブロックリスト未登録(null)や照合自体の失敗はfalse(フェイルオープン)—
+        /// 照合はAuthenticode検証に対する追加層であり、単独でインストール可否を決めない。
+        /// </summary>
+        private async Task<bool> IsBlockedAsVulnerableAsync(string filePath, CancellationToken ct)
+        {
+            if (_vulnerableDriverBlocklist == null) return false;
+
+            try
+            {
+                if (await _vulnerableDriverBlocklist.IsKnownVulnerableAsync(filePath, ct).ConfigureAwait(false))
+                {
+                    _logger.LogWarning(
+                        "既知の脆弱ドライバー(BYOVD悪用実績あり)のためインストールを拒否しました: {Path}。" +
+                        "詳細は https://www.loldrivers.io/ を参照してください", filePath);
+                    return true;
+                }
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "脆弱ドライバー照合中にエラーが発生しました(照合をスキップします): {Path}", filePath);
+                return false;
+            }
         }
 
         private async Task<bool> InstallFromFileAsync(string filePath, string? installerType, CancellationToken ct)
