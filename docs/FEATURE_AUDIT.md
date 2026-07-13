@@ -194,3 +194,33 @@ jobs:
 - **宣言と実装を一致させる**: nullable注釈、XMLドキュメントコメント、README等の対外的な
   宣言は、実装が実際にその通り動くことを検証してから書く。これがこのセッションで最も
   繰り返し破られていたルールであり、最優先で守ること
+
+---
+
+## 7. 外部環境の事実(2026-07時点のWeb調査で確認)
+
+依存関係の更新やAPI移行を検討する前に必ずここを読むこと。
+「新しいAPIに移行すべき」という直感が誤りであるケースが複数ある。
+
+- **System.CommandLine は 2.0.0-beta4 に固定**: beta5 は `SetHandler`→`SetAction` 等の
+  破壊的変更を含み、GA(安定版)にも未達。GA後に別作業として移行する。
+  (https://github.com/dotnet/command-line-api/releases)
+- **`SYSLIB0057` の pragma 抑制は公式推奨パターン**: 後継の `X509CertificateLoader` は
+  Authenticode 署名からの証明書抽出に**対応していない**ため、
+  `X509Certificate2.CreateFromSignedFile` の継続利用が Microsoft の案内どおり。
+  pragma を「負債」と見なして移行してはいけない。
+  (https://learn.microsoft.com/dotnet/fundamentals/syslib-diagnostics/syslib0057)
+- **`Win32_PnPSignedDriver` はレガシーだが非推奨化されていない**: 現行の `CimSession`
+  経由での利用に問題なし。将来移行するなら CfgMgr32 API + DEVPKEY だが、現に動作して
+  おり移行の理由がない。
+- **WUA COM API は継続サポート**: Windows Update Catalog の無料公式 REST API は存在
+  しないため、現行の WUA COM + Catalog スクレイピングの組み合わせが正しいアプローチ。
+- **2026年4月: クロス署名ドライバーの信頼廃止**(Windows 11 24H2/25H2/26H1, Server 2025):
+  WHCP署名または明示的許可リストのみがロード可能になる。`InstallDriverUpdateWithResultAsync`
+  はWHQL非認定ドライバーに対しこの旨を警告ログで通知する。
+  (https://techcommunity.microsoft.com/blog/windows-itpro-blog/)
+- **CVE-2025-59033 / BYOVD対策**: Microsoft の脆弱ドライバーブロックリストは HVCI 有効時
+  しか強制されず更新も遅い。このため `VulnerableDriverBlocklist`(LOLDrivers の無料JSON、
+  https://www.loldrivers.io/api/drivers.json)によるインストーラー側の SHA256 照合層を追加済み。
+  照合はフェイルオープン(リスト取得不可時は警告ログを出してスキップ)であり、
+  Authenticode 検証(フェイルクローズ)の代替ではなく追加層である点に注意。

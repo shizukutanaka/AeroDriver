@@ -348,6 +348,14 @@ namespace AeroDriver.Core.Services
                     _logger.LogInformation("WDAC 監査モード中: ドライバーインストールはログに記録されます");
                 }
 
+                if (!driverUpdate.IsWHQLCertified)
+                {
+                    _logger.LogWarning(
+                        "WHQL非認定ドライバーです: {DeviceName}。2026年4月以降、Windows 11 24H2+ では" +
+                        "クロス署名プログラム廃止により、WHCP署名のないカーネルドライバーはロードがブロックされます",
+                        driverUpdate.DeviceName);
+                }
+
                 if (_settingsService.BackupEnabled)
                     await _backupService.BackupDriverAsync(driverUpdate);
 
