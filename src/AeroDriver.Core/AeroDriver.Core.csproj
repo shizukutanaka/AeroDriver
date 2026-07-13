@@ -25,4 +25,8 @@
     <Folder Include="Helpers\" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="AeroDriver.Core.Tests" />
+  </ItemGroup>
+
 </Project>

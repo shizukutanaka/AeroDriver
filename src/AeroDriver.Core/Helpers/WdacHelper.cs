@@ -32,20 +32,23 @@ namespace AeroDriver.Core.Helpers
 
                 foreach (var inst in instances)
                 {
-                    // CodeIntegrityPolicyEnforcementStatus:
-                    //   0 = Off, 1 = AuditMode, 2 = EnforcementMode
-                    var ciStatus = inst.CimInstanceProperties["CodeIntegrityPolicyEnforcementStatus"]?.Value;
-                    int enforcement = ciStatus is uint u ? (int)u : (ciStatus is int i ? i : 0);
-
-                    // UsermodeCodeIntegrityPolicyEnforcementStatus も確認
-                    var umStatus = inst.CimInstanceProperties["UsermodeCodeIntegrityPolicyEnforcementStatus"]?.Value;
-                    int umEnforcement = umStatus is uint uu ? (int)uu : (umStatus is int ii ? ii : 0);
-
-                    return new WdacStatus
+                    using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
                     {
-                        KernelModeEnforcement = (WdacEnforcementMode)enforcement,
-                        UserModeEnforcement   = (WdacEnforcementMode)umEnforcement,
-                    };
+                        // CodeIntegrityPolicyEnforcementStatus:
+                        //   0 = Off, 1 = AuditMode, 2 = EnforcementMode
+                        var ciStatus = inst.CimInstanceProperties["CodeIntegrityPolicyEnforcementStatus"]?.Value;
+                        int enforcement = ciStatus is uint u ? (int)u : (ciStatus is int i ? i : 0);
+
+                        // UsermodeCodeIntegrityPolicyEnforcementStatus も確認
+                        var umStatus = inst.CimInstanceProperties["UsermodeCodeIntegrityPolicyEnforcementStatus"]?.Value;
+                        int umEnforcement = umStatus is uint uu ? (int)uu : (umStatus is int ii ? ii : 0);
+
+                        return new WdacStatus
+                        {
+                            KernelModeEnforcement = (WdacEnforcementMode)enforcement,
+                            UserModeEnforcement   = (WdacEnforcementMode)umEnforcement,
+                        };
+                    }
                 }
 
                 // Win32_DeviceGuard が取得できない場合 = WDAC 無効

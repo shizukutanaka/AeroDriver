@@ -135,7 +135,9 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        private DriverInfo? MapToDriverInfo(dynamic update)
+        // internal: WUA COM オブジェクトを持ち込めないテスト環境からも
+        // マッピングロジック単体を検証できるようにする(dynamic な ExpandoObject 等で代用)
+        internal DriverInfo? MapToDriverInfo(dynamic update)
         {
             try
             {
@@ -146,8 +148,11 @@ namespace AeroDriver.Core.Services
                     UpdateSource = SourceName,
                 };
 
-                // IWindowsDriverUpdate 固有プロパティ（キャストできなければスキップ）
-                TrySet(() => info.DriverVersion = (string)update.DriverVerDate.ToString());
+                // IWindowsDriverUpdate 固有プロパティ（キャストできなければスキップ）。
+                // DriverVerVersion がバージョン文字列そのもの。DriverVerDate は日付であり、
+                // DriverVersion に日付文字列を入れてしまうと下流のバージョン比較が壊れるため誤用しないこと
+                // （DriverDate には別途 DriverVerDate を正しく使っている、下記参照）
+                TrySet(() => info.DriverVersion = (string)update.DriverVerVersion);
                 TrySet(() => info.DriverProviderName = (string)update.DriverProvider);
                 TrySet(() =>
                 {
