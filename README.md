@@ -2,7 +2,6 @@
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)
 ![.NET](https://img.shields.io/badge/.NET-8.0-blueviolet)
-[![Build Status](https://github.com/shizukutanaka/AeroDriver/actions/workflows/build.yml/badge.svg)](https://github.com/shizukutanaka/AeroDriver/actions)
 
 **AeroDriver** is a driver management tool for Windows that prioritizes WHQL
 (Windows Hardware Quality Labs) certified drivers to keep systems stable.

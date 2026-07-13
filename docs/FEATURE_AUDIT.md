@@ -139,7 +139,10 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 
 ### CIワークフロー未反映
 `.github/workflows/build.yml`を作成したが、このセッションのGitHub Appトークンには
-`workflows`権限がなくpushできなかった。以下の内容を手動で追加する必要がある:
+`workflows`権限がなくpushできなかった(複数セッションで再確認済み。過去に一度は
+コミットされたがpush時にリジェクトされ、README のBuild Statusバッジだけが
+ワークフロー不在のまま残り続けて「常にno status」で表示される状態になっていたため、
+バッジ自体をREADMEから削除して整合を取った)。以下の内容を手動で追加する必要がある:
 
 ```yaml
 name: Build
