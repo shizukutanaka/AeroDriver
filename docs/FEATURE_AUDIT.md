@@ -35,7 +35,16 @@
 ### セキュリティ多層防御
 - `src/AeroDriver.Core/Helpers/ElevationGuard.cs`: 管理者権限チェック(非Windowsではバイパス)
 - `src/AeroDriver.Core/Helpers/WqlSanitizer.cs`: WQLインジェクション対策(アローリスト+エスケープ)
-- `src/AeroDriver.Core/Helpers/AuthenticodeHelper.cs`: EXE/MSIのAuthenticode署名検証必須化
+- `src/AeroDriver.Core/Helpers/AuthenticodeHelper.cs`: EXE/MSIのAuthenticode署名検証必須化。
+  ネイティブ`WinVerifyTrust`(wintrust.dll)をP/Invokeで呼び出して検証する(旧実装は
+  `X509Certificate2.CreateFromSignedFile`+`X509Chain.Build`のみで、埋め込み証明書の
+  チェーン検証はできてもPKCS#7署名が実際にファイルの現バイト列を対象にしているかや
+  コード署名EKUの有無は確認できていなかった)。X509系APIは表示用メタデータ
+  (Issuer/Subject/有効期間)抽出にのみ残している
+- `src/AeroDriver.Core/Services/VulnerableDriverBlocklist.cs`: LOLDriversの無料SHA256
+  リストで既知の脆弱ドライバー(BYOVD)をブロック。`InstallDriverUpdateWithResultAsync`
+  /`InstallCustomDriverAsync`/`BackupService.RestoreDriverAsync`/
+  `PnpUtilDriverSource.AddDriverAsync`の全インストール/再インストール経路に適用済み
 - `DriverService.InstallDriverUpdateAsync`: ダウンロードURLのHTTPS強制
 - `DriverService.DisableDriverAsync`: ブートクリティカルなPnPクラス(DiskDrive/SCSIAdapter/System/Computer/Volume)の無効化を`force`なしで拒否
 - 全`Process.Start`呼び出しは`ArgumentList`使用(シェル経由のコマンドインジェクション不可)
@@ -109,7 +118,7 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 | `WqlSanitizer` | ✅ `WqlSanitizerTests.cs` | 純粋・静的なので完全にテスト可能 |
 | `ElevationGuard` | ✅ `ElevationGuardTests.cs` | 非Windows側のバイパス経路のみ検証(Windows側は環境依存のため未検証) |
 | `WdacHelper` | ✅ `WdacHelperTests.cs` | 非Windows環境での`WdacStatus.Disabled`フォールバックのみ検証。実際のCIポリシー読み取りはWindows実機でしか検証不可 |
-| `AuthenticodeHelper` | 🟡 `AuthenticodeHelperTests.cs`(部分) | フェイルクローズ経路(ファイル不在/不正形式)のみ検証。「実際に有効な署名を持つ」正常系は実署名バイナリが必要でテスト環境に用意できないため未検証 |
+| `AuthenticodeHelper` | 🟡 `AuthenticodeHelperTests.cs`(部分) | フェイルクローズ経路(ファイル不在/不正形式)のみ検証。「実際に有効な署名を持つ」正常系は実署名バイナリが必要でテスト環境に用意できないため未検証。検証本体を`WinVerifyTrust`(wintrust.dll、非Windowsでは`OperatingSystem.IsWindows()`チェックで即false)に置き換えたが、フェイルクローズ経路のテストは経路が変わっただけで結果は変わらないため既存テストのまま通る |
 
 ---
 
@@ -132,6 +141,14 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 | コンソール文字化け | `AeroDriver.CLI/Program.cs` | 10言語対応を追加したのに`Console.OutputEncoding`未設定のままで、Windows既定コードページでは中国語/韓国語/ロシア語等が文字化けしていた。起動時にUTF-8へ明示的に切り替え |
 | nullable注釈の虚偽(2件目) | `IBackupService.cs`, `DriverUpdateEvents.cs` | `RestoreDriverAsync(..., string backupVersion = null)`と`UpdatesInstalledEventArgs.ErrorMessage`が非null宣言のままnullを扱っていた。`string?`に修正し、`InstalledDriver`にも欠けていたnullガードを追加 |
 | **設定が反映されない** | `BackupService.cs` | `ISettingsService.MaxBackupGenerations`をユーザーが変更しても、`BackupService`はハードコードされた`DefaultMaxGenerations = 3`を常に使っており一切反映されなかった。`BackupService`に`ISettingsService`を注入し実際の設定値を参照するよう修正 |
+| 誤ったWMIプロパティ名 | `DriverService.cs` | `GetDriverDetailsAsync`が`ClassGuid`ではなく存在しない`DeviceClassGUID`を読んでおり`ClassGuid`が常にnullだった |
+| `SignatureInvalid`が到達不能 | `DriverService.cs` | `InstallFromFileAsync`が`bool`を返しており、Authenticode検証失敗は汎用の`InstallerFailed`に潰されていた。CLIに専用メッセージがあるのに一度も表示されない状態。`DriverInstallResult`を返すよう変更 |
+| バージョン比較が辞書順 | `DriverService.CheckForUpdatesAsync`, `WhqlDatabaseService.FindDriverByHardwareIdAsync` | 同一HardwareIDの重複排除/カタログ検索の「最新」選定が`StringComparer.OrdinalIgnoreCase`(文字列辞書順)で行われており、`"10.2.0"`が`"9.5.1"`に負けるなど数値として誤った順序になっていた。`VersionHelper.Compare`使用に統一 |
+| CimInstance未破棄 | `DriverService.cs`(複数箇所) | `CimSession.QueryInstances`が返す`CimInstance`が`using`されておらずネイティブMIハンドルがリークしていた(`WdacHelper.GetStatus`で先に修正した同種バグの横展開) |
+| プロセス出力パイプデッドロック | `BackupService.cs`(`ExportDriverFilesAsync`, `ReinstallDriverFileAsync`) | 標準出力・標準エラーの両方をリダイレクトしながら片方しか読まずに`WaitForExitAsync`を待っており、出力がOSパイプバッファを超えると子プロセスがブロックしデッドロックしうる状態だった。両ストリームを並行読み取りしてから待機するよう修正 |
+| INFファイル名のパストラバーサル | `DriverService.PopulateFileDerivedInfo` | WMI由来の`InfName`をそのまま`Path.Combine`していたため`".."`を含む値でドライバーディレクトリ外のファイルを`InfContent`に読み込めた(不正な文字によるクラッシュ防止とは別問題)。`Path.GetFileName`でファイル名部分のみ抽出するよう修正 |
+| 簡易署名検証 | `AuthenticodeHelper.cs` | `X509Certificate2.CreateFromSignedFile`+`X509Chain.Build`だけでは、ファイルの証明書テーブルから証明書を抜き出してチェーン検証するだけで、PKCS#7署名が実際に現在のファイルバイト列を対象にしているかを確認できていなかった。ネイティブ`WinVerifyTrust`(wintrust.dll)による本来のAuthenticode検証に置き換え |
+| ログの引数取り違え | `LanguageService.cs` | 非対応カルチャからのフォールバック時、`_currentCulture`をen-USに再代入した*後*に`_currentCulture.Name`をログに使っており、「非対応だったカルチャ」欄が常に`en-US`と表示され診断不能になっていた |
 
 ---
 
