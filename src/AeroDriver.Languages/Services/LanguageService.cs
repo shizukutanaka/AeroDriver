@@ -78,9 +78,10 @@ namespace AeroDriver.Languages.Services
             // Verify the current culture is supported, fallback to en-US if not
             if (!SupportedCultures.Contains(_currentCulture))
             {
+                var unsupportedCulture = _currentCulture;
                 _currentCulture = new CultureInfo("en-US");
                 Thread.CurrentThread.CurrentUICulture = _currentCulture;
-                _logger.LogInformation("Unsupported culture '{0}' detected, falling back to 'en-US'", _currentCulture.Name);
+                _logger.LogInformation("Unsupported culture '{0}' detected, falling back to 'en-US'", unsupportedCulture.Name);
             }
 
             _logger.LogInformation("Language service initialized with culture: {Culture}", _currentCulture.Name);
@@ -107,7 +108,8 @@ namespace AeroDriver.Languages.Services
             if (string.IsNullOrEmpty(name))
                 throw new ArgumentException("Resource name cannot be null or empty", nameof(name));
 
-            culture ??= _currentCulture;
+            if (culture == null)
+                throw new ArgumentNullException(nameof(culture));
 
             try
             {

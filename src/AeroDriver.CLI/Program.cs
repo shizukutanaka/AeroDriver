@@ -268,6 +268,11 @@ namespace AeroDriver.CLI
                 Console.WriteLine($"WHQL:          {(detail.IsWHQLCertified ? "はい" : "いいえ")}");
                 Console.WriteLine($"Status:        {detail.Status} (StatusInfo={detail.StatusInfo})");
 
+                if (!string.IsNullOrEmpty(detail.Description))
+                    Console.WriteLine($"Description:   {detail.Description}");
+                if (!string.IsNullOrEmpty(detail.ClassGuid))
+                    Console.WriteLine($"ClassGuid:     {detail.ClassGuid}");
+
                 if (!string.IsNullOrEmpty(detail.DriverPath))
                 {
                     Console.WriteLine($"DriverPath:    {detail.DriverPath}");

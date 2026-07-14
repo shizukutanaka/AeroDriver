@@ -98,9 +98,11 @@ namespace AeroDriver.Core.Services
                 }
                 
                 // 最新のドライバーを選択
+                // 文字列の辞書順ではなく VersionHelper.Compare（数値としてのバージョン比較）で判定する。
+                // 辞書順だと "9.10" が "10.1" より新しいと判定されてしまう
                 var latestDriver = searchResults
                     .OrderByDescending(d => d.DriverDate)
-                    .ThenByDescending(d => d.DriverVersion, StringComparer.OrdinalIgnoreCase)
+                    .ThenByDescending(d => d.DriverVersion, Comparer<string>.Create(VersionHelper.Compare))
                     .FirstOrDefault();
                 
                 // ダウンロードリンクを取得

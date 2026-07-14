@@ -145,10 +145,13 @@ namespace AeroDriver.Core.Services
 
                     foreach (var inst in instances)
                     {
-                        linkedCts.Token.ThrowIfCancellationRequested();
-                        var driver = MapCimInstance(inst);
-                        // WriteAsync: channel が満杯なら非同期で待機 → バックプレッシャー
-                        await channel.Writer.WriteAsync(driver, linkedCts.Token).ConfigureAwait(false);
+                        using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
+                        {
+                            linkedCts.Token.ThrowIfCancellationRequested();
+                            var driver = MapCimInstance(inst);
+                            // WriteAsync: channel が満杯なら非同期で待機 → バックプレッシャー
+                            await channel.Writer.WriteAsync(driver, linkedCts.Token).ConfigureAwait(false);
+                        }
                     }
                 }
                 finally
@@ -263,10 +266,12 @@ namespace AeroDriver.Core.Services
                 }
 
                 // 重複除去（同じ HardwareID で最新バージョンのみ残す）
+                // 文字列の辞書順ではなく VersionHelper.Compare（数値としてのバージョン比較）で判定する。
+                // 辞書順だと "9.5.1" が "10.2.0" より大きいと判定されてしまう
                 updates = updates
                     .GroupBy(u => u.HardwareID, StringComparer.OrdinalIgnoreCase)
                     .Select(g => g.OrderByDescending(u => u.DriverVersion,
-                                     StringComparer.OrdinalIgnoreCase).First())
+                                     Comparer<string>.Create(VersionHelper.Compare)).First())
                     .ToList();
 
                 if (updates.Count > 0)
@@ -413,6 +418,13 @@ namespace AeroDriver.Core.Services
                         }
                     }
 
+                    // TOCTOU対策: ダウンロード完了直後から署名検証・インストール実行完了まで
+                    // FileShare.Read（書き込み共有なし）のハンドルを保持し続けることで、
+                    // 同一ユーザーで動作する別プロセスによる「検証後・実行前」のファイル差し替えを防ぐ。
+                    // 読み取り共有は許可しているため、自プロセス内の再オープンや Process.Start による
+                    // イメージ読み込みは引き続き可能。
+                    using var lockStream = new FileStream(tempPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
                     // 既知の脆弱ドライバー(BYOVD悪用実績あり)との照合。
                     // Authenticode 署名が有効でも脆弱なドライバーは存在するため、署名検証とは独立した層
                     if (await IsBlockedAsVulnerableAsync(tempPath, cancellationToken).ConfigureAwait(false))
@@ -421,9 +433,10 @@ namespace AeroDriver.Core.Services
                         return DriverInstallResult.KnownVulnerableDriver;
                     }
 
-                    bool success = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
+                    var installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
+                    bool success = installResult == DriverInstallResult.Success;
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
-                    return success ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
+                    return installResult;
                 }
                 finally
                 {
@@ -507,7 +520,7 @@ namespace AeroDriver.Core.Services
                 }
 
                 _logger.LogInformation("ドライバーを無効化します: {DeviceID}", deviceId);
-                bool result = await Task.Run(() => SetDriverState(deviceId, enable: false), cancellationToken);
+                bool result = await Task.Run(() => SetDriverState(deviceId, enable: false, cancellationToken), cancellationToken);
                 _logger.LogInformation("ドライバー無効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
                 return result;
             }
@@ -526,6 +539,10 @@ namespace AeroDriver.Core.Services
         {
             return Task.Run(() =>
             {
+                // Task.Run の CancellationToken は開始前のキャンセルしか防げないため、
+                // デリゲート内でも明示的にチェックする
+                ct.ThrowIfCancellationRequested();
+
                 var safeId = WqlSanitizer.SanitizeDeviceId(deviceId);
                 using var session = CimSession.Create(null);
                 var instances = session.QueryInstances(
@@ -534,9 +551,13 @@ namespace AeroDriver.Core.Services
 
                 foreach (var inst in instances)
                 {
-                    var classGuid = inst.CimInstanceProperties["ClassGuid"]?.Value?.ToString();
-                    if (classGuid != null && BootCriticalClassGuids.Contains(classGuid))
-                        return true;
+                    using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
+                    {
+                        ct.ThrowIfCancellationRequested();
+                        var classGuid = inst.CimInstanceProperties["ClassGuid"]?.Value?.ToString();
+                        if (classGuid != null && BootCriticalClassGuids.Contains(classGuid))
+                            return true;
+                    }
                 }
 
                 return false;
@@ -551,7 +572,7 @@ namespace AeroDriver.Core.Services
             try
             {
                 _logger.LogInformation("ドライバーを有効化します: {DeviceID}", deviceId);
-                bool result = await Task.Run(() => SetDriverState(deviceId, enable: true), cancellationToken);
+                bool result = await Task.Run(() => SetDriverState(deviceId, enable: true, cancellationToken), cancellationToken);
                 _logger.LogInformation("ドライバー有効化 {Result}: {DeviceID}", result ? "成功" : "失敗", deviceId);
                 return result;
             }
@@ -581,17 +602,20 @@ namespace AeroDriver.Core.Services
 
                 foreach (var inst in instances)
                 {
-                    if (!int.TryParse(
-                        inst.CimInstanceProperties["ConfigManagerErrorCode"]?.Value?.ToString(),
-                        out int errCode))
-                        continue;
-
-                    return errCode switch
+                    using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
                     {
-                        0 => 1,  // 正常
-                        22 => 4, // ユーザーにより無効化されたデバイス
-                        _ => 3,  // その他のエラーコード
-                    };
+                        if (!int.TryParse(
+                            inst.CimInstanceProperties["ConfigManagerErrorCode"]?.Value?.ToString(),
+                            out int errCode))
+                            continue;
+
+                        return errCode switch
+                        {
+                            0 => 1,  // 正常
+                            22 => 4, // ユーザーにより無効化されたデバイス
+                            _ => 3,  // その他のエラーコード
+                        };
+                    }
                 }
             }
             catch (Exception)
@@ -620,50 +644,53 @@ namespace AeroDriver.Core.Services
 
                     foreach (var inst in instances)
                     {
-                        cancellationToken.ThrowIfCancellationRequested();
-
-                        CimProperty? Prop(string name) => inst.CimInstanceProperties[name];
-
-                        var detail = new DriverDetailInfo
+                        using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
                         {
-                            DeviceID           = Prop("DeviceID")?.Value?.ToString(),
-                            DeviceName         = Prop("DeviceName")?.Value?.ToString(),
-                            DriverVersion      = Prop("DriverVersion")?.Value?.ToString(),
-                            DriverProviderName = Prop("DriverProviderName")?.Value?.ToString(),
-                            InfName            = Prop("InfName")?.Value?.ToString(),
-                            HardwareID         = Prop("HardwareID")?.Value?.ToString(),
-                            IsWHQLCertified    = Prop("IsSigned")?.Value is bool signed && signed,
-                            Manufacturer       = Prop("Manufacturer")?.Value?.ToString(),
-                            DeviceClass        = Prop("DeviceClass")?.Value?.ToString(),
-                            ClassGuid          = Prop("DeviceClassGUID")?.Value?.ToString(),
-                            Description        = Prop("Description")?.Value?.ToString(),
-                            Status             = Prop("Status")?.Value?.ToString(),
-                        };
-                        detail.IsGraphicsDriver = string.Equals(
-                            detail.DeviceClass, "DISPLAY", StringComparison.OrdinalIgnoreCase);
+                            cancellationToken.ThrowIfCancellationRequested();
 
-                        // Win32_PnPSignedDriver が公開する全プロパティを生データとして保持する。
-                        // 上記で個別マッピングした項目以外にも DriverInstalled/DeviceID 等
-                        // 診断に有用な情報が含まれるため、無加工でそのまま渡す
-                        foreach (var property in inst.CimInstanceProperties)
-                        {
-                            if (property.Value is not null)
-                                detail.Properties[property.Name] = property.Value.ToString() ?? string.Empty;
+                            CimProperty? Prop(string name) => inst.CimInstanceProperties[name];
+
+                            var detail = new DriverDetailInfo
+                            {
+                                DeviceID           = Prop("DeviceID")?.Value?.ToString(),
+                                DeviceName         = Prop("DeviceName")?.Value?.ToString(),
+                                DriverVersion      = Prop("DriverVersion")?.Value?.ToString(),
+                                DriverProviderName = Prop("DriverProviderName")?.Value?.ToString(),
+                                InfName            = Prop("InfName")?.Value?.ToString(),
+                                HardwareID         = Prop("HardwareID")?.Value?.ToString(),
+                                IsWHQLCertified    = Prop("IsSigned")?.Value is bool signed && signed,
+                                Manufacturer       = Prop("Manufacturer")?.Value?.ToString(),
+                                DeviceClass        = Prop("DeviceClass")?.Value?.ToString(),
+                                ClassGuid          = Prop("ClassGuid")?.Value?.ToString(),
+                                Description        = Prop("Description")?.Value?.ToString(),
+                                Status             = Prop("Status")?.Value?.ToString(),
+                            };
+                            detail.IsGraphicsDriver = string.Equals(
+                                detail.DeviceClass, "DISPLAY", StringComparison.OrdinalIgnoreCase);
+
+                            // Win32_PnPSignedDriver が公開する全プロパティを生データとして保持する。
+                            // 上記で個別マッピングした項目以外にも DriverInstalled/DeviceID 等
+                            // 診断に有用な情報が含まれるため、無加工でそのまま渡す
+                            foreach (var property in inst.CimInstanceProperties)
+                            {
+                                if (property.Value is not null)
+                                    detail.Properties[property.Name] = property.Value.ToString() ?? string.Empty;
+                            }
+
+                            if (DateTime.TryParse(Prop("DriverDate")?.Value?.ToString(), out var date))
+                                detail.DriverDate = date;
+
+                            // ConfigManagerErrorCode は Win32_PnPSignedDriver には存在しない
+                            // （Win32_PnPEntity 固有のプロパティ）ため、別途取得する。
+                            detail.StatusInfo = GetStatusInfo(session, safeId);
+
+                            // DriverName は Win32_PnPSignedDriver 上では実体ファイル（.sys 等）への
+                            // フルパスを指す。実在すればサイズ取得・署名検証・INF本文の読み取りに使う。
+                            detail.DriverPath = Prop("DriverName")?.Value?.ToString();
+                            PopulateFileDerivedInfo(detail);
+
+                            return detail;
                         }
-
-                        if (DateTime.TryParse(Prop("DriverDate")?.Value?.ToString(), out var date))
-                            detail.DriverDate = date;
-
-                        // ConfigManagerErrorCode は Win32_PnPSignedDriver には存在しない
-                        // （Win32_PnPEntity 固有のプロパティ）ため、別途取得する。
-                        detail.StatusInfo = GetStatusInfo(session, safeId);
-
-                        // DriverName は Win32_PnPSignedDriver 上では実体ファイル（.sys 等）への
-                        // フルパスを指す。実在すればサイズ取得・署名検証・INF本文の読み取りに使う。
-                        detail.DriverPath = Prop("DriverName")?.Value?.ToString();
-                        PopulateFileDerivedInfo(detail);
-
-                        return detail;
                     }
 
                     return null;
@@ -698,7 +725,10 @@ namespace AeroDriver.Core.Services
 
                 if (!string.IsNullOrEmpty(detail.InfName))
                 {
-                    var infPath = Path.Combine(Path.GetDirectoryName(detail.DriverPath) ?? string.Empty, detail.InfName);
+                    // InfName は WMI 由来の未検証文字列。".." 等のディレクトリトラバーサルを含んでいても
+                    // ドライバーディレクトリ外へ出られないよう、ファイル名部分のみを使用する
+                    var infFileName = Path.GetFileName(detail.InfName);
+                    var infPath = Path.Combine(Path.GetDirectoryName(detail.DriverPath) ?? string.Empty, infFileName);
                     if (File.Exists(infPath))
                         detail.InfContent = File.ReadAllText(infPath);
                 }
@@ -716,8 +746,8 @@ namespace AeroDriver.Core.Services
         public async Task<bool> InstallCustomDriverAsync(string driverPath, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(driverPath)) throw new ArgumentException("ドライバーパスが必要です", nameof(driverPath));
-            if (!File.Exists(driverPath)) throw new FileNotFoundException("ドライバーファイルが見つかりません", driverPath);
             ElevationGuard.ThrowIfNotElevated("カスタムドライバーのインストール");
+            if (!File.Exists(driverPath)) throw new FileNotFoundException("ドライバーファイルが見つかりません", driverPath);
 
             try
             {
@@ -727,7 +757,8 @@ namespace AeroDriver.Core.Services
                     return false;
 
                 string ext = Path.GetExtension(driverPath).ToLowerInvariant();
-                return await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
+                var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
+                return installResult == DriverInstallResult.Success;
             }
             catch (OperationCanceledException)
             {
@@ -742,8 +773,12 @@ namespace AeroDriver.Core.Services
 
         public int CompareVersions(string version1, string version2) => VersionHelper.Compare(version1, version2);
 
-        private static bool SetDriverState(string deviceId, bool enable)
+        private static bool SetDriverState(string deviceId, bool enable, CancellationToken ct)
         {
+            // Task.Run の CancellationToken は開始前のキャンセルしか防げないため、
+            // デリゲート内でも明示的にチェックする
+            ct.ThrowIfCancellationRequested();
+
             var safeId = WqlSanitizer.SanitizeDeviceId(deviceId);
             using var session = CimSession.Create(null);
             var instances = session.QueryInstances(
@@ -752,12 +787,16 @@ namespace AeroDriver.Core.Services
 
             foreach (var inst in instances)
             {
-                var result = session.InvokeMethod(inst, enable ? "Enable" : "Disable", null);
+                using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var result = session.InvokeMethod(inst, enable ? "Enable" : "Disable", null);
 
-                // 呼び出しが非nullを返しても、CIMメソッドの ReturnValue が 0 (成功) とは限らない。
-                // Win32_PnPEntity.Enable/Disable: 0=成功, 非0=各種失敗コード（権限不足・デバイス使用中等）
-                // CimMethodResult.ReturnValue は object 型でボックス化された生の戻り値を保持する
-                return result?.ReturnValue is uint code && code == 0;
+                    // 呼び出しが非nullを返しても、CIMメソッドの ReturnValue が 0 (成功) とは限らない。
+                    // Win32_PnPEntity.Enable/Disable: 0=成功, 非0=各種失敗コード（権限不足・デバイス使用中等）
+                    // CimMethodResult.ReturnValue は object 型でボックス化された生の戻り値を保持する
+                    return result?.ReturnValue is uint code && code == 0;
+                }
             }
 
             return false;
@@ -794,7 +833,7 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        private async Task<bool> InstallFromFileAsync(string filePath, string? installerType, CancellationToken ct)
+        private async Task<DriverInstallResult> InstallFromFileAsync(string filePath, string? installerType, CancellationToken ct)
         {
             var ext = (installerType ?? Path.GetExtension(filePath)).ToLowerInvariant().TrimStart('.');
 
@@ -803,8 +842,13 @@ namespace AeroDriver.Core.Services
             if (ext is "exe" or "msi" && !AuthenticodeHelper.HasValidSignature(filePath))
             {
                 _logger.LogWarning("Authenticode 署名が無効または存在しないためインストールを拒否しました: {Path}", filePath);
-                return false;
+                return DriverInstallResult.SignatureInvalid;
             }
+
+            // cab はドライバーパッケージ（.inf 等）を格納したキャビネットで pnputil に直接渡せないため、
+            // expand.exe で展開してから中の .inf をインストールする
+            if (ext == "cab")
+                return await InstallFromCabAsync(filePath, ct).ConfigureAwait(false);
 
             // ArgumentList を使用して cmd.exe 経由のシェルを排除 → コマンドインジェクション不可
             System.Diagnostics.ProcessStartInfo psi;
@@ -845,14 +889,75 @@ namespace AeroDriver.Core.Services
 
                 default:
                     _logger.LogWarning("未対応のインストーラー形式: {Type}", ext);
-                    return false;
+                    return DriverInstallResult.InstallerFailed;
             }
 
             using var process = System.Diagnostics.Process.Start(psi);
-            if (process == null) return false;
+            if (process == null) return DriverInstallResult.InstallerFailed;
 
             await process.WaitForExitAsync(ct);
-            return process.ExitCode == 0;
+            return process.ExitCode == 0 ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
+        }
+
+        /// <summary>
+        /// .cab 形式のドライバーパッケージ（WindowsUpdateAgentSource が InstallerType="cab" として
+        /// 供給する）を一時ディレクトリへ展開し、含まれる .inf を pnputil でインストールします。
+        /// </summary>
+        private async Task<DriverInstallResult> InstallFromCabAsync(string cabPath, CancellationToken ct)
+        {
+            var extractDir = Path.Combine(Path.GetTempPath(), $"aerodriver_cab_{Guid.NewGuid():N}");
+            Directory.CreateDirectory(extractDir);
+            try
+            {
+                var expandPsi = new System.Diagnostics.ProcessStartInfo("expand.exe")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                expandPsi.ArgumentList.Add("-F:*");
+                expandPsi.ArgumentList.Add(cabPath);
+                expandPsi.ArgumentList.Add(extractDir);
+
+                using (var expandProcess = System.Diagnostics.Process.Start(expandPsi))
+                {
+                    if (expandProcess == null) return DriverInstallResult.InstallerFailed;
+                    await expandProcess.WaitForExitAsync(ct);
+                    if (expandProcess.ExitCode != 0)
+                    {
+                        _logger.LogWarning("CABの展開に失敗しました (ExitCode={ExitCode}): {Path}", expandProcess.ExitCode, cabPath);
+                        return DriverInstallResult.InstallerFailed;
+                    }
+                }
+
+                var infPath = Directory.EnumerateFiles(extractDir, "*.inf", SearchOption.AllDirectories).FirstOrDefault();
+                if (infPath == null)
+                {
+                    _logger.LogWarning("展開したCAB内に.infが見つかりませんでした: {Path}", cabPath);
+                    return DriverInstallResult.InstallerFailed;
+                }
+
+                var psi = new System.Diagnostics.ProcessStartInfo("pnputil.exe")
+                {
+                    UseShellExecute = false,
+                    CreateNoWindow = true,
+                };
+                psi.ArgumentList.Add("/add-driver");
+                psi.ArgumentList.Add(infPath);
+                psi.ArgumentList.Add("/install");
+
+                using var process = System.Diagnostics.Process.Start(psi);
+                if (process == null) return DriverInstallResult.InstallerFailed;
+
+                await process.WaitForExitAsync(ct);
+                return process.ExitCode == 0 ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
+            }
+            finally
+            {
+                // 展開先の一時ディレクトリはベストエフォートで削除する（失敗しても致命的ではない）
+                try { Directory.Delete(extractDir, recursive: true); }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
+            }
         }
 
         // [LoggerMessage] source generation: ホットパスでのボクシング・文字列アロケーションをゼロにする

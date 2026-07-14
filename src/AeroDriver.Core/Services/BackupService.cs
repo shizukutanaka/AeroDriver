@@ -122,16 +122,23 @@ namespace AeroDriver.Core.Services
                 using var process = Process.Start(psi);
                 if (process == null) return false;
 
+                // 標準出力・標準エラーの両方をリダイレクトしているため、WaitForExitAsync を
+                // 待つ前に読み取りを開始しておく必要がある。出力が OS のパイプバッファを
+                // 超えると子プロセスが書き込みでブロックし、未読のまま待機するとデッドロックする。
+                var stdOutTask = process.StandardOutput.ReadToEndAsync();
+                var stdErrTask = process.StandardError.ReadToEndAsync();
+
                 await process.WaitForExitAsync().ConfigureAwait(false);
 
                 if (process.ExitCode != 0)
                 {
-                    var err = await process.StandardError.ReadToEndAsync().ConfigureAwait(false);
+                    var err = await stdErrTask.ConfigureAwait(false);
                     _logger.LogWarning("pnputil /export-driver 終了コード {Code}: {Error}",
                         process.ExitCode, err);
                     return false;
                 }
 
+                await stdOutTask.ConfigureAwait(false);
                 return Directory.EnumerateFileSystemEntries(destination).Any();
             }
             catch (Exception ex)
@@ -284,7 +291,14 @@ namespace AeroDriver.Core.Services
             using var process = Process.Start(psi);
             if (process == null) return false;
 
-            var output = await process.StandardOutput.ReadToEndAsync().ConfigureAwait(false);
+            // 標準出力・標準エラーの両方をリダイレクトしているため、片方だけを読み取って
+            // 完了を待つと、未読のパイプがバッファを埋めた際に子プロセスがブロックし
+            // デッドロックする。両ストリームの読み取りを並行して開始してから待機する。
+            var stdOutTask = process.StandardOutput.ReadToEndAsync();
+            var stdErrTask = process.StandardError.ReadToEndAsync();
+
+            var output = await stdOutTask.ConfigureAwait(false);
+            await stdErrTask.ConfigureAwait(false);
             await process.WaitForExitAsync().ConfigureAwait(false);
 
             return process.ExitCode == 0 &&

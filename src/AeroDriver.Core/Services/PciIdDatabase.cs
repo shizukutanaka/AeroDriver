@@ -25,6 +25,7 @@ namespace AeroDriver.Core.Services
         // FrozenDictionary: 起動後は読み取りのみ → ロックレス O(1) ルックアップ
         // 通常の Dictionary より構築コストは高いが、50,000+ ベンダーへの繰り返し検索で元が取れる
         private FrozenDictionary<string, (string Name, FrozenDictionary<string, string> Devices)>? _db;
+        private readonly SemaphoreSlim _loadLock = new(1, 1);
 
         // GitHub ミラー（ucw.czより安定している）
         private const string DatabaseUrl =
@@ -88,24 +89,42 @@ namespace AeroDriver.Core.Services
         /// <summary>DBを強制更新します（週次更新推奨）</summary>
         public async Task RefreshAsync(CancellationToken ct = default)
         {
-            await DownloadAndParseAsync(ct).ConfigureAwait(false);
+            await _loadLock.WaitAsync(ct).ConfigureAwait(false);
+            try
+            {
+                await DownloadAndParseAsync(ct).ConfigureAwait(false);
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
         }
 
         private async Task<FrozenDictionary<string, (string, FrozenDictionary<string, string>)>> EnsureLoadedAsync(CancellationToken ct)
         {
             if (_db != null) return _db;
 
-            // キャッシュファイルが有効なら読み込む
-            if (File.Exists(_cacheFile) &&
-                (DateTime.UtcNow - File.GetLastWriteTimeUtc(_cacheFile)) < _cacheLifetime)
+            await _loadLock.WaitAsync(ct).ConfigureAwait(false);
+            try
             {
-                _db = await ParseFileAsync(_cacheFile, ct).ConfigureAwait(false);
-                _logger.LogInformation("PCI IDs をキャッシュから読み込みました ({Count} ベンダー)", _db.Count);
-                return _db;
-            }
+                if (_db != null) return _db;
 
-            await DownloadAndParseAsync(ct).ConfigureAwait(false);
-            return _db!;
+                // キャッシュファイルが有効なら読み込む
+                if (File.Exists(_cacheFile) &&
+                    (DateTime.UtcNow - File.GetLastWriteTimeUtc(_cacheFile)) < _cacheLifetime)
+                {
+                    _db = await ParseFileAsync(_cacheFile, ct).ConfigureAwait(false);
+                    _logger.LogInformation("PCI IDs をキャッシュから読み込みました ({Count} ベンダー)", _db.Count);
+                    return _db;
+                }
+
+                await DownloadAndParseAsync(ct).ConfigureAwait(false);
+                return _db!;
+            }
+            finally
+            {
+                _loadLock.Release();
+            }
         }
 
         private async Task DownloadAndParseAsync(CancellationToken ct)

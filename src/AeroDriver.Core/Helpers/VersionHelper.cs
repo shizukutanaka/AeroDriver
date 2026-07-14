@@ -11,7 +11,7 @@ namespace AeroDriver.Core.Helpers
         /// 2つのバージョン文字列を比較します。
         /// 返り値: 正 = version1 が新しい, 0 = 同じ, 負 = version1 が古い
         /// </summary>
-        public static int Compare(string version1, string version2)
+        public static int Compare(string? version1, string? version2)
         {
             if (string.IsNullOrEmpty(version1) && string.IsNullOrEmpty(version2)) return 0;
             if (string.IsNullOrEmpty(version1)) return -1;
@@ -34,6 +34,6 @@ namespace AeroDriver.Core.Helpers
         /// <summary>
         /// version1 が version2 より新しいかどうかを返します
         /// </summary>
-        public static bool IsNewer(string version1, string version2) => Compare(version1, version2) > 0;
+        public static bool IsNewer(string? version1, string? version2) => Compare(version1, version2) > 0;
     }
 }

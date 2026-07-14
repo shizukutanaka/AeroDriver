@@ -51,5 +51,11 @@ namespace AeroDriver.Core.Interfaces
         Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> InstallCustomDriverAsync(string driverPath, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 2つのバージョン文字列を比較します（<see cref="AeroDriver.Core.Helpers.VersionHelper.Compare"/> への委譲）。
+        /// 返り値: 正 = version1 が新しい, 0 = 同じ, 負 = version1 が古い
+        /// </summary>
+        int CompareVersions(string version1, string version2);
     }
 }
