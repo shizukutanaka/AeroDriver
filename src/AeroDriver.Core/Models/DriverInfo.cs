@@ -1,164 +1,62 @@
-using System;
 using System.Collections.Generic;
 
 namespace AeroDriver.Core.Models
 {
-    /// <summary>
-    /// ドライバー情報を表すクラス
-    /// </summary>
     public class DriverInfo
     {
-        /// <summary>
-        /// デバイスID
-        /// </summary>
-        public string DeviceID { get; set; }
-        
-        /// <summary>
-        /// デバイス名
-        /// </summary>
-        public string DeviceName { get; set; }
-        
-        /// <summary>
-        /// ドライバーバージョン
-        /// </summary>
-        public string DriverVersion { get; set; }
-        
-        /// <summary>
-        /// ドライバープロバイダー名
-        /// </summary>
-        public string DriverProviderName { get; set; }
-        
-        /// <summary>
-        /// ドライバー日付
-        /// </summary>
-        public DateTime DriverDate { get; set; }
-        
-        /// <summary>
-        /// INFファイル名
-        /// </summary>
-        public string InfName { get; set; }
-        
-        /// <summary>
-        /// WHQL認証済みかどうか
-        /// </summary>
+        public string? DeviceID { get; set; }
+        public string? DeviceName { get; set; }
+        public string? DriverVersion { get; set; }
+        public string? DriverProviderName { get; set; }
+        public System.DateTime DriverDate { get; set; }
+        public string? InfName { get; set; }
         public bool IsWHQLCertified { get; set; }
-        
-        /// <summary>
-        /// ダウンロードURL
-        /// </summary>
-        public string DownloadUrl { get; set; }
-        
-        /// <summary>
-        /// ハードウェアID
-        /// </summary>
-        public string HardwareID { get; set; }
-        
-        /// <summary>
-        /// グラフィックスドライバーかどうか
-        /// </summary>
+        public string? DownloadUrl { get; set; }
+        public string? HardwareID { get; set; }
         public bool IsGraphicsDriver { get; set; }
-        
-        /// <summary>
-        /// 更新ソース (メーカーサイト、Windows Update Catalogなど)
-        /// </summary>
-        public string UpdateSource { get; set; }
-        
-        /// <summary>
-        /// インストーラータイプ (INF, EXE, MSI, ZIPなど)
-        /// </summary>
-        public string InstallerType { get; set; }
+        public string? UpdateSource { get; set; }
+        public string? InstallerType { get; set; }
+        public string? DeviceClass { get; set; }
+
+        /// <summary>カタログ検索等で使う内部ID（Windows Update Catalog の updateId 等）</summary>
+        public string? Id { get; set; }
     }
-    
-    /// <summary>
-    /// ドライバーの詳細情報を表すクラス
-    /// </summary>
+
     public class DriverDetailInfo : DriverInfo
     {
-        /// <summary>
-        /// ドライバーのインストールパス
-        /// </summary>
-        public string DriverPath { get; set; }
-        
-        /// <summary>
-        /// ドライバーサイズ (バイト)
-        /// </summary>
+        public string? DriverPath { get; set; }
         public long DriverSize { get; set; }
-        
+        public string? Description { get; set; }
+        public string? Status { get; set; }
+
         /// <summary>
-        /// ドライバーの説明
-        /// </summary>
-        public string Description { get; set; }
-        
-        /// <summary>
-        /// デバイスのステータス
-        /// </summary>
-        public string Status { get; set; }
-        
-        /// <summary>
-        /// デバイスのステータス情報
-        /// 0: 不明, 1: 正常, 2: 警告, 3: エラー, 4: 無効
+        /// Win32_PnPEntity.ConfigManagerErrorCode に基づくデバイス状態。
+        /// 0: 不明（コード取得不可）, 1: 正常（コード0）, 3: エラー（0/22以外の非0コード）,
+        /// 4: 無効（コード22＝ユーザーにより無効化）。
+        /// 2（警告）は ConfigManagerErrorCode に対応する概念が存在しないため未使用。
         /// </summary>
         public int StatusInfo { get; set; }
-        
-        /// <summary>
-        /// デバイスクラスGUID
-        /// </summary>
-        public string ClassGuid { get; set; }
-        
-        /// <summary>
-        /// デバイスクラス
-        /// </summary>
-        public string DeviceClass { get; set; }
-        
-        /// <summary>
-        /// メーカー名
-        /// </summary>
-        public string Manufacturer { get; set; }
-        
-        /// <summary>
-        /// INFファイルの内容
-        /// </summary>
-        public string InfContent { get; set; }
-        
-        /// <summary>
-        /// ドライバープロパティ
-        /// </summary>
-        public Dictionary<string, string> Properties { get; set; } = new Dictionary<string, string>();
-        
-        /// <summary>
-        /// 証明書情報
-        /// </summary>
-        public CertificateInfo CertificateInfo { get; set; }
+
+        public string? ClassGuid { get; set; }
+        public string? Manufacturer { get; set; }
+        public string? InfContent { get; set; }
+        public Dictionary<string, string> Properties { get; set; } = new();
+        public CertificateInfo? CertificateInfo { get; set; }
     }
-    
-    /// <summary>
-    /// 証明書情報を表すクラス
-    /// </summary>
+
     public class CertificateInfo
     {
+        public string? Issuer { get; set; }
+        public string? Subject { get; set; }
+        public string? ValidFrom { get; set; }
+        public string? ValidTo { get; set; }
+
         /// <summary>
-        /// 発行者
+        /// 証明書チェーンがローカルマシンの信頼されたルートまで構築できたか。
+        /// WHQL/WHCP固有の検証(EKU OID、Microsoft署名用中間CAへのピン留め等)は行っていない
+        /// ため、これ単独では「WHQL認定済み」を意味しない。WHQL認定の判定には
+        /// <see cref="DriverInfo.IsWHQLCertified"/>(Win32_PnPSignedDriver.IsSigned由来)を使うこと。
         /// </summary>
-        public string Issuer { get; set; }
-        
-        /// <summary>
-        /// 署名者
-        /// </summary>
-        public string Subject { get; set; }
-        
-        /// <summary>
-        /// 有効期間の開始
-        /// </summary>
-        public string ValidFrom { get; set; }
-        
-        /// <summary>
-        /// 有効期間の終了
-        /// </summary>
-        public string ValidTo { get; set; }
-        
-        /// <summary>
-        /// WHQL署名があるかどうか
-        /// </summary>
-        public bool IsWHQLSigned { get; set; }
+        public bool IsTrustedChain { get; set; }
     }
 }

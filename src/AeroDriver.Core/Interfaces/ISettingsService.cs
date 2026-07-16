@@ -1,5 +1,3 @@
-using AeroDriver.Core.Models;
-
 namespace AeroDriver.Core.Interfaces
 {
     /// <summary>

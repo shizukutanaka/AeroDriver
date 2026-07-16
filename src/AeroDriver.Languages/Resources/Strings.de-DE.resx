@@ -7,9 +7,63 @@
     <value>2.0</value>
   </resheader>
   <resheader name="reader">
-    <value>System.Resources.ResXResourceReader, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
   <resheader name="writer">
-    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, ...</value>
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
   </resheader>
+  <data name="AppName" xml:space="preserve">
+    <value>AeroDriver</value>
+  </data>
+  <data name="AppDescription" xml:space="preserve">
+    <value>Windows-Treiberverwaltung mit WHQL-zertifizierten Treibern</value>
+  </data>
+  <data name="Button_Scan" xml:space="preserve">
+    <value>Scannen</value>
+  </data>
+  <data name="Button_Update" xml:space="preserve">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="Button_Backup" xml:space="preserve">
+    <value>Sichern</value>
+  </data>
+  <data name="Button_Restore" xml:space="preserve">
+    <value>Wiederherstellen</value>
+  </data>
+  <data name="Button_Exit" xml:space="preserve">
+    <value>Beenden</value>
+  </data>
+  <data name="Status_Scanning" xml:space="preserve">
+    <value>Treiber werden gesucht...</value>
+  </data>
+  <data name="Status_Updating" xml:space="preserve">
+    <value>Treiber werden aktualisiert...</value>
+  </data>
+  <data name="Status_Complete" xml:space="preserve">
+    <value>Vorgang erfolgreich abgeschlossen</value>
+  </data>
+  <data name="Status_Error" xml:space="preserve">
+    <value>Ein Fehler ist aufgetreten: {0}</value>
+  </data>
+  <data name="Driver_Status_UpToDate" xml:space="preserve">
+    <value>Auf dem neuesten Stand</value>
+  </data>
+  <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
+    <value>Update verfügbar: {0}</value>
+  </data>
+  <data name="Driver_Status_NotWHQL" xml:space="preserve">
+    <value>Nicht WHQL-zertifiziert</value>
+  </data>
+  <data name="Settings_Language" xml:space="preserve">
+    <value>Sprache</value>
+  </data>
+  <data name="Settings_Theme" xml:space="preserve">
+    <value>Design</value>
+  </data>
+  <data name="Settings_CheckForUpdates" xml:space="preserve">
+    <value>Beim Start nach Updates suchen</value>
+  </data>
+  <data name="Settings_CreateRestorePoint" xml:space="preserve">
+    <value>Vor Updates einen Systemwiederherstellungspunkt erstellen</value>
+  </data>
 </root>

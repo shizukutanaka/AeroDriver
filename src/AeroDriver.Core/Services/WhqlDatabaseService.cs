@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
-using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using AeroDriver.Core.Helpers;
+using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 
 namespace AeroDriver.Core.Services
@@ -20,38 +21,36 @@ namespace AeroDriver.Core.Services
     {
         private readonly ILogger<WhqlDatabaseService> _logger;
         private readonly HttpClient _httpClient;
+        private readonly PciIdDatabase _pciIds;
         private readonly string _cacheDirectory;
-        
-        // Windows Update Catalog URL
+
         private const string CATALOG_BASE_URL = "https://www.catalog.update.microsoft.com";
         private const string CATALOG_SEARCH_URL = CATALOG_BASE_URL + "/Search.aspx";
         private const string CATALOG_DOWNLOAD_URL = CATALOG_BASE_URL + "/DownloadDialog.aspx";
-        
-        /// <summary>
-        /// コンストラクタ
-        /// </summary>
-        public WhqlDatabaseService(ILogger<WhqlDatabaseService> logger)
+
+        public WhqlDatabaseService(
+            ILogger<WhqlDatabaseService> logger,
+            PciIdDatabase pciIds,
+            IHttpClientFactory httpClientFactory)
         {
-            _logger = logger;
-            _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.Add("User-Agent", "AeroDriver/1.0");
-            
-            // キャッシュディレクトリの作成
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            _pciIds = pciIds ?? throw new ArgumentNullException(nameof(pciIds));
+            // IHttpClientFactory: 接続プール管理・SocketsHttpHandler の再利用・レジリエンスハンドラー適用
+            _httpClient = (httpClientFactory ?? throw new ArgumentNullException(nameof(httpClientFactory)))
+                .CreateClient(nameof(WhqlDatabaseService));
+            _httpClient.DefaultRequestHeaders.TryAddWithoutValidation(
+                "User-Agent", "AeroDriver/1.0 (Windows Driver Manager)");
+
             _cacheDirectory = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                "AeroDriver",
-                "WHQLCache");
-            
-            if (!Directory.Exists(_cacheDirectory))
-            {
-                Directory.CreateDirectory(_cacheDirectory);
-            }
+                "AeroDriver", "WHQLCache");
+            Directory.CreateDirectory(_cacheDirectory);
         }
         
         /// <summary>
         /// ハードウェアIDに基づいてドライバーを検索します
         /// </summary>
-        public async Task<DriverInfo> FindDriverByHardwareIdAsync(string hardwareId)
+        public async Task<DriverInfo?> FindDriverByHardwareIdAsync(string hardwareId)
         {
             try
             {
@@ -66,8 +65,8 @@ namespace AeroDriver.Core.Services
                 }
                 
                 // ハードウェアIDからベンダーIDとデバイスIDを抽出
-                string vendorId = null;
-                string deviceId = null;
+                string? vendorId = null;
+                string? deviceId = null;
                 
                 var venMatch = Regex.Match(hardwareId, @"VEN_([0-9A-F]{4})", RegexOptions.IgnoreCase);
                 if (venMatch.Success)
@@ -99,15 +98,17 @@ namespace AeroDriver.Core.Services
                 }
                 
                 // 最新のドライバーを選択
+                // 文字列の辞書順ではなく VersionHelper.Compare（数値としてのバージョン比較）で判定する。
+                // 辞書順だと "9.10" が "10.1" より新しいと判定されてしまう
                 var latestDriver = searchResults
                     .OrderByDescending(d => d.DriverDate)
-                    .ThenByDescending(d => CompareVersions(d.DriverVersion, "0.0.0.0"))
+                    .ThenByDescending(d => d.DriverVersion, Comparer<string>.Create(VersionHelper.Compare))
                     .FirstOrDefault();
                 
                 // ダウンロードリンクを取得
                 if (latestDriver != null)
                 {
-                    string downloadUrl = await GetDownloadLinkAsync(latestDriver.Id);
+                    string? downloadUrl = await GetDownloadLinkAsync(latestDriver.Id);
                     if (!string.IsNullOrEmpty(downloadUrl))
                     {
                         latestDriver.DownloadUrl = downloadUrl;
@@ -202,7 +203,7 @@ namespace AeroDriver.Core.Services
         /// <summary>
         /// ドライバーのダウンロードリンクを取得します
         /// </summary>
-        private async Task<string> GetDownloadLinkAsync(string driverId)
+        private async Task<string?> GetDownloadLinkAsync(string driverId)
         {
             try
             {
@@ -225,26 +226,7 @@ namespace AeroDriver.Core.Services
                 
                 if (match.Success)
                 {
-                    string downloadLink = match.Groups[1].Value;
-                    
-                    // インストーラータイプを判断
-                    string installerType = "inf"; // デフォルト
-                    
-                    if (downloadLink.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                    {
-                        installerType = "exe";
-                    }
-                    else if (downloadLink.EndsWith(".msi", StringComparison.OrdinalIgnoreCase))
-                    {
-                        installerType = "msi";
-                    }
-                    else if (downloadLink.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
-                             downloadLink.EndsWith(".cab", StringComparison.OrdinalIgnoreCase))
-                    {
-                        installerType = "zip";
-                    }
-                    
-                    return downloadLink;
+                    return match.Groups[1].Value;
                 }
                 
                 _logger.LogWarning("ドライバーID {DriverId} のダウンロードリンクが見つかりませんでした", driverId);
@@ -260,27 +242,35 @@ namespace AeroDriver.Core.Services
         /// <summary>
         /// キャッシュからドライバー情報を取得します
         /// </summary>
-        private DriverInfo CheckCache(string hardwareId)
+        private DriverInfo? CheckCache(string hardwareId)
         {
             try
             {
                 string cacheFile = Path.Combine(_cacheDirectory, $"{GetSafeFileName(hardwareId)}.json");
-                
+
                 if (!File.Exists(cacheFile))
                 {
                     return null;
                 }
-                
+
                 string json = File.ReadAllText(cacheFile);
                 var cachedInfo = JsonConvert.DeserializeObject<CachedDriverInfo>(json);
-                
+
+                // 破損・空JSON("null"等)の場合、DeserializeObject は null を返しうる。
+                // 未チェックで cachedInfo.CacheTime にアクセスすると NullReferenceException になる。
+                if (cachedInfo == null)
+                {
+                    _logger.LogWarning("キャッシュファイルが破損しています: {HardwareId}", hardwareId);
+                    return null;
+                }
+
                 // キャッシュの有効期限をチェック (24時間)
                 if (cachedInfo.CacheTime.AddHours(24) < DateTime.Now)
                 {
                     _logger.LogInformation("キャッシュの有効期限が切れています: {HardwareId}", hardwareId);
                     return null;
                 }
-                
+
                 return cachedInfo.DriverInfo;
             }
             catch (Exception ex)
@@ -329,101 +319,18 @@ namespace AeroDriver.Core.Services
         }
         
         /// <summary>
-        /// バージョン文字列を比較します
-        /// </summary>
-        private int CompareVersions(string version1, string version2)
-        {
-            try
-            {
-                if (string.IsNullOrEmpty(version1) && string.IsNullOrEmpty(version2))
-                {
-                    return 0;
-                }
-                
-                if (string.IsNullOrEmpty(version1))
-                {
-                    return -1;
-                }
-                
-                if (string.IsNullOrEmpty(version2))
-                {
-                    return 1;
-                }
-                
-                // バージョン文字列を分割して比較
-                string[] v1Parts = version1.Split('.', ',');
-                string[] v2Parts = version2.Split('.', ',');
-                
-                int maxLength = Math.Max(v1Parts.Length, v2Parts.Length);
-                
-                for (int i = 0; i < maxLength; i++)
-                {
-                    int v1Value = i < v1Parts.Length && int.TryParse(v1Parts[i], out int temp1) ? temp1 : 0;
-                    int v2Value = i < v2Parts.Length && int.TryParse(v2Parts[i], out int temp2) ? temp2 : 0;
-                    
-                    if (v1Value > v2Value)
-                    {
-                        return 1;
-                    }
-                    else if (v1Value < v2Value)
-                    {
-                        return -1;
-                    }
-                }
-                
-                return 0;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "バージョン比較中にエラーが発生しました: {Version1} vs {Version2}", version1, version2);
-                return 0;
-            }
-        }
-        
-        /// <summary>
         /// 製造元名からベンダーIDを取得します
         /// </summary>
-        public async Task<string> GetVendorIdByNameAsync(string vendorName)
+        public async Task<string?> GetVendorIdByNameAsync(string vendorName)
         {
             try
             {
                 _logger.LogInformation("製造元名 {VendorName} のベンダーIDを取得しています", vendorName);
-                
-                // よく知られたベンダーのマッピング
-                var knownVendors = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    { "nvidia", "10DE" },
-                    { "amd", "1002" },
-                    { "ati", "1002" },
-                    { "advanced micro devices", "1002" },
-                    { "intel", "8086" },
-                    { "realtek", "10EC" },
-                    { "broadcom", "14E4" },
-                    { "qualcomm", "168C" },
-                    { "marvell", "11AB" },
-                    { "via", "1106" },
-                    { "asus", "1043" },
-                    { "gigabyte", "1458" },
-                    { "msi", "1462" },
-                    { "hp", "103C" },
-                    { "dell", "1028" },
-                    { "lenovo", "17AA" },
-                    { "toshiba", "1179" },
-                    { "samsung", "144D" }
-                };
-                
-                // 名前でマッチングを試行
-                foreach (var vendor in knownVendors)
-                {
-                    if (vendorName.Contains(vendor.Key, StringComparison.OrdinalIgnoreCase))
-                    {
-                        return vendor.Value;
-                    }
-                }
-                
-                // オンラインのPCI IDデータベースを参照する場合は
-                // ここに実装を追加
-                
+
+                // PCI IDs データベース（50,000+ エントリ）で逆引き
+                var id = await _pciIds.GetVendorIdByNameAsync(vendorName);
+                if (id != null) return id;
+
                 _logger.LogWarning("製造元名 {VendorName} のベンダーIDが見つかりませんでした", vendorName);
                 return null;
             }
@@ -441,17 +348,21 @@ namespace AeroDriver.Core.Services
         {
             try
             {
-                _logger.LogInformation("WHQL認証ドライバーデータベースを更新しています");
-                
-                // キャッシュディレクトリをクリア
-                Directory.GetFiles(_cacheDirectory, "*.json").ToList().ForEach(File.Delete);
-                
-                _logger.LogInformation("WHQL認証ドライバーデータベースのキャッシュをクリアしました");
+                _logger.LogInformation("ドライバーデータベースを更新しています");
+
+                // WHQLキャッシュをクリア
+                foreach (var f in Directory.GetFiles(_cacheDirectory, "*.json"))
+                    File.Delete(f);
+
+                // PCI IDs データベースを最新化
+                await _pciIds.RefreshAsync();
+
+                _logger.LogInformation("ドライバーデータベースの更新が完了しました");
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "WHQL認証ドライバーデータベース更新中にエラーが発生しました");
+                _logger.LogError(ex, "ドライバーデータベース更新中にエラーが発生しました");
                 return false;
             }
         }
@@ -462,19 +373,8 @@ namespace AeroDriver.Core.Services
     /// </summary>
     internal class CachedDriverInfo
     {
-        /// <summary>
-        /// ハードウェアID
-        /// </summary>
-        public string HardwareId { get; set; }
-        
-        /// <summary>
-        /// ドライバー情報
-        /// </summary>
-        public DriverInfo DriverInfo { get; set; }
-        
-        /// <summary>
-        /// キャッシュ時刻
-        /// </summary>
+        public string? HardwareId { get; set; }
+        public DriverInfo? DriverInfo { get; set; }
         public DateTime CacheTime { get; set; }
     }
 }

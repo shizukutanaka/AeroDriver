@@ -1,228 +1,390 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
+using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AeroDriver.Core.Services
 {
-    /// <summary>
-    /// ドライバーのバックアップと復元を管理するサービス
-    /// </summary>
     public class BackupService : IBackupService
     {
         private readonly ILogger<BackupService> _logger;
-        private const string BackupRoot = "Backups";
-        private const int DefaultMaxGenerations = 3;
+        private readonly ISettingsService _settings;
+        private readonly string _backupRoot;
+        // null 許容: 未登録(テスト等)なら復元時の照合はスキップされる
+        private readonly VulnerableDriverBlocklist? _vulnerableDriverBlocklist;
 
-        public BackupService(ILogger<BackupService> logger)
+        public BackupService(
+            ILogger<BackupService> logger,
+            ISettingsService settings,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
+            : this(logger, settings, Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AeroDriver", "Backups"), vulnerableDriverBlocklist)
+        { }
+
+        // テスト用: バックアップルートを外から指定できる
+        protected BackupService(
+            ILogger<BackupService> logger,
+            ISettingsService settings,
+            string backupRoot,
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            
-            // バックアップディレクトリが存在しない場合は作成
-            if (!Directory.Exists(BackupRoot))
-            {
-                Directory.CreateDirectory(BackupRoot);
-            }
+            _settings = settings ?? throw new ArgumentNullException(nameof(settings));
+            _backupRoot = backupRoot;
+            _vulnerableDriverBlocklist = vulnerableDriverBlocklist;
+            Directory.CreateDirectory(_backupRoot);
         }
 
-        /// <inheritdoc/>
         public async Task<bool> BackupDriverAsync(DriverInfo driver)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
             try
             {
-                var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-                var timestamp = DateTime.Now.ToString("yyyyMMddHHmmss");
-                var backupDir = Path.Combine(deviceBackupDir, $"backup_{timestamp}");
+                var deviceDir = GetDeviceDirectory(driver.DeviceID);
+                var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+                var backupDir = Path.Combine(deviceDir, $"backup_{timestamp}");
+                var filesDir = Path.Combine(backupDir, "files");
+                Directory.CreateDirectory(filesDir);
 
-                if (!Directory.Exists(backupDir))
+                // pnputil /export-driver: ドライバーストアから実際のパッケージ（INF + SYS + 全付属ファイル）を
+                // コピーする。Windows 標準・無料。OEM 名（oemN.inf）がある場合のみ実行可能。
+                bool exported = false;
+                if (!string.IsNullOrEmpty(driver.InfName))
+                    exported = await ExportDriverFilesAsync(driver.InfName, filesDir).ConfigureAwait(false);
+
+                if (!exported)
                 {
-                    Directory.CreateDirectory(backupDir);
+                    _logger.LogWarning(
+                        "ドライバーファイルのエクスポートに失敗しました。メタデータのみバックアップします: {DeviceID}",
+                        driver.DeviceID);
+                    Directory.Delete(filesDir, true);
                 }
 
-                // ここに実際のバックアップ処理を実装
-                // 例: デバイスマネージャーからドライバーファイルをエクスポート
-                // この例ではダミーのバックアップファイルを作成
-                var backupInfo = new
+                var meta = new
                 {
-                    DeviceID = driver.DeviceID,
-                    DeviceName = driver.DeviceName,
-                    DriverVersion = driver.DriverVersion,
-                    BackupTime = DateTime.Now,
-                    Files = new[] { "driver.sys", "driver.inf", "driver.cat" }
+                    driver.DeviceID,
+                    driver.DeviceName,
+                    driver.DriverVersion,
+                    driver.InfName,
+                    HasFiles = exported,
+                    BackupTimeUtc = DateTime.UtcNow,
                 };
 
-                var backupFile = Path.Combine(backupDir, "backup_info.json");
-                await File.WriteAllTextAsync(backupFile, System.Text.Json.JsonSerializer.Serialize(backupInfo));
+                await File.WriteAllTextAsync(
+                    Path.Combine(backupDir, "backup_info.json"),
+                    JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true }));
 
-                _logger.LogInformation($"バックアップが作成されました: {backupDir}");
+                _logger.LogInformation("バックアップを作成しました: {BackupDir} (ファイル含む: {HasFiles})",
+                    backupDir, exported);
 
-                // 古いバックアップをクリーンアップ
-                await CleanupOldBackupsAsync(DefaultMaxGenerations);
-
+                // ISettingsService.MaxBackupGenerations 未実装時は BackupService が
+                // 常に固定3世代でクリーンアップしており、ユーザーが設定を変更しても
+                // 一切反映されないバグだった。実際の設定値を参照するよう修正。
+                await CleanupOldBackupsAsync(deviceDir, _settings.MaxBackupGenerations);
                 return true;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"ドライバーのバックアップ中にエラーが発生しました: {driver.DeviceID}");
+                _logger.LogError(ex, "バックアップ作成中にエラーが発生しました: {DeviceID}", driver.DeviceID);
                 return false;
             }
         }
 
-
-        /// <inheritdoc/>
-        public async Task<bool> RestoreDriverAsync(DriverInfo driver, string backupVersion = null)
+        /// <summary>
+        /// pnputil /export-driver でドライバーストアから実ファイル一式をコピーします。
+        /// </summary>
+        private async Task<bool> ExportDriverFilesAsync(string infName, string destination)
         {
-            if (driver == null) throw new ArgumentNullException(nameof(driver));
-            if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+            var psi = new ProcessStartInfo("pnputil.exe")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add("/export-driver");
+            psi.ArgumentList.Add(infName);
+            psi.ArgumentList.Add(destination);
 
             try
             {
-                var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-                
-                if (!Directory.Exists(deviceBackupDir))
+                using var process = Process.Start(psi);
+                if (process == null) return false;
+
+                // 標準出力・標準エラーの両方をリダイレクトしているため、WaitForExitAsync を
+                // 待つ前に読み取りを開始しておく必要がある。出力が OS のパイプバッファを
+                // 超えると子プロセスが書き込みでブロックし、未読のまま待機するとデッドロックする。
+                var stdOutTask = process.StandardOutput.ReadToEndAsync();
+                var stdErrTask = process.StandardError.ReadToEndAsync();
+
+                await process.WaitForExitAsync().ConfigureAwait(false);
+
+                if (process.ExitCode != 0)
                 {
-                    _logger.LogWarning($"バックアップが見つかりません: {driver.DeviceID}");
+                    var err = await stdErrTask.ConfigureAwait(false);
+                    _logger.LogWarning("pnputil /export-driver 終了コード {Code}: {Error}",
+                        process.ExitCode, err);
                     return false;
                 }
 
-                string backupDir;
-                
-                if (string.IsNullOrEmpty(backupVersion))
-                {
-                    // 最新のバックアップを使用
-                    var backups = Directory.GetDirectories(deviceBackupDir, "backup_*")
-                        .OrderByDescending(d => d)
-                        .FirstOrDefault();
-
-                    if (string.IsNullOrEmpty(backups))
-                    {
-                        _logger.LogWarning($"復元可能なバックアップが見つかりません: {driver.DeviceID}");
-                        return false;
-                    }
-                    
-                    backupDir = backups;
-                }
-                else
-                {
-                    // 指定バージョンのバックアップを使用
-                    backupDir = Path.Combine(deviceBackupDir, $"backup_{backupVersion}");
-                    if (!Directory.Exists(backupDir))
-                    {
-                        _logger.LogWarning($"指定されたバージョンのバックアップが見つかりません: {backupVersion}");
-                        return false;
-                    }
-                }
-
-                // ここに実際の復元処理を実装
-                // 例: バックアップからドライバーファイルを復元
-                var backupInfoFile = Path.Combine(backupDir, "backup_info.json");
-                if (File.Exists(backupInfoFile))
-                {
-                    var backupInfo = await File.ReadAllTextAsync(backupInfoFile);
-                    _logger.LogInformation($"バックアップから復元中: {backupInfo}");
-                }
-
-                _logger.LogInformation($"ドライバーを復元しました: {backupDir}");
-                return true;
+                await stdOutTask.ConfigureAwait(false);
+                return Directory.EnumerateFileSystemEntries(destination).Any();
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"ドライバーの復元中にエラーが発生しました: {driver.DeviceID}");
+                _logger.LogError(ex, "pnputil /export-driver の実行中にエラーが発生しました: {Inf}", infName);
                 return false;
             }
         }
 
-        /// <inheritdoc/>
-        public async Task CleanupOldBackupsAsync(int maxGenerations)
+        public async Task<bool> RestoreDriverAsync(DriverInfo driver, string? backupVersion = null)
         {
-            if (maxGenerations < 1)
-                throw new ArgumentOutOfRangeException(nameof(maxGenerations), "世代数は1以上を指定してください。");
+            if (driver == null) throw new ArgumentNullException(nameof(driver));
+            if (string.IsNullOrEmpty(driver.DeviceID))
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
             try
             {
-                foreach (var deviceDir in Directory.GetDirectories(BackupRoot))
-                {
-                    var backups = Directory.GetDirectories(deviceDir, "backup_*")
-                        .OrderByDescending(d => d)
-                        .ToArray();
+                var deviceDir = GetDeviceDirectory(driver.DeviceID);
 
-                    if (backups.Length > maxGenerations)
+                string backupDir;
+                if (string.IsNullOrEmpty(backupVersion))
+                {
+                    backupDir = Directory.GetDirectories(deviceDir, "backup_*")
+                        .OrderByDescending(d => d)
+                        .FirstOrDefault();
+
+                    if (backupDir == null)
                     {
-                        foreach (var oldBackup in backups.Skip(maxGenerations))
-                        {
-                            try
-                            {
-                                Directory.Delete(oldBackup, true);
-                                _logger.LogInformation($"古いバックアップを削除しました: {oldBackup}");
-                            }
-                            catch (Exception ex)
-                            {
-                                _logger.LogError(ex, $"バックアップの削除中にエラーが発生しました: {oldBackup}");
-                            }
-                        }
+                        _logger.LogWarning("復元可能なバックアップが見つかりません: {DeviceID}", driver.DeviceID);
+                        return false;
                     }
                 }
+                else
+                {
+                    // "backup_" プレフィックスは先頭セグメントが単独の ".." になることは防ぐが、
+                    // backupVersion 内部に埋め込まれた "../" までは防げない
+                    // (例: "../../../../Windows/System32" → deviceDir の外へ脱出可能)。
+                    // GetDeviceDirectory と同じ多層防御: 正規化後の絶対パスが
+                    // deviceDir 配下に収まっていることを確認する。
+                    backupDir = Path.GetFullPath(Path.Combine(deviceDir, $"backup_{backupVersion}"));
+                    var normalizedDeviceDir = Path.GetFullPath(deviceDir) + Path.DirectorySeparatorChar;
+                    if (!backupDir.StartsWith(normalizedDeviceDir, StringComparison.OrdinalIgnoreCase))
+                        throw new ArgumentException(
+                            $"バックアップバージョンに無効な文字が含まれています: {backupVersion}", nameof(backupVersion));
+
+                    if (!Directory.Exists(backupDir))
+                    {
+                        _logger.LogWarning("指定されたバックアップが見つかりません: {Version}", backupVersion);
+                        return false;
+                    }
+                }
+
+                var infoFile = Path.Combine(backupDir, "backup_info.json");
+                if (File.Exists(infoFile))
+                {
+                    var info = await File.ReadAllTextAsync(infoFile);
+                    _logger.LogInformation("バックアップから復元中: {Info}", info);
+                }
+
+                var filesDir = Path.Combine(backupDir, "files");
+                if (!Directory.Exists(filesDir))
+                {
+                    _logger.LogWarning(
+                        "このバックアップにはドライバーファイルが含まれていません（メタデータのみ）: {BackupDir}",
+                        backupDir);
+                    return false;
+                }
+
+                var infPath = Directory.EnumerateFiles(filesDir, "*.inf", SearchOption.AllDirectories)
+                    .FirstOrDefault();
+                if (infPath == null)
+                {
+                    _logger.LogWarning("バックアップ内に INF ファイルが見つかりません: {BackupDir}", backupDir);
+                    return false;
+                }
+
+                ElevationGuard.ThrowIfNotElevated("ドライバーの復元");
+
+                // 復元は pnputil /add-driver で実ファイルを再登録するインストールと同義のため、
+                // DriverService.InstallDriverUpdateWithResultAsync/InstallCustomDriverAsync と同じ
+                // 既知の脆弱ドライバー(BYOVD)照合を適用する。バックアップ取得時点では
+                // ブロックリストに存在しなかった(後日追加された)ドライバーを素通りさせないため。
+                if (await IsAnyFileBlockedAsVulnerableAsync(filesDir).ConfigureAwait(false))
+                {
+                    _logger.LogWarning("既知の脆弱ドライバーを含むためバックアップからの復元を拒否しました: {BackupDir}", backupDir);
+                    return false;
+                }
+
+                bool installed = await ReinstallDriverFileAsync(infPath).ConfigureAwait(false);
+                if (installed)
+                    _logger.LogInformation("ドライバーを復元しました: {BackupDir}", backupDir);
+                else
+                    _logger.LogError("ドライバー復元失敗（pnputil /add-driver）: {BackupDir}", backupDir);
+
+                return installed;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "バックアップのクリーンアップ中にエラーが発生しました");
-                throw;
+                _logger.LogError(ex, "ドライバー復元中にエラーが発生しました: {DeviceID}", driver.DeviceID);
+                return false;
             }
-            
-            await Task.CompletedTask;
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// バックアップディレクトリ配下の全ファイルを既知の脆弱ドライバー(LOLDriversリスト)と
+        /// 照合する。ブロックリスト未登録(null)や照合自体の失敗はfalse(フェイルオープン)—
+        /// DriverService.IsBlockedAsVulnerableAsync と同じ方針。
+        /// </summary>
+        private async Task<bool> IsAnyFileBlockedAsVulnerableAsync(string filesDir)
+        {
+            if (_vulnerableDriverBlocklist == null) return false;
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(filesDir, "*", SearchOption.AllDirectories))
+                {
+                    if (await _vulnerableDriverBlocklist.IsKnownVulnerableAsync(file).ConfigureAwait(false))
+                    {
+                        _logger.LogWarning(
+                            "既知の脆弱ドライバー(BYOVD悪用実績あり)を検出しました: {Path}。" +
+                            "詳細は https://www.loldrivers.io/ を参照してください", file);
+                        return true;
+                    }
+                }
+                return false;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "脆弱ドライバー照合中にエラーが発生しました(照合をスキップします): {Dir}", filesDir);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// pnputil /add-driver でバックアップからドライバーストアへ再インストールします。
+        /// </summary>
+        private async Task<bool> ReinstallDriverFileAsync(string infPath)
+        {
+            var psi = new ProcessStartInfo("pnputil.exe")
+            {
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true,
+            };
+            psi.ArgumentList.Add("/add-driver");
+            psi.ArgumentList.Add(infPath);
+            psi.ArgumentList.Add("/install");
+
+            using var process = Process.Start(psi);
+            if (process == null) return false;
+
+            // 標準出力・標準エラーの両方をリダイレクトしているため、片方だけを読み取って
+            // 完了を待つと、未読のパイプがバッファを埋めた際に子プロセスがブロックし
+            // デッドロックする。両ストリームの読み取りを並行して開始してから待機する。
+            var stdOutTask = process.StandardOutput.ReadToEndAsync();
+            var stdErrTask = process.StandardError.ReadToEndAsync();
+
+            var output = await stdOutTask.ConfigureAwait(false);
+            await stdErrTask.ConfigureAwait(false);
+            await process.WaitForExitAsync().ConfigureAwait(false);
+
+            return process.ExitCode == 0 &&
+                   (output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
+                    output.Contains("正常", StringComparison.OrdinalIgnoreCase));
+        }
+
+        public async Task CleanupOldBackupsAsync(int maxGenerations)
+        {
+            if (maxGenerations < 1)
+                throw new ArgumentOutOfRangeException(nameof(maxGenerations), "世代数は1以上を指定してください");
+
+            foreach (var deviceDir in Directory.GetDirectories(_backupRoot))
+                await CleanupOldBackupsAsync(deviceDir, maxGenerations);
+        }
+
         public bool HasBackup(DriverInfo driver)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
-            var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-            return Directory.Exists(deviceBackupDir) && 
-                   Directory.GetDirectories(deviceBackupDir, "backup_*").Any();
+            var deviceDir = GetDeviceDirectory(driver.DeviceID);
+            return Directory.Exists(deviceDir) &&
+                   Directory.GetDirectories(deviceDir, "backup_*").Length > 0;
         }
 
-        /// <inheritdoc/>
         public string[] GetAvailableBackups(DriverInfo driver)
         {
             if (driver == null) throw new ArgumentNullException(nameof(driver));
             if (string.IsNullOrEmpty(driver.DeviceID))
-                throw new ArgumentException("デバイスIDが指定されていません。", nameof(driver.DeviceID));
+                throw new ArgumentException("デバイスIDが指定されていません", nameof(driver));
 
-            var deviceBackupDir = GetDeviceBackupDirectory(driver.DeviceID);
-            
-            if (!Directory.Exists(deviceBackupDir))
-                return Array.Empty<string>();
+            var deviceDir = GetDeviceDirectory(driver.DeviceID);
+            if (!Directory.Exists(deviceDir)) return Array.Empty<string>();
 
-            return Directory.GetDirectories(deviceBackupDir, "backup_*")
+            return Directory.GetDirectories(deviceDir, "backup_*")
                 .Select(Path.GetFileName)
-                .Where(name => name != null)
-                .Select(name => name!.Substring(7)) // "backup_" を除去
+                .Where(n => n != null)
+                .Select(n => n!["backup_".Length..])
+                .OrderByDescending(v => v)
                 .ToArray();
         }
 
-        private string GetDeviceBackupDirectory(string deviceId)
+        private string GetDeviceDirectory(string deviceId)
         {
-            // デバイスIDを安全なディレクトリ名に変換
-            var safeDeviceId = string.Join("", deviceId.Split(Path.GetInvalidFileNameChars()));
-            var deviceBackupDir = Path.Combine(BackupRoot, safeDeviceId);
+            if (string.IsNullOrWhiteSpace(deviceId))
+                throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
 
-            if (!Directory.Exists(deviceBackupDir))
+            var safe = string.Concat(deviceId.Split(Path.GetInvalidFileNameChars()));
+
+            // Path.GetInvalidFileNameChars() には '.' が含まれないため、deviceId が
+            // ".." 等の場合そのまま素通りしパストラバーサルを許してしまう
+            // (例: --device-id ".." → _backupRoot の親ディレクトリを指してしまう)。
+            // 多層防御として、正規化後の絶対パスが _backupRoot 配下に収まっている
+            // ことを最終確認する。
+            var dir = Path.GetFullPath(Path.Combine(_backupRoot, safe));
+            var normalizedRoot = Path.GetFullPath(_backupRoot) + Path.DirectorySeparatorChar;
+            if (!dir.StartsWith(normalizedRoot, StringComparison.OrdinalIgnoreCase))
+                throw new ArgumentException(
+                    $"デバイスIDに無効な文字が含まれています: {deviceId}", nameof(deviceId));
+
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+
+        private async Task CleanupOldBackupsAsync(string deviceDir, int maxGenerations)
+        {
+            var backups = Directory.GetDirectories(deviceDir, "backup_*")
+                .OrderByDescending(d => d)
+                .ToArray();
+
+            foreach (var old in backups.Skip(maxGenerations))
             {
-                Directory.CreateDirectory(deviceBackupDir);
+                try
+                {
+                    Directory.Delete(old, true);
+                    _logger.LogInformation("古いバックアップを削除しました: {Dir}", old);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "バックアップ削除中にエラーが発生しました: {Dir}", old);
+                }
             }
 
-            return deviceBackupDir;
+            await Task.CompletedTask;
         }
     }
 }

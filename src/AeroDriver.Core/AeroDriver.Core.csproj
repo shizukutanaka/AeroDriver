@@ -11,7 +11,9 @@
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="System.Management" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="8.0.0" />
+    <!-- System.Management (レガシーWMI) は CimSession (Microsoft.Management.Infrastructure) に移行済みのため削除 -->
   </ItemGroup>
 
   <ItemGroup>
@@ -21,6 +23,10 @@
     <Folder Include="Services\" />
     <Folder Include="Interfaces\" />
     <Folder Include="Helpers\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="AeroDriver.Core.Tests" />
   </ItemGroup>
 
 </Project>

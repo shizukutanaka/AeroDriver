@@ -1,0 +1,14 @@
+<Project>
+  <!-- 全プロジェクト共通のアセンブリメタデータ。
+       exe/dll のファイルプロパティや dotnet --info 系の表示に反映される。
+       バージョンはリリース時にここを一箇所更新すれば全アセンブリに波及する。 -->
+  <PropertyGroup>
+    <Version>1.0.0</Version>
+    <Authors>Shizuku Tanaka</Authors>
+    <Product>AeroDriver</Product>
+    <Description>Windows driver management tool prioritizing WHQL-certified drivers. Free and open source.</Description>
+    <Copyright>© 2025 Shizuku Tanaka. Released under the MIT License.</Copyright>
+    <RepositoryUrl>https://github.com/shizukutanaka/AeroDriver</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+</Project>
