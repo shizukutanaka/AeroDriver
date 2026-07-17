@@ -208,8 +208,16 @@ jobs:
   ボタンラベルは`ILanguageService`のローカライズ済みキー(`Button_Scan`等、GUI用に元々用意されていた)から取得
 - `.csproj`: `OutputType=WinExe`を追加し、`AeroDriver.Languages`への参照を追加
 
-未対応(将来拡張): テーマ切替、言語切替UI、カスタムドライバー(.inf)のファイル選択インストール、
-ドライバー詳細ペイン。net8.0-windowsのためこの環境ではビルド未検証(静的検証のみ)。
+追加実装済み(GUI第2弾):
+- カスタムドライバーインストール: ツールバーのボタン→`IFileDialogService`(WPF実装)で
+  ファイル選択(.inf/.exe/.msi/.cab)→既存の`InstallCustomDriverAsync`を呼び出し
+- ドライバー詳細ペイン: インストール済み一覧をダブルクリック→`GetDriverDetailsAsync`で
+  右ペインに詳細(製造元/クラス/状態/パス/サイズ/Authenticode署名)を表示。
+  null→Visibility変換の小コンバーター2つ(`Converters/NullToVisibilityConverters.cs`)を使用
+- 言語切替: カルチャ選択ComboBox(`SupportedCultures`/NativeName)→`SetCulture`呼び出し+
+  全ローカライズラベルの`PropertyChanged`再発火でUIを即時再ラベル
+
+未対応(将来拡張): テーマ切替。net8.0-windowsのためこの環境ではビルド未検証(静的検証のみ)。
 
 ---
 

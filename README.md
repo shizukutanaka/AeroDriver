@@ -15,7 +15,7 @@ It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 - **Real file backup/restore**: `pnputil /export-driver` + `/add-driver` — not just metadata
 - **Security-hardened installs**: HTTPS-only downloads, Authenticode signature verification, elevation checks, WQL-injection-safe queries
 - **CLI**: `scan`, `update`, `install --device-id <id>`, `rollback --device-id <id>`, `details --device-id <id>`
-- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install / rollback with cancellable progress
+- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install / rollback with cancellable progress, custom-file (.inf/.exe/.msi/.cab) install, a driver detail pane (double-click), and live language switching across all 10 cultures
 - **BYOVD protection**: rejects known-vulnerable drivers by SHA256 against the free LOLDrivers list on every install/restore path
 - **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback
 
@@ -48,9 +48,9 @@ dotnet run --project src/AeroDriver.UI
 
 ## 🗺️ Roadmap
 
-- [x] WPF GUI (`AeroDriver.UI`) — basic scan/update/install/rollback implemented
+- [x] WPF GUI (`AeroDriver.UI`) — scan/update/install/rollback, custom-file install, driver detail pane, live language switching
 - [x] Language translations for zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU (all 10 supported cultures now have translated content)
-- [ ] GUI: theme switching, language-switch UI, custom `.inf` file-picker install, driver detail pane
+- [ ] GUI: theme switching
 - [ ] Driver dependency ordering (e.g. chipset before GPU)
 
 For a detailed breakdown of what's implemented, what's dead code, and what's
