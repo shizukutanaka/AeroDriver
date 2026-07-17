@@ -195,9 +195,21 @@ jobs:
         run: dotnet test tests/AeroDriver.Core.Tests/AeroDriver.Core.Tests.csproj --no-build --configuration Release
 ```
 
-### AeroDriver.UI の扱い
-空のWPFプロジェクト。依存関係は`CommunityToolkit.Mvvm`に最新化済みだが、実装は未着手。
-「フルGUIを実装する」か「正式に削除する」かは規模の大きい意思決定のため保留中。
+### AeroDriver.UI の扱い → **実装済み**
+空だったWPFプロジェクトに基本GUIを実装した:
+- `App.xaml.cs`: CLIと同じ`ServiceCollectionExtensions.ConfigureServices()`でコアサービスを構成し、
+  UI層で`ILanguageService`/`MainViewModel`/`MainWindow`を追加登録。未処理UI例外は
+  `DispatcherUnhandledException`で捕捉してユーザー提示+ログ記録
+- `ViewModels/MainViewModel.cs`: CommunityToolkit.Mvvmの`[ObservableProperty]`/`[RelayCommand]`使用。
+  scan/更新確認/選択更新のインストール/ロールバック/キャンセルを実装。`IDriverService`はScoped登録の
+  ため操作ごとに`IServiceScopeFactory`でスコープを生成。長時間処理は`CancellationToken`でキャンセル可能、
+  実行中は`IsBusy`でコマンド無効化、進捗は`IProgress<DriverScanProgress>`でUIスレッドに反映
+- `MainWindow.xaml`: インストール済み/更新候補の2タブ(DataGrid)+ツールバー+進捗付きステータスバー。
+  ボタンラベルは`ILanguageService`のローカライズ済みキー(`Button_Scan`等、GUI用に元々用意されていた)から取得
+- `.csproj`: `OutputType=WinExe`を追加し、`AeroDriver.Languages`への参照を追加
+
+未対応(将来拡張): テーマ切替、言語切替UI、カスタムドライバー(.inf)のファイル選択インストール、
+ドライバー詳細ペイン。net8.0-windowsのためこの環境ではビルド未検証(静的検証のみ)。
 
 ---
 

@@ -5,8 +5,7 @@
 
 **AeroDriver** is a driver management tool for Windows that prioritizes WHQL
 (Windows Hardware Quality Labs) certified drivers to keep systems stable.
-It currently ships as a command-line tool; a WPF GUI is planned but not yet
-implemented (see [Roadmap](#-roadmap) below).
+It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 
 ## ✨ Features (implemented today)
 
@@ -15,7 +14,9 @@ implemented (see [Roadmap](#-roadmap) below).
 - **Update sources**: Windows Update Agent (COM) and pnputil driver-store enumeration
 - **Real file backup/restore**: `pnputil /export-driver` + `/add-driver` — not just metadata
 - **Security-hardened installs**: HTTPS-only downloads, Authenticode signature verification, elevation checks, WQL-injection-safe queries
-- **CLI**: `scan`, `update`, `install --device-id <id>`, `rollback --device-id <id>`
+- **CLI**: `scan`, `update`, `install --device-id <id>`, `rollback --device-id <id>`, `details --device-id <id>`
+- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install / rollback with cancellable progress
+- **BYOVD protection**: rejects known-vulnerable drivers by SHA256 against the free LOLDrivers list on every install/restore path
 - **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback
 
 ## 📋 System Requirements
@@ -25,10 +26,15 @@ implemented (see [Roadmap](#-roadmap) below).
 
 ## 🚀 Installation
 
-### Using Command Line
+### Command Line
 ```bash
 dotnet build
 dotnet run --project src/AeroDriver.CLI -- scan
+```
+
+### GUI
+```bash
+dotnet run --project src/AeroDriver.UI
 ```
 
 ## 🧩 Architecture
@@ -37,12 +43,14 @@ dotnet run --project src/AeroDriver.CLI -- scan
 - **WhqlDatabaseService**: Windows Update Catalog lookups
 - **BackupService**: real driver file backup/restore via pnputil
 - **PciIdDatabase**: vendor/device ID resolution (pci-ids.ucw.cz mirror)
-- **AeroDriver.Languages**: localization framework (ja-JP, en-US content today)
+- **AeroDriver.Languages**: localization framework (all 10 supported cultures translated)
+- **AeroDriver.UI**: WPF/MVVM GUI (CommunityToolkit.Mvvm) over the shared core services
 
 ## 🗺️ Roadmap
 
-- [ ] WPF GUI (`AeroDriver.UI` project scaffolded, not yet implemented)
+- [x] WPF GUI (`AeroDriver.UI`) — basic scan/update/install/rollback implemented
 - [x] Language translations for zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU (all 10 supported cultures now have translated content)
+- [ ] GUI: theme switching, language-switch UI, custom `.inf` file-picker install, driver detail pane
 - [ ] Driver dependency ordering (e.g. chipset before GPU)
 
 For a detailed breakdown of what's implemented, what's dead code, and what's

@@ -1,6 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
+    <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -21,6 +22,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AeroDriver.Core\AeroDriver.Core.csproj" />
+    <ProjectReference Include="..\AeroDriver.Languages\AeroDriver.Languages.csproj" />
   </ItemGroup>
 
 </Project>
