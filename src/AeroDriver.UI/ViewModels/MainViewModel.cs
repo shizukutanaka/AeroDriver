@@ -1,9 +1,11 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using AeroDriver.Languages.Services;
+using AeroDriver.UI.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
@@ -20,25 +22,34 @@ namespace AeroDriver.UI.ViewModels
     {
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILanguageService _lang;
+        private readonly IFileDialogService _fileDialog;
         private readonly ILogger<MainViewModel> _logger;
         private CancellationTokenSource? _cts;
 
         public ObservableCollection<DriverInfo> InstalledDrivers { get; } = new();
         public ObservableCollection<DriverInfo> AvailableUpdates { get; } = new();
 
-        // ローカライズ済みラベル（現在カルチャの文字列を ILanguageService から取得）
+        /// <summary>言語切替コンボボックス用。ILanguageService が公開する対応カルチャ。</summary>
+        public IReadOnlyList<CultureInfo> Cultures => _lang.SupportedCultures;
+
+        // ローカライズ済みラベル（現在カルチャの文字列を ILanguageService から取得）。
+        // 言語切替時は OnSelectedCultureChanged で全ラベルの PropertyChanged を発火する。
         public string ScanButtonText => _lang.GetString("Button_Scan");
         public string CheckUpdatesButtonText => _lang.GetString("Button_Update");
         public string InstallButtonText => _lang.GetString("Button_Update");
         public string RollbackButtonText => _lang.GetString("Button_Restore");
+        public string CustomInstallButtonText => _lang.GetString("Button_Backup");
         public string InstalledTabHeader => _lang.GetString("Button_Scan");
         public string UpdatesTabHeader => _lang.GetString("Driver_Status_UpdateAvailable");
+        public string LanguageLabel => _lang.GetString("Settings_Language");
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(ScanCommand))]
         [NotifyCanExecuteChangedFor(nameof(CheckUpdatesCommand))]
         [NotifyCanExecuteChangedFor(nameof(InstallSelectedCommand))]
         [NotifyCanExecuteChangedFor(nameof(RollbackSelectedCommand))]
+        [NotifyCanExecuteChangedFor(nameof(InstallCustomDriverCommand))]
+        [NotifyCanExecuteChangedFor(nameof(ShowDetailsCommand))]
         [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
         private bool _isBusy;
 
@@ -51,17 +62,47 @@ namespace AeroDriver.UI.ViewModels
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(RollbackSelectedCommand))]
+        [NotifyCanExecuteChangedFor(nameof(ShowDetailsCommand))]
         private DriverInfo? _selectedInstalledDriver;
+
+        /// <summary>選択中インストール済みドライバーの詳細（詳細ペインにバインド）。</summary>
+        [ObservableProperty]
+        private DriverDetailInfo? _selectedDetail;
+
+        [ObservableProperty]
+        private CultureInfo? _selectedCulture;
 
         public MainViewModel(
             IServiceScopeFactory scopeFactory,
             ILanguageService lang,
+            IFileDialogService fileDialog,
             ILogger<MainViewModel> logger)
         {
             _scopeFactory = scopeFactory;
             _lang = lang;
+            _fileDialog = fileDialog;
             _logger = logger;
+            _selectedCulture = _lang.CurrentCulture;
         }
+
+        // 言語切替: SelectedCulture が変わったら実際のカルチャを切り替え、
+        // ローカライズ済みラベルすべての再評価を促す
+        partial void OnSelectedCultureChanged(CultureInfo? value)
+        {
+            if (value == null) return;
+            _lang.SetCulture(value);
+            OnPropertyChanged(nameof(ScanButtonText));
+            OnPropertyChanged(nameof(CheckUpdatesButtonText));
+            OnPropertyChanged(nameof(InstallButtonText));
+            OnPropertyChanged(nameof(RollbackButtonText));
+            OnPropertyChanged(nameof(CustomInstallButtonText));
+            OnPropertyChanged(nameof(InstalledTabHeader));
+            OnPropertyChanged(nameof(UpdatesTabHeader));
+            OnPropertyChanged(nameof(LanguageLabel));
+        }
+
+        // 選択が変わったら以前の詳細表示はクリアする（明示的に「詳細」を押すまで空）
+        partial void OnSelectedInstalledDriverChanged(DriverInfo? value) => SelectedDetail = null;
 
         private bool CanRun() => !IsBusy;
 
@@ -121,6 +162,39 @@ namespace AeroDriver.UI.ViewModels
                 bool ok = await driverService.RollbackDriverAsync(target.DeviceID, ct).ConfigureAwait(true);
                 StatusMessage = ok
                     ? $"{_lang.GetString("Status_Complete")}: {target.DeviceName}"
+                    : $"{_lang.GetString("Status_Error")}: {target.DeviceName}";
+            }).ConfigureAwait(true);
+        }
+
+        [RelayCommand(CanExecute = nameof(CanRun))]
+        private async Task InstallCustomDriverAsync()
+        {
+            var path = _fileDialog.PickDriverFile();
+            if (string.IsNullOrEmpty(path)) return; // キャンセル
+
+            await RunAsync(_lang.GetString("Status_Updating"), async (driverService, _, ct) =>
+            {
+                bool ok = await driverService.InstallCustomDriverAsync(path, ct).ConfigureAwait(true);
+                StatusMessage = ok
+                    ? $"{_lang.GetString("Status_Complete")}: {path}"
+                    : $"{_lang.GetString("Status_Error")}: {path}";
+            }).ConfigureAwait(true);
+        }
+
+        private bool CanShowDetails() => !IsBusy && SelectedInstalledDriver?.DeviceID != null;
+
+        [RelayCommand(CanExecute = nameof(CanShowDetails))]
+        private async Task ShowDetailsAsync()
+        {
+            var target = SelectedInstalledDriver;
+            if (target?.DeviceID == null) return;
+
+            await RunAsync(_lang.GetString("Status_Scanning"), async (driverService, _, ct) =>
+            {
+                var detail = await driverService.GetDriverDetailsAsync(target.DeviceID, ct).ConfigureAwait(true);
+                SelectedDetail = detail;
+                StatusMessage = detail != null
+                    ? $"{_lang.GetString("Status_Complete")}: {detail.DeviceName}"
                     : $"{_lang.GetString("Status_Error")}: {target.DeviceName}";
             }).ConfigureAwait(true);
         }

@@ -1,7 +1,7 @@
 <Window x:Class="AeroDriver.UI.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="AeroDriver" Height="600" Width="900"
+        Title="AeroDriver" Height="640" Width="960"
         WindowStartupLocation="CenterScreen">
     <DockPanel Margin="8">
 
@@ -12,9 +12,17 @@
                 <Button Content="{Binding CheckUpdatesButtonText}" Command="{Binding CheckUpdatesCommand}" Padding="8,2" />
                 <Separator />
                 <Button Content="{Binding InstallButtonText}" Command="{Binding InstallSelectedCommand}" Padding="8,2" />
+                <Button Content="{Binding CustomInstallButtonText}" Command="{Binding InstallCustomDriverCommand}" Padding="8,2" />
                 <Button Content="{Binding RollbackButtonText}" Command="{Binding RollbackSelectedCommand}" Padding="8,2" />
                 <Separator />
                 <Button Content="キャンセル" Command="{Binding CancelCommand}" Padding="8,2" />
+            </ToolBar>
+            <ToolBar>
+                <TextBlock Text="{Binding LanguageLabel}" VerticalAlignment="Center" Margin="4,0" />
+                <ComboBox ItemsSource="{Binding Cultures}"
+                          SelectedItem="{Binding SelectedCulture}"
+                          DisplayMemberPath="NativeName"
+                          Width="150" Margin="4,0" />
             </ToolBar>
         </ToolBarTray>
 
@@ -29,36 +37,88 @@
             </StatusBarItem>
         </StatusBar>
 
-        <!-- メイン: インストール済み / 更新候補のタブ -->
-        <TabControl>
-            <TabItem Header="{Binding InstalledTabHeader}">
-                <DataGrid ItemsSource="{Binding InstalledDrivers}"
-                          SelectedItem="{Binding SelectedInstalledDriver}"
-                          AutoGenerateColumns="False" IsReadOnly="True"
-                          SelectionMode="Single" GridLinesVisibility="Horizontal">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="デバイス名" Binding="{Binding DeviceName}" Width="*" />
-                        <DataGridTextColumn Header="バージョン" Binding="{Binding DriverVersion}" Width="120" />
-                        <DataGridTextColumn Header="提供元" Binding="{Binding DriverProviderName}" Width="160" />
-                        <DataGridCheckBoxColumn Header="WHQL" Binding="{Binding IsWHQLCertified}" Width="60" />
-                        <DataGridCheckBoxColumn Header="GPU" Binding="{Binding IsGraphicsDriver}" Width="50" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </TabItem>
-            <TabItem Header="{Binding UpdatesTabHeader}">
-                <DataGrid ItemsSource="{Binding AvailableUpdates}"
-                          SelectedItem="{Binding SelectedUpdate}"
-                          AutoGenerateColumns="False" IsReadOnly="True"
-                          SelectionMode="Single" GridLinesVisibility="Horizontal">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="デバイス名" Binding="{Binding DeviceName}" Width="*" />
-                        <DataGridTextColumn Header="バージョン" Binding="{Binding DriverVersion}" Width="120" />
-                        <DataGridTextColumn Header="提供元" Binding="{Binding DriverProviderName}" Width="160" />
-                        <DataGridTextColumn Header="ソース" Binding="{Binding UpdateSource}" Width="140" />
-                        <DataGridCheckBoxColumn Header="WHQL" Binding="{Binding IsWHQLCertified}" Width="60" />
-                    </DataGrid.Columns>
-                </DataGrid>
-            </TabItem>
-        </TabControl>
+        <!-- メイン: 左=タブ(一覧)、右=詳細ペイン -->
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*" />
+                <ColumnDefinition Width="4" />
+                <ColumnDefinition Width="1*" MinWidth="220" />
+            </Grid.ColumnDefinitions>
+
+            <TabControl Grid.Column="0">
+                <TabItem Header="{Binding InstalledTabHeader}">
+                    <DataGrid ItemsSource="{Binding InstalledDrivers}"
+                              SelectedItem="{Binding SelectedInstalledDriver}"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" GridLinesVisibility="Horizontal">
+                        <DataGrid.InputBindings>
+                            <MouseBinding MouseAction="LeftDoubleClick" Command="{Binding ShowDetailsCommand}" />
+                        </DataGrid.InputBindings>
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="デバイス名" Binding="{Binding DeviceName}" Width="*" />
+                            <DataGridTextColumn Header="バージョン" Binding="{Binding DriverVersion}" Width="120" />
+                            <DataGridTextColumn Header="提供元" Binding="{Binding DriverProviderName}" Width="160" />
+                            <DataGridCheckBoxColumn Header="WHQL" Binding="{Binding IsWHQLCertified}" Width="60" />
+                            <DataGridCheckBoxColumn Header="GPU" Binding="{Binding IsGraphicsDriver}" Width="50" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+                <TabItem Header="{Binding UpdatesTabHeader}">
+                    <DataGrid ItemsSource="{Binding AvailableUpdates}"
+                              SelectedItem="{Binding SelectedUpdate}"
+                              AutoGenerateColumns="False" IsReadOnly="True"
+                              SelectionMode="Single" GridLinesVisibility="Horizontal">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="デバイス名" Binding="{Binding DeviceName}" Width="*" />
+                            <DataGridTextColumn Header="バージョン" Binding="{Binding DriverVersion}" Width="120" />
+                            <DataGridTextColumn Header="提供元" Binding="{Binding DriverProviderName}" Width="160" />
+                            <DataGridTextColumn Header="ソース" Binding="{Binding UpdateSource}" Width="140" />
+                            <DataGridCheckBoxColumn Header="WHQL" Binding="{Binding IsWHQLCertified}" Width="60" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </TabItem>
+            </TabControl>
+
+            <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" />
+
+            <!-- 詳細ペイン: 選択ドライバーをダブルクリックすると GetDriverDetailsAsync を表示 -->
+            <Border Grid.Column="2" BorderBrush="#DDD" BorderThickness="1" Margin="4,0,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="8">
+                        <TextBlock Text="ドライバー詳細" FontWeight="Bold" Margin="0,0,0,6" />
+
+                        <!-- 未選択時のプレースホルダー -->
+                        <TextBlock Text="デバイスをダブルクリックすると詳細を表示します"
+                                   Foreground="Gray" TextWrapping="Wrap"
+                                   Visibility="{Binding SelectedDetail, Converter={StaticResource NullToVis}}" />
+
+                        <!-- 詳細本体（SelectedDetail が非nullのときだけ表示） -->
+                        <StackPanel Visibility="{Binding SelectedDetail, Converter={StaticResource NotNullToVis}}"
+                                    DataContext="{Binding SelectedDetail}">
+                            <TextBlock Text="{Binding DeviceName}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Manufacturer, StringFormat='製造元: {0}'}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding DriverVersion, StringFormat='バージョン: {0}'}" />
+                            <TextBlock Text="{Binding DeviceClass, StringFormat='クラス: {0}'}" />
+                            <TextBlock Text="{Binding ClassGuid, StringFormat='ClassGuid: {0}'}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding Status, StringFormat='状態: {0}'}" />
+                            <TextBlock Text="{Binding DriverPath, StringFormat='パス: {0}'}" TextWrapping="Wrap" />
+                            <TextBlock Text="{Binding DriverSize, StringFormat='サイズ: {0:N0} bytes'}" />
+
+                            <!-- 署名情報（CertificateInfo が非nullのときだけ） -->
+                            <StackPanel Visibility="{Binding CertificateInfo, Converter={StaticResource NotNullToVis}}">
+                                <Separator Margin="0,6" />
+                                <TextBlock Text="署名" FontWeight="SemiBold" />
+                                <StackPanel DataContext="{Binding CertificateInfo}">
+                                    <TextBlock Text="{Binding Subject, StringFormat='Subject: {0}'}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding Issuer, StringFormat='Issuer: {0}'}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding ValidTo, StringFormat='有効期限: {0}'}" TextWrapping="Wrap" />
+                                    <TextBlock Text="{Binding IsTrustedChain, StringFormat='信頼チェーン: {0}'}" />
+                                </StackPanel>
+                            </StackPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </ScrollViewer>
+            </Border>
+        </Grid>
     </DockPanel>
 </Window>
