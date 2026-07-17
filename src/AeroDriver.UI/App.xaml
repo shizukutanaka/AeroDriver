@@ -1,0 +1,8 @@
+<Application x:Class="AeroDriver.UI.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Application.Resources>
+        <!-- 明示的なStartupUriは使わず、App.OnStartupでDI経由でMainWindowを生成する -->
+        <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    </Application.Resources>
+</Application>

@@ -1,0 +1,64 @@
+<Window x:Class="AeroDriver.UI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AeroDriver" Height="600" Width="900"
+        WindowStartupLocation="CenterScreen">
+    <DockPanel Margin="8">
+
+        <!-- ツールバー -->
+        <ToolBarTray DockPanel.Dock="Top">
+            <ToolBar>
+                <Button Content="{Binding ScanButtonText}" Command="{Binding ScanCommand}" Padding="8,2" />
+                <Button Content="{Binding CheckUpdatesButtonText}" Command="{Binding CheckUpdatesCommand}" Padding="8,2" />
+                <Separator />
+                <Button Content="{Binding InstallButtonText}" Command="{Binding InstallSelectedCommand}" Padding="8,2" />
+                <Button Content="{Binding RollbackButtonText}" Command="{Binding RollbackSelectedCommand}" Padding="8,2" />
+                <Separator />
+                <Button Content="キャンセル" Command="{Binding CancelCommand}" Padding="8,2" />
+            </ToolBar>
+        </ToolBarTray>
+
+        <!-- ステータスバー -->
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <ProgressBar Width="120" Height="14" IsIndeterminate="True"
+                             Visibility="{Binding IsBusy, Converter={StaticResource BoolToVis}}" />
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="{Binding StatusMessage}" />
+            </StatusBarItem>
+        </StatusBar>
+
+        <!-- メイン: インストール済み / 更新候補のタブ -->
+        <TabControl>
+            <TabItem Header="{Binding InstalledTabHeader}">
+                <DataGrid ItemsSource="{Binding InstalledDrivers}"
+                          SelectedItem="{Binding SelectedInstalledDriver}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Single" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="デバイス名" Binding="{Binding DeviceName}" Width="*" />
+                        <DataGridTextColumn Header="バージョン" Binding="{Binding DriverVersion}" Width="120" />
+                        <DataGridTextColumn Header="提供元" Binding="{Binding DriverProviderName}" Width="160" />
+                        <DataGridCheckBoxColumn Header="WHQL" Binding="{Binding IsWHQLCertified}" Width="60" />
+                        <DataGridCheckBoxColumn Header="GPU" Binding="{Binding IsGraphicsDriver}" Width="50" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+            <TabItem Header="{Binding UpdatesTabHeader}">
+                <DataGrid ItemsSource="{Binding AvailableUpdates}"
+                          SelectedItem="{Binding SelectedUpdate}"
+                          AutoGenerateColumns="False" IsReadOnly="True"
+                          SelectionMode="Single" GridLinesVisibility="Horizontal">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="デバイス名" Binding="{Binding DeviceName}" Width="*" />
+                        <DataGridTextColumn Header="バージョン" Binding="{Binding DriverVersion}" Width="120" />
+                        <DataGridTextColumn Header="提供元" Binding="{Binding DriverProviderName}" Width="160" />
+                        <DataGridTextColumn Header="ソース" Binding="{Binding UpdateSource}" Width="140" />
+                        <DataGridCheckBoxColumn Header="WHQL" Binding="{Binding IsWHQLCertified}" Width="60" />
+                    </DataGrid.Columns>
+                </DataGrid>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
