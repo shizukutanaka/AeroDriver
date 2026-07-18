@@ -24,6 +24,9 @@
   <data name="Button_Update" xml:space="preserve">
     <value>Mettre à jour</value>
   </data>
+  <data name="Button_UpdateAll" xml:space="preserve">
+    <value>Tout mettre à jour</value>
+  </data>
   <data name="Button_Backup" xml:space="preserve">
     <value>Sauvegarder</value>
   </data>

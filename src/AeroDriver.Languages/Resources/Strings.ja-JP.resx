@@ -73,6 +73,9 @@
   <data name="Button_Update" xml:space="preserve">
     <value>更新</value>
   </data>
+  <data name="Button_UpdateAll" xml:space="preserve">
+    <value>すべて更新</value>
+  </data>
   <data name="Button_Backup" xml:space="preserve">
     <value>バックアップ</value>
   </data>
