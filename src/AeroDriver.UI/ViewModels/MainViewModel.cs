@@ -23,6 +23,7 @@ namespace AeroDriver.UI.ViewModels
         private readonly IServiceScopeFactory _scopeFactory;
         private readonly ILanguageService _lang;
         private readonly IFileDialogService _fileDialog;
+        private readonly IThemeService _themeService;
         private readonly ILogger<MainViewModel> _logger;
         private CancellationTokenSource? _cts;
 
@@ -31,6 +32,9 @@ namespace AeroDriver.UI.ViewModels
 
         /// <summary>言語切替コンボボックス用。ILanguageService が公開する対応カルチャ。</summary>
         public IReadOnlyList<CultureInfo> Cultures => _lang.SupportedCultures;
+
+        /// <summary>テーマ切替コンボボックス用。</summary>
+        public IReadOnlyList<AppTheme> Themes => _themeService.AvailableThemes;
 
         // ローカライズ済みラベル（現在カルチャの文字列を ILanguageService から取得）。
         // 言語切替時は OnSelectedCultureChanged で全ラベルの PropertyChanged を発火する。
@@ -42,6 +46,7 @@ namespace AeroDriver.UI.ViewModels
         public string InstalledTabHeader => _lang.GetString("Button_Scan");
         public string UpdatesTabHeader => _lang.GetString("Driver_Status_UpdateAvailable");
         public string LanguageLabel => _lang.GetString("Settings_Language");
+        public string ThemeLabel => _lang.GetString("Settings_Theme");
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(ScanCommand))]
@@ -72,18 +77,27 @@ namespace AeroDriver.UI.ViewModels
         [ObservableProperty]
         private CultureInfo? _selectedCulture;
 
+        [ObservableProperty]
+        private AppTheme _selectedTheme;
+
         public MainViewModel(
             IServiceScopeFactory scopeFactory,
             ILanguageService lang,
             IFileDialogService fileDialog,
+            IThemeService themeService,
             ILogger<MainViewModel> logger)
         {
             _scopeFactory = scopeFactory;
             _lang = lang;
             _fileDialog = fileDialog;
+            _themeService = themeService;
             _logger = logger;
             _selectedCulture = _lang.CurrentCulture;
+            _selectedTheme = themeService.CurrentTheme;
         }
+
+        // テーマ切替: SelectedTheme が変わったら ThemeService に反映
+        partial void OnSelectedThemeChanged(AppTheme value) => _themeService.Apply(value);
 
         // 言語切替: SelectedCulture が変わったら実際のカルチャを切り替え、
         // ローカライズ済みラベルすべての再評価を促す
@@ -99,6 +113,7 @@ namespace AeroDriver.UI.ViewModels
             OnPropertyChanged(nameof(InstalledTabHeader));
             OnPropertyChanged(nameof(UpdatesTabHeader));
             OnPropertyChanged(nameof(LanguageLabel));
+            OnPropertyChanged(nameof(ThemeLabel));
         }
 
         // 選択が変わったら以前の詳細表示はクリアする（明示的に「詳細」を押すまで空）

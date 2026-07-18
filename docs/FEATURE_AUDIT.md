@@ -217,7 +217,13 @@ jobs:
 - 言語切替: カルチャ選択ComboBox(`SupportedCultures`/NativeName)→`SetCulture`呼び出し+
   全ローカライズラベルの`PropertyChanged`再発火でUIを即時再ラベル
 
-未対応(将来拡張): テーマ切替。net8.0-windowsのためこの環境ではビルド未検証(静的検証のみ)。
+- テーマ切替(ライト/ダーク): `IThemeService`/`ThemeService`が`Application.Resources.MergedDictionaries`の
+  テーマ辞書(`Themes/Light.xaml`・`Themes/Dark.xaml`、同一キーのブラシ群)を実行時に差し替え、
+  `MainWindow`は`DynamicResource`でブラシを参照するため即座に再テーマされる。ツールバーの
+  テーマ選択ComboBox→`SelectedTheme`→`ThemeService.Apply`
+
+未対応(将来拡張): 特になし(ロードマップのGUI項目は全て実装)。net8.0-windowsのため
+この環境ではビルド未検証(静的検証のみ)。
 
 ---
 

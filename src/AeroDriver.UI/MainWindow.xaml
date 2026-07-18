@@ -2,7 +2,10 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="AeroDriver" Height="640" Width="960"
-        WindowStartupLocation="CenterScreen">
+        WindowStartupLocation="CenterScreen"
+        Background="{DynamicResource WindowBackground}"
+        Foreground="{DynamicResource WindowForeground}"
+        TextElement.Foreground="{DynamicResource WindowForeground}">
     <DockPanel Margin="8">
 
         <!-- ツールバー -->
@@ -23,6 +26,11 @@
                           SelectedItem="{Binding SelectedCulture}"
                           DisplayMemberPath="NativeName"
                           Width="150" Margin="4,0" />
+                <Separator />
+                <TextBlock Text="{Binding ThemeLabel}" VerticalAlignment="Center" Margin="4,0" />
+                <ComboBox ItemsSource="{Binding Themes}"
+                          SelectedItem="{Binding SelectedTheme}"
+                          Width="90" Margin="4,0" />
             </ToolBar>
         </ToolBarTray>
 
@@ -82,14 +90,16 @@
             <GridSplitter Grid.Column="1" Width="4" HorizontalAlignment="Stretch" />
 
             <!-- 詳細ペイン: 選択ドライバーをダブルクリックすると GetDriverDetailsAsync を表示 -->
-            <Border Grid.Column="2" BorderBrush="#DDD" BorderThickness="1" Margin="4,0,0,0">
+            <Border Grid.Column="2" BorderThickness="1" Margin="4,0,0,0"
+                    BorderBrush="{DynamicResource BorderBrushColor}"
+                    Background="{DynamicResource PanelBackground}">
                 <ScrollViewer VerticalScrollBarVisibility="Auto">
                     <StackPanel Margin="8">
                         <TextBlock Text="ドライバー詳細" FontWeight="Bold" Margin="0,0,0,6" />
 
                         <!-- 未選択時のプレースホルダー -->
                         <TextBlock Text="デバイスをダブルクリックすると詳細を表示します"
-                                   Foreground="Gray" TextWrapping="Wrap"
+                                   Foreground="{DynamicResource SubtleForeground}" TextWrapping="Wrap"
                                    Visibility="{Binding SelectedDetail, Converter={StaticResource NullToVis}}" />
 
                         <!-- 詳細本体（SelectedDetail が非nullのときだけ表示） -->
