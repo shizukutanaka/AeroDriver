@@ -274,6 +274,10 @@ namespace AeroDriver.Core.Services
                                      Comparer<string>.Create(VersionHelper.Compare)).First())
                     .ToList();
 
+                // インストール推奨順に並べ替える（チップセット/ストレージ → … → GPU の順）。
+                // 一括インストール時に依存関係の土台が先に入るようにするため
+                updates = DriverInstallOrder.Sort(updates).ToList();
+
                 if (updates.Count > 0)
                     UpdatesAvailable?.Invoke(this, new UpdatesAvailableEventArgs(updates));
 

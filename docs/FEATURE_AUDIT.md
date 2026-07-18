@@ -26,6 +26,11 @@
 - `IAsyncEnumerable<DriverInfo> StreamAllDriversAsync`: `BoundedChannel(256)+Wait`でバックプレッシャー制御
 - `SemaphoreSlim(1,1)`による非同期セーフなキャッシュ(TTL 30秒)
 - 更新ソース: `PnpUtilDriverSource`(pnputil.exe)、`WindowsUpdateAgentSource`(WUA COM)、`WhqlDatabaseService`(Windows Update Catalog)
+- インストール順序計画: `Helpers/DriverInstallOrder.cs`(純粋関数)が`DeviceClass`に基づき
+  チップセット/システム基盤 → ストレージ → バス(USB) → ネットワーク → その他 → GPU(表示) の順に並べ替える。
+  `CheckForUpdatesAsync`が返す更新一覧に適用済みのため、CLIの`update`とGUIの更新タブの両方が
+  依存関係の土台を先にインストールする順序で表示される(例: 「チップセット before GPU」)。
+  `DriverInstallOrderTests.cs`で全順序・安定ソート・大文字小文字非依存・未知クラスのフォールバックを検証
 
 ### バックアップ/復元 (`src/AeroDriver.Core/Services/BackupService.cs`)
 - `pnputil /export-driver`で実際のドライバーファイル一式(INF+SYS+関連ファイル)をコピー
