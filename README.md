@@ -15,8 +15,8 @@ It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 - **Install-order planning**: the update list is ordered chipset/storage/bus → … → GPU so dependencies land before dependents in a batch install
 - **Real file backup/restore**: `pnputil /export-driver` + `/add-driver` — not just metadata
 - **Security-hardened installs**: HTTPS-only downloads, Authenticode signature verification, elevation checks, WQL-injection-safe queries
-- **CLI**: `scan`, `update`, `install --device-id <id>`, `rollback --device-id <id>`, `details --device-id <id>`
-- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install / rollback with cancellable progress, custom-file (.inf/.exe/.msi/.cab) install, a driver detail pane (double-click), live language switching across all 10 cultures, and light/dark theme switching
+- **CLI**: `scan`, `update` (`--install-all` for ordered batch install), `install --device-id <id>`, `rollback --device-id <id>`, `details --device-id <id>`
+- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install-selected / **install-all (in dependency order)** / rollback with cancellable progress, custom-file (.inf/.exe/.msi/.cab) install, a driver detail pane (double-click), live language switching across all 10 cultures, and light/dark theme switching
 - **BYOVD protection**: rejects known-vulnerable drivers by SHA256 against the free LOLDrivers list on every install/restore path
 - **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback
 

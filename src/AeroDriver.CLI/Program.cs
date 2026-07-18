@@ -53,9 +53,15 @@ namespace AeroDriver.CLI
             scanCommand.SetHandler(async () =>
                 Environment.ExitCode = await RunScanAsync(serviceProvider));
 
-            var updateCommand = new Command("update", "ドライバー更新を確認し、必要なら一覧表示します");
-            updateCommand.SetHandler(async () =>
-                Environment.ExitCode = await RunCheckUpdatesAsync(serviceProvider));
+            var installAllOption = new Option<bool>("--install-all",
+                "確認された更新をインストール推奨順（チップセット→…→GPU）で一括インストールします（管理者権限が必要）");
+            var updateCommand = new Command("update", "ドライバー更新を確認し、必要なら一覧表示します")
+            { installAllOption };
+            updateCommand.SetHandler(async (bool installAll) =>
+                Environment.ExitCode = installAll
+                    ? await RunInstallAllAsync(serviceProvider)
+                    : await RunCheckUpdatesAsync(serviceProvider),
+                installAllOption);
 
             var installCommand = new Command("install", "指定した DeviceID の更新をインストールします（管理者権限が必要）")
             { deviceIdOption };
@@ -183,19 +189,7 @@ namespace AeroDriver.CLI
                 }
 
                 var result = await driverService.InstallDriverUpdateWithResultAsync(target);
-                Console.WriteLine(result switch
-                {
-                    DriverInstallResult.Success => $"インストール完了: {target.DeviceName} {target.DriverVersion}",
-                    DriverInstallResult.AdminRequired => "インストール失敗: 管理者権限が必要です。アプリケーションを管理者として実行してください。",
-                    DriverInstallResult.NoDownloadUrl => "インストール失敗: ダウンロードURLがありません。",
-                    DriverInstallResult.InsecureDownloadUrl => "インストール失敗: ダウンロードURLがHTTPSではありません。",
-                    DriverInstallResult.DownloadFailed => "インストール失敗: ダウンロードに失敗しました。ネットワーク接続を確認してください。",
-                    DriverInstallResult.SignatureInvalid => "インストール失敗: インストーラーの署名が無効です。",
-                    DriverInstallResult.KnownVulnerableDriver => "インストール失敗: 既知の脆弱ドライバー(BYOVD悪用実績あり)のためブロックしました。詳細: https://www.loldrivers.io/",
-                    DriverInstallResult.InstallerFailed => $"インストール失敗: {target.DeviceName}",
-                    DriverInstallResult.Cancelled => "インストールがキャンセルされました。",
-                    _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",
-                });
+                Console.WriteLine(DescribeInstallResult(result, target));
                 return result == DriverInstallResult.Success ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)
@@ -209,6 +203,68 @@ namespace AeroDriver.CLI
                 return ExitFailure;
             }
         }
+
+        /// <summary>
+        /// 確認された更新をインストール推奨順（<c>CheckForUpdatesAsync</c> が
+        /// <c>DriverInstallOrder</c> で並べた順＝チップセット → … → GPU）で一括インストールする。
+        /// </summary>
+        private static async Task<int> RunInstallAllAsync(IServiceProvider serviceProvider)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
+
+            try
+            {
+                var updates = await driverService.CheckForUpdatesAsync();
+                if (updates.Count == 0)
+                {
+                    Console.WriteLine(lang.GetString("Driver_Status_UpToDate"));
+                    return ExitSuccess;
+                }
+
+                int success = 0, failed = 0, total = updates.Count;
+                for (int i = 0; i < updates.Count; i++)
+                {
+                    var target = updates[i];
+                    Console.WriteLine($"[{i + 1}/{total}] {target.DeviceName} ...");
+                    var result = await driverService.InstallDriverUpdateWithResultAsync(target);
+                    Console.WriteLine("  " + DescribeInstallResult(result, target));
+                    if (result == DriverInstallResult.Success) success++; else failed++;
+                }
+
+                Console.WriteLine($"\n{lang.GetString("Status_Complete")}: {success} / {total}" +
+                                  (failed > 0 ? $" ({lang.GetString("Status_Error")}: {failed})" : string.Empty));
+                // 1件でも失敗があれば非0終了コード（スクリプトから成否を判定できるように）
+                return failed == 0 ? ExitSuccess : ExitFailure;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                Console.Error.WriteLine($"権限エラー: {ex.Message}");
+                return ExitFailure;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "一括インストール中にエラーが発生しました");
+                return ExitFailure;
+            }
+        }
+
+        /// <summary>インストール結果を日本語メッセージに変換する（install / update --install-all 共通）。</summary>
+        private static string DescribeInstallResult(DriverInstallResult result, DriverInfo target) => result switch
+        {
+            DriverInstallResult.Success => $"インストール完了: {target.DeviceName} {target.DriverVersion}",
+            DriverInstallResult.AdminRequired => "インストール失敗: 管理者権限が必要です。アプリケーションを管理者として実行してください。",
+            DriverInstallResult.NoDownloadUrl => "インストール失敗: ダウンロードURLがありません。",
+            DriverInstallResult.InsecureDownloadUrl => "インストール失敗: ダウンロードURLがHTTPSではありません。",
+            DriverInstallResult.DownloadFailed => "インストール失敗: ダウンロードに失敗しました。ネットワーク接続を確認してください。",
+            DriverInstallResult.SignatureInvalid => "インストール失敗: インストーラーの署名が無効です。",
+            DriverInstallResult.KnownVulnerableDriver => "インストール失敗: 既知の脆弱ドライバー(BYOVD悪用実績あり)のためブロックしました。詳細: https://www.loldrivers.io/",
+            DriverInstallResult.InstallerFailed => $"インストール失敗: {target.DeviceName}",
+            DriverInstallResult.Cancelled => "インストールがキャンセルされました。",
+            _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",
+        };
 
         private static async Task<int> RunRollbackAsync(IServiceProvider serviceProvider, string? deviceId)
         {

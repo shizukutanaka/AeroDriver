@@ -16,7 +16,8 @@
 
 ### CLI (`src/AeroDriver.CLI/Program.cs`)
 - `scan`: `CimSession`経由でインストール済みドライバーを列挙し進捗表示
-- `update`: 全`IDriverUpdateSource`に問い合わせ、更新候補を一覧表示
+- `update`: 全`IDriverUpdateSource`に問い合わせ、更新候補を一覧表示。`--install-all`で
+  インストール推奨順(チップセット→…→GPU)の一括インストール。1件でも失敗すると非0終了コード
 - `install --device-id <id>`: `DriverInstallResult` enumで失敗理由を区別して表示
 - `rollback --device-id <id>`: バックアップから実ファイル復元
 - `details --device-id <id>`: 個別マッピング済みフィールド+生のWMIプロパティ全件を表示
@@ -226,6 +227,10 @@ jobs:
   テーマ辞書(`Themes/Light.xaml`・`Themes/Dark.xaml`、同一キーのブラシ群)を実行時に差し替え、
   `MainWindow`は`DynamicResource`でブラシを参照するため即座に再テーマされる。ツールバーの
   テーマ選択ComboBox→`SelectedTheme`→`ThemeService.Apply`
+- 一括インストール: 「すべて更新」ボタン(`InstallAllUpdatesCommand`)が`AvailableUpdates`
+  (`DriverInstallOrder`で並んだ推奨順)を逐次インストール。進捗を`n/total`で表示、成功項目は
+  一覧から除去、キャンセル対応。新リソースキー`Button_UpdateAll`を全10言語に追加(計19キー)。
+  CLI側は`update --install-all`で同等機能を提供
 
 未対応(将来拡張): 特になし(ロードマップのGUI項目は全て実装)。net8.0-windowsのため
 この環境ではビルド未検証(静的検証のみ)。

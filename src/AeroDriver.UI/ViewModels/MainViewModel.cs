@@ -41,6 +41,7 @@ namespace AeroDriver.UI.ViewModels
         public string ScanButtonText => _lang.GetString("Button_Scan");
         public string CheckUpdatesButtonText => _lang.GetString("Button_Update");
         public string InstallButtonText => _lang.GetString("Button_Update");
+        public string UpdateAllButtonText => _lang.GetString("Button_UpdateAll");
         public string RollbackButtonText => _lang.GetString("Button_Restore");
         public string CustomInstallButtonText => _lang.GetString("Button_Backup");
         public string InstalledTabHeader => _lang.GetString("Button_Scan");
@@ -52,6 +53,7 @@ namespace AeroDriver.UI.ViewModels
         [NotifyCanExecuteChangedFor(nameof(ScanCommand))]
         [NotifyCanExecuteChangedFor(nameof(CheckUpdatesCommand))]
         [NotifyCanExecuteChangedFor(nameof(InstallSelectedCommand))]
+        [NotifyCanExecuteChangedFor(nameof(InstallAllUpdatesCommand))]
         [NotifyCanExecuteChangedFor(nameof(RollbackSelectedCommand))]
         [NotifyCanExecuteChangedFor(nameof(InstallCustomDriverCommand))]
         [NotifyCanExecuteChangedFor(nameof(ShowDetailsCommand))]
@@ -108,6 +110,7 @@ namespace AeroDriver.UI.ViewModels
             OnPropertyChanged(nameof(ScanButtonText));
             OnPropertyChanged(nameof(CheckUpdatesButtonText));
             OnPropertyChanged(nameof(InstallButtonText));
+            OnPropertyChanged(nameof(UpdateAllButtonText));
             OnPropertyChanged(nameof(RollbackButtonText));
             OnPropertyChanged(nameof(CustomInstallButtonText));
             OnPropertyChanged(nameof(InstalledTabHeader));
@@ -145,6 +148,9 @@ namespace AeroDriver.UI.ViewModels
                     AvailableUpdates.Add(u);
                 StatusMessage = $"{_lang.GetString("Status_Complete")} ({updates.Count})";
             }).ConfigureAwait(true);
+
+            // AvailableUpdates.Count が変わったので「すべて更新」の実行可否を再評価
+            InstallAllUpdatesCommand.NotifyCanExecuteChanged();
         }
 
         private bool CanInstall() => !IsBusy && SelectedUpdate != null;
@@ -162,6 +168,46 @@ namespace AeroDriver.UI.ViewModels
                 if (result == DriverInstallResult.Success)
                     AvailableUpdates.Remove(target);
             }).ConfigureAwait(true);
+        }
+
+        private bool CanInstallAll() => !IsBusy && AvailableUpdates.Count > 0;
+
+        [RelayCommand(CanExecute = nameof(CanInstallAll))]
+        private async Task InstallAllUpdatesAsync()
+        {
+            // AvailableUpdates は CheckForUpdatesAsync が DriverInstallOrder で並べた
+            // インストール推奨順（チップセット → … → GPU）。この順で逐次インストールする。
+            // 成功した項目は一覧から取り除き、途中でキャンセルされたら中断する。
+            if (AvailableUpdates.Count == 0) return;
+
+            await RunAsync(_lang.GetString("Status_Updating"), async (driverService, _, ct) =>
+            {
+                var queue = AvailableUpdates.ToList(); // 反復中に一覧を変更するためスナップショット
+                int success = 0, failed = 0, total = queue.Count;
+
+                for (int i = 0; i < queue.Count; i++)
+                {
+                    ct.ThrowIfCancellationRequested();
+                    var target = queue[i];
+                    StatusMessage = $"{_lang.GetString("Status_Updating")} ({i + 1}/{total}): {target.DeviceName}";
+
+                    var result = await driverService.InstallDriverUpdateWithResultAsync(target, ct).ConfigureAwait(true);
+                    if (result == DriverInstallResult.Success)
+                    {
+                        AvailableUpdates.Remove(target);
+                        success++;
+                    }
+                    else
+                    {
+                        failed++;
+                    }
+                }
+
+                StatusMessage = $"{_lang.GetString("Status_Complete")}: {success} / {total}" +
+                                (failed > 0 ? $" ({_lang.GetString("Status_Error")}: {failed})" : string.Empty);
+            }).ConfigureAwait(true);
+
+            InstallAllUpdatesCommand.NotifyCanExecuteChanged();
         }
 
         private bool CanRollback() => !IsBusy && SelectedInstalledDriver?.DeviceID != null;

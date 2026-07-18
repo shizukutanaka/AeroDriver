@@ -15,6 +15,7 @@
                 <Button Content="{Binding CheckUpdatesButtonText}" Command="{Binding CheckUpdatesCommand}" Padding="8,2" />
                 <Separator />
                 <Button Content="{Binding InstallButtonText}" Command="{Binding InstallSelectedCommand}" Padding="8,2" />
+                <Button Content="{Binding UpdateAllButtonText}" Command="{Binding InstallAllUpdatesCommand}" Padding="8,2" />
                 <Button Content="{Binding CustomInstallButtonText}" Command="{Binding InstallCustomDriverCommand}" Padding="8,2" />
                 <Button Content="{Binding RollbackButtonText}" Command="{Binding RollbackSelectedCommand}" Padding="8,2" />
                 <Separator />

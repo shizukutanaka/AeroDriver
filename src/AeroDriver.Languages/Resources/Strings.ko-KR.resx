@@ -24,6 +24,9 @@
   <data name="Button_Update" xml:space="preserve">
     <value>업데이트</value>
   </data>
+  <data name="Button_UpdateAll" xml:space="preserve">
+    <value>모두 업데이트</value>
+  </data>
   <data name="Button_Backup" xml:space="preserve">
     <value>백업</value>
   </data>
