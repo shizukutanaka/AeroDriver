@@ -12,6 +12,7 @@ It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 - **WHQL-aware installs**: Warns when a driver isn't WHQL certified, especially under WDAC kernel enforcement
 - **Driver detection**: Enumerates installed drivers via `CimSession` (modern WMI) and `pnputil.exe`
 - **Update sources**: Windows Update Agent (COM) and pnputil driver-store enumeration
+- **Install-order planning**: the update list is ordered chipset/storage/bus → … → GPU so dependencies land before dependents in a batch install
 - **Real file backup/restore**: `pnputil /export-driver` + `/add-driver` — not just metadata
 - **Security-hardened installs**: HTTPS-only downloads, Authenticode signature verification, elevation checks, WQL-injection-safe queries
 - **CLI**: `scan`, `update`, `install --device-id <id>`, `rollback --device-id <id>`, `details --device-id <id>`
@@ -50,7 +51,7 @@ dotnet run --project src/AeroDriver.UI
 
 - [x] WPF GUI (`AeroDriver.UI`) — scan/update/install/rollback, custom-file install, driver detail pane, live language switching, light/dark theme switching
 - [x] Language translations for zh-CN, ko-KR, fr-FR, es-ES, de-DE, it-IT, pt-BR, ru-RU (all 10 supported cultures now have translated content)
-- [ ] Driver dependency ordering (e.g. chipset before GPU)
+- [x] Driver dependency ordering (chipset/storage/bus → … → GPU) applied to the update list
 
 For a detailed breakdown of what's implemented, what's dead code, and what's
 still an open decision, see [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md).
