@@ -3,9 +3,16 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:conv="clr-namespace:AeroDriver.UI.Converters">
     <Application.Resources>
-        <!-- 明示的なStartupUriは使わず、App.OnStartupでDI経由でMainWindowを生成する -->
-        <BooleanToVisibilityConverter x:Key="BoolToVis" />
-        <conv:NullToVisibilityConverter x:Key="NullToVis" />
-        <conv:NotNullToVisibilityConverter x:Key="NotNullToVis" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- 既定はライトテーマ。ThemeService が実行時にこの辞書を差し替える。 -->
+                <ResourceDictionary Source="pack://application:,,,/AeroDriver.UI;component/Themes/Light.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <!-- 明示的なStartupUriは使わず、App.OnStartupでDI経由でMainWindowを生成する -->
+            <BooleanToVisibilityConverter x:Key="BoolToVis" />
+            <conv:NullToVisibilityConverter x:Key="NullToVis" />
+            <conv:NotNullToVisibilityConverter x:Key="NotNullToVis" />
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

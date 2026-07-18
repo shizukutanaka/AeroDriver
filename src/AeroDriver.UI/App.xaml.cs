@@ -26,6 +26,7 @@ namespace AeroDriver.UI
             // CLI (Program.cs) と同じく、ILanguageService は UI 層で登録する（コア層は言語に依存しない）
             services.AddSingleton<ILanguageService, LanguageService>();
             services.AddSingleton<IFileDialogService, FileDialogService>();
+            services.AddSingleton<IThemeService, ThemeService>();
             services.AddSingleton<MainViewModel>();
             services.AddSingleton<MainWindow>();
 
