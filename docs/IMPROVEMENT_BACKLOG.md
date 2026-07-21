@@ -40,10 +40,19 @@
 10. **USB非対応の更新照合**: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
     USB VID/PIDデバイスは常に「見つからない」
 11. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
+12. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と
+    CLI `Program.DescribeInstallResult`は、成功時の接頭辞だけ`ILanguageService.GetString`で翻訳し、
+    失敗理由の本文はハードコードの日本語。非日本語UIでも失敗メッセージが日本語で出る
+13. **`RunAsync`の`_cts`はコマンドのCanExecute(`IsBusy`)にのみ依存**(`MainViewModel.cs:272-307`):
+    多重起動はCanExecuteで防いでいるが、`_cts`自体に再入ガードがない。将来コマンドを
+    プログラム的に直接呼ぶ改修を入れると`_cts`が上書きされうる(現状は問題なし・要注意点)
 
 ---
 
 ## 改善タスク
+
+> [Opus]タスクの罠と設計背景は [INSTRUCTIONS_OPUS.md](INSTRUCTIONS_OPUS.md)、
+> [Sonnet]タスクの手順書は [INSTRUCTIONS_SONNET.md](INSTRUCTIONS_SONNET.md) を参照。
 
 ### P0 — 人間の作業が必要(モデルでは完結不可)
 
@@ -79,6 +88,10 @@
 - [ ] **USB VID/PID対応**(短所10): `WhqlDatabaseService`の正規表現に`USB\VID_xxxx&PID_xxxx`分岐を追加
 - [ ] **JSON統一**(短所8): `WhqlDatabaseService`のNewtonsoftをSystem.Text.Jsonに移行し
   パッケージ参照を削除(`AeroDriver.Languages`のNewtonsoft参照も未使用なら削除)
+- [ ] **失敗メッセージのローカライズ**(短所12): `DriverInstallResult`各値のメッセージを
+  リソースキー化(`Install_Result_AdminRequired`等)して全10言語に追加し、`DescribeResult`/
+  `DescribeInstallResult`を`ILanguageService`経由に。受け入れ条件: 非日本語カルチャで
+  失敗理由が翻訳表示される
 
 ### P3 — リファクタリング(急がない)
 
