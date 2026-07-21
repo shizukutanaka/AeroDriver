@@ -55,6 +55,9 @@ dotnet run --project src/AeroDriver.UI
 
 For a detailed breakdown of what's implemented, what's dead code, and what's
 still an open decision, see [docs/FEATURE_AUDIT.md](docs/FEATURE_AUDIT.md).
+For known strengths/weaknesses and the prioritized improvement backlog, see
+[docs/IMPROVEMENT_BACKLOG.md](docs/IMPROVEMENT_BACKLOG.md); contributor/AI
+working rules live in [CLAUDE.md](CLAUDE.md).
 
 ## 🛠️ Development
 
