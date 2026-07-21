@@ -6,6 +6,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 
 **最初に読むもの**: `docs/FEATURE_AUDIT.md`(実装済み/修正済み/未解決の引き継ぎ台帳)と
 `docs/IMPROVEMENT_BACKLOG.md`(長所/短所/優先度付き改善タスク。推奨モデルラベル付き)。
+着手するタスクに応じて、**Opus級は `docs/INSTRUCTIONS_OPUS.md`**(罠・設計背景・不変条件)、
+**Sonnet級は `docs/INSTRUCTIONS_SONNET.md`**(手順書形式のタスク仕様)も読むこと。
 
 ## 絶対規則(違反PRは出さない)
 
