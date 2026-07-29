@@ -184,6 +184,7 @@ namespace AeroDriver.UI.ViewModels
             {
                 var queue = AvailableUpdates.ToList(); // 反復中に一覧を変更するためスナップショット
                 int success = 0, failed = 0, total = queue.Count;
+                bool abortedForAdmin = false;
 
                 for (int i = 0; i < queue.Count; i++)
                 {
@@ -197,14 +198,32 @@ namespace AeroDriver.UI.ViewModels
                         AvailableUpdates.Remove(target);
                         success++;
                     }
+                    else if (result == DriverInstallResult.AdminRequired)
+                    {
+                        // AdminRequired は環境要因。残り全件も必ず同じ理由で失敗するため、
+                        // N回繰り返さず即中断して1回だけ通知する(INSTRUCTIONS_OPUS.md タスク2)
+                        abortedForAdmin = true;
+                        break;
+                    }
                     else
                     {
+                        // SignatureInvalid/KnownVulnerable/DownloadFailed 等は当該1件固有 → 継続
                         failed++;
                     }
                 }
 
-                StatusMessage = $"{_lang.GetString("Status_Complete")}: {success} / {total}" +
-                                (failed > 0 ? $" ({_lang.GetString("Status_Error")}: {failed})" : string.Empty);
+                if (abortedForAdmin)
+                {
+                    int skipped = total - success - failed;
+                    StatusMessage =
+                        $"管理者権限が必要なため中断しました。管理者として実行してください。" +
+                        $"({_lang.GetString("Status_Complete")}: {success} / {total}, 未実行: {skipped})";
+                }
+                else
+                {
+                    StatusMessage = $"{_lang.GetString("Status_Complete")}: {success} / {total}" +
+                                    (failed > 0 ? $" ({_lang.GetString("Status_Error")}: {failed})" : string.Empty);
+                }
             }).ConfigureAwait(true);
 
             InstallAllUpdatesCommand.NotifyCanExecuteChanged();

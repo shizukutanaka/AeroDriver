@@ -24,10 +24,18 @@ namespace AeroDriver.Core.Services
         private readonly HttpClient _httpClient;
         private readonly string _cacheFile;
         private readonly TimeSpan _cacheLifetime = TimeSpan.FromDays(7);
+        // フェイルオープン(空集合)時は短い間隔で再試行し、ネットワーク復旧を早く反映する。
+        // 成功ロードは _cacheLifetime(7日)までプロセス内で固定でよい(リスト更新は日単位のため)。
+        private static readonly TimeSpan FailOpenRetryInterval = TimeSpan.FromMinutes(15);
 
-        // 起動後は読み取りのみ → FrozenSet でロックレス O(1) 照合
+        // 読み取りは FrozenSet でロックレス O(1)。ただしTTLで再評価するためロード時刻も保持する
+        // (初回ロード後プロセス生存中固定だと、空集合が残り続けて照合が永久にスキップされる)
         private FrozenSet<string>? _hashes;
+        private DateTime _loadedAtUtc = DateTime.MinValue;
         private readonly SemaphoreSlim _loadLock = new(1, 1);
+
+        /// <summary>テスト用の時刻シーム(サブクラスで上書きしてTTL経過を再現できる)。</summary>
+        protected virtual DateTime UtcNow => DateTime.UtcNow;
 
         private const string BlocklistUrl = "https://www.loldrivers.io/api/drivers.json";
 
@@ -67,48 +75,71 @@ namespace AeroDriver.Core.Services
             return hashes.Contains(Convert.ToHexString(hash));
         }
 
+        /// <summary>
+        /// メモリ上のロード結果がまだ有効か。空集合(フェイルオープン)は短TTL、
+        /// 通常ロードは _cacheLifetime を適用する。
+        /// </summary>
+        private bool IsFresh()
+        {
+            if (_hashes == null) return false;
+            var ttl = _hashes.Count == 0 ? FailOpenRetryInterval : _cacheLifetime;
+            return (UtcNow - _loadedAtUtc) < ttl;
+        }
+
         private async Task<FrozenSet<string>> EnsureLoadedAsync(CancellationToken ct)
         {
-            if (_hashes != null) return _hashes;
+            if (IsFresh()) return _hashes!;
 
             await _loadLock.WaitAsync(ct).ConfigureAwait(false);
             try
             {
-                if (_hashes != null) return _hashes;
+                // 待機中に別スレッドがロード済みかもしれないので再チェック
+                if (IsFresh()) return _hashes!;
 
-                if (File.Exists(_cacheFile) &&
-                    (DateTime.UtcNow - File.GetLastWriteTimeUtc(_cacheFile)) < _cacheLifetime)
-                {
-                    _hashes = ParseSafe(await File.ReadAllTextAsync(_cacheFile, ct).ConfigureAwait(false));
-                    _logger.LogInformation("脆弱ドライバーリストをキャッシュから読み込みました ({Count} ハッシュ)", _hashes.Count);
-                    return _hashes;
-                }
-
-                try
-                {
-                    _logger.LogInformation("脆弱ドライバーリストをダウンロードしています: {Url}", BlocklistUrl);
-                    Directory.CreateDirectory(Path.GetDirectoryName(_cacheFile)!);
-
-                    var content = await _httpClient.GetStringAsync(BlocklistUrl, ct).ConfigureAwait(false);
-                    await File.WriteAllTextAsync(_cacheFile, content, ct).ConfigureAwait(false);
-                    _hashes = ParseSafe(content);
-                    _logger.LogInformation("脆弱ドライバーリストを更新しました ({Count} ハッシュ)", _hashes.Count);
-                }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogError(ex, "脆弱ドライバーリストのダウンロードに失敗しました。キャッシュを使用します");
-
-                    if (File.Exists(_cacheFile))
-                        _hashes = ParseSafe(await File.ReadAllTextAsync(_cacheFile, ct).ConfigureAwait(false));
-                    else
-                        _hashes = FrozenSet<string>.Empty; // 空 = 照合スキップ(フェイルオープン)
-                }
-
+                _hashes = await LoadHashesAsync(ct).ConfigureAwait(false);
+                _loadedAtUtc = UtcNow;
                 return _hashes;
             }
             finally
             {
                 _loadLock.Release();
+            }
+        }
+
+        /// <summary>
+        /// ファイルキャッシュ(有効なら)→ ダウンロード → キャッシュフォールバック → 空集合 の順で
+        /// ハッシュ集合を取得する。呼び出し元(_loadLock 内)が _hashes/_loadedAtUtc に代入する。
+        /// </summary>
+        private async Task<FrozenSet<string>> LoadHashesAsync(CancellationToken ct)
+        {
+            if (File.Exists(_cacheFile) &&
+                (UtcNow - File.GetLastWriteTimeUtc(_cacheFile)) < _cacheLifetime)
+            {
+                var cached = ParseSafe(await File.ReadAllTextAsync(_cacheFile, ct).ConfigureAwait(false));
+                _logger.LogInformation("脆弱ドライバーリストをキャッシュから読み込みました ({Count} ハッシュ)", cached.Count);
+                return cached;
+            }
+
+            try
+            {
+                _logger.LogInformation("脆弱ドライバーリストをダウンロードしています: {Url}", BlocklistUrl);
+                Directory.CreateDirectory(Path.GetDirectoryName(_cacheFile)!);
+
+                var content = await _httpClient.GetStringAsync(BlocklistUrl, ct).ConfigureAwait(false);
+                await File.WriteAllTextAsync(_cacheFile, content, ct).ConfigureAwait(false);
+                var parsed = ParseSafe(content);
+                _logger.LogInformation("脆弱ドライバーリストを更新しました ({Count} ハッシュ)", parsed.Count);
+                return parsed;
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "脆弱ドライバーリストのダウンロードに失敗しました。キャッシュを使用します");
+
+                if (File.Exists(_cacheFile))
+                    return ParseSafe(await File.ReadAllTextAsync(_cacheFile, ct).ConfigureAwait(false));
+
+                // 空 = 照合スキップ(フェイルオープン)。FailOpenRetryInterval 後に再試行される
+                return FrozenSet<string>.Empty;
             }
         }
 

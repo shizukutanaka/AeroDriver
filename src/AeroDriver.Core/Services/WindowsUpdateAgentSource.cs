@@ -37,27 +37,43 @@ namespace AeroDriver.Core.Services
             {
                 var results = new List<DriverInfo>();
 
+                // RCWを finally で確実に解放するため object で保持する(dynamic を直接
+                // Marshal に渡すと意図しない解放になりうる。詳細は INSTRUCTIONS_OPUS.md タスク3)
+                object? session = null, searcher = null, searchResult = null, updates = null;
                 try
                 {
                     // COMレイトバインディング: WUApiLibへの参照なしでWUAにアクセス
                     var sessionType = Type.GetTypeFromProgID(UpdateSessionProgId, throwOnError: true)!;
-                    dynamic session = Activator.CreateInstance(sessionType)!;
-                    dynamic searcher = session.CreateUpdateSearcher();
+                    session = Activator.CreateInstance(sessionType)!;
+                    dynamic dsession = session;
+                    searcher = dsession.CreateUpdateSearcher();
+                    dynamic dsearcher = searcher;
 
                     // 未インストールのドライバー更新を検索
                     // WUAクエリ言語: Type='Driver' AND IsInstalled=0
-                    dynamic searchResult = searcher.Search("Type='Driver' AND IsInstalled=0");
-                    dynamic updates = searchResult.Updates;
+                    searchResult = dsearcher.Search("Type='Driver' AND IsInstalled=0");
+                    dynamic dsearchResult = searchResult;
+                    updates = dsearchResult.Updates;
+                    dynamic dupdates = updates;
 
-                    _logger.LogInformation("WUA から {Count} 件のドライバー更新を取得しました", (int)updates.Count);
+                    int count = (int)dupdates.Count;
+                    _logger.LogInformation("WUA から {Count} 件のドライバー更新を取得しました", count);
 
-                    for (int i = 0; i < (int)updates.Count; i++)
+                    for (int i = 0; i < count; i++)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        dynamic update = updates.Item(i);
-                        var driver = MapToDriverInfo(update);
-                        if (driver != null) results.Add(driver);
+                        object update = dupdates.Item(i);
+                        try
+                        {
+                            // マッピング完了後に解放する(早すぎる解放は読み取り中のプロパティを壊す)
+                            var driver = MapToDriverInfo(update);
+                            if (driver != null) results.Add(driver);
+                        }
+                        finally
+                        {
+                            ReleaseCom(update);
+                        }
                     }
                 }
                 catch (OperationCanceledException)
@@ -73,6 +89,14 @@ namespace AeroDriver.Core.Services
                 {
                     _logger.LogError(ex, "Windows Update Agent からのドライバー取得中にエラーが発生しました");
                 }
+                finally
+                {
+                    // 逆順に解放(非Windows/COM未生成なら全て null で no-op)
+                    ReleaseCom(updates);
+                    ReleaseCom(searchResult);
+                    ReleaseCom(searcher);
+                    ReleaseCom(session);
+                }
 
                 return results;
             }, cancellationToken);
@@ -84,27 +108,38 @@ namespace AeroDriver.Core.Services
             {
                 if (string.IsNullOrWhiteSpace(hardwareId)) return null;
 
+                object? session = null, searcher = null, searchResult = null, updates = null;
                 try
                 {
                     var sessionType = Type.GetTypeFromProgID(UpdateSessionProgId, throwOnError: true)!;
-                    dynamic session = Activator.CreateInstance(sessionType)!;
-                    dynamic searcher = session.CreateUpdateSearcher();
+                    session = Activator.CreateInstance(sessionType)!;
+                    dynamic dsession = session;
+                    searcher = dsession.CreateUpdateSearcher();
+                    dynamic dsearcher = searcher;
 
                     // HardwareID は WUA クエリでは直接フィルタできないため
                     // DriverClass は使えるが HardwareID は全件取得後フィルタする
-                    dynamic searchResult = searcher.Search("Type='Driver' AND IsInstalled=0");
-                    dynamic updates = searchResult.Updates;
+                    searchResult = dsearcher.Search("Type='Driver' AND IsInstalled=0");
+                    dynamic dsearchResult = searchResult;
+                    updates = dsearchResult.Updates;
+                    dynamic dupdates = updates;
 
-                    for (int i = 0; i < (int)updates.Count; i++)
+                    int count = (int)dupdates.Count;
+                    for (int i = 0; i < count; i++)
                     {
                         cancellationToken.ThrowIfCancellationRequested();
 
-                        dynamic update = updates.Item(i);
-
-                        // IWindowsDriverUpdate の DriverHardwareID プロパティで照合
-                        if (MatchesHardwareId(update, hardwareId))
+                        object update = dupdates.Item(i);
+                        try
                         {
-                            return MapToDriverInfo(update);
+                            // IWindowsDriverUpdate の DriverHardwareID プロパティで照合。
+                            // MapToDriverInfo は managed な DriverInfo を返すため update 解放後も安全
+                            if (MatchesHardwareId(update, hardwareId))
+                                return MapToDriverInfo(update);
+                        }
+                        finally
+                        {
+                            ReleaseCom(update);
                         }
                     }
                 }
@@ -116,9 +151,35 @@ namespace AeroDriver.Core.Services
                 {
                     _logger.LogError(ex, "WUA でのドライバー検索中にエラーが発生しました: {HardwareId}", hardwareId);
                 }
+                finally
+                {
+                    ReleaseCom(updates);
+                    ReleaseCom(searchResult);
+                    ReleaseCom(searcher);
+                    ReleaseCom(session);
+                }
 
                 return null;
             }, cancellationToken);
+        }
+
+        /// <summary>
+        /// COM RCW を明示解放します。WUAをポーリングし続けるとネイティブリソースが
+        /// GC待ちで滞留するため、使い終わった参照はここで手放します。
+        /// null・非COMオブジェクト・二重解放は安全に無視します(解放失敗で機能を止めない)。
+        /// </summary>
+        private static void ReleaseCom(object? comObject)
+        {
+            if (comObject == null) return;
+            try
+            {
+                if (Marshal.IsComObject(comObject))
+                    Marshal.FinalReleaseComObject(comObject);
+            }
+            catch (Exception)
+            {
+                // 解放失敗はログにも値しない(プロセス終了時にどのみち回収される)
+            }
         }
 
         private static bool MatchesHardwareId(dynamic update, string targetId)
