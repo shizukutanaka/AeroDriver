@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Web;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
@@ -17,7 +18,9 @@ namespace AeroDriver.Core.Services
     /// <summary>
     /// Windows Update Catalogと連携してWHQL認証ドライバーを検索・ダウンロードするサービス
     /// </summary>
-    public class WhqlDatabaseService : IWhqlDatabaseService
+    // partial: 入れ子の WhqlJsonContext は JSON ソースジェネレーターが生成する partial クラスであり、
+    // それを内包する型自身も partial でないと生成コードを差し込めない
+    public partial class WhqlDatabaseService : IWhqlDatabaseService
     {
         private readonly ILogger<WhqlDatabaseService> _logger;
         private readonly HttpClient _httpClient;
@@ -243,9 +246,9 @@ namespace AeroDriver.Core.Services
                 }
 
                 string json = File.ReadAllText(cacheFile);
-                var cachedInfo = JsonConvert.DeserializeObject<CachedDriverInfo>(json);
+                var cachedInfo = JsonSerializer.Deserialize(json, WhqlJsonContext.Default.CachedDriverInfo);
 
-                // 破損・空JSON("null"等)の場合、DeserializeObject は null を返しうる。
+                // 破損・空JSON("null"等)の場合、Deserialize は null を返しうる。
                 // 未チェックで cachedInfo.CacheTime にアクセスすると NullReferenceException になる。
                 if (cachedInfo == null)
                 {
@@ -285,7 +288,7 @@ namespace AeroDriver.Core.Services
                     CacheTime = DateTime.Now
                 };
                 
-                string json = JsonConvert.SerializeObject(cachedInfo, Formatting.Indented);
+                string json = JsonSerializer.Serialize(cachedInfo, WhqlJsonContext.Default.CachedDriverInfo);
                 File.WriteAllText(cacheFile, json);
                 
                 _logger.LogInformation("ドライバー情報をキャッシュに保存しました: {HardwareId}", hardwareId);
@@ -296,6 +299,19 @@ namespace AeroDriver.Core.Services
             }
         }
         
+        // Source Generation: リフレクション不要 → AOT互換(SettingsService/InstallHistoryService と同方針)。
+        //
+        // Newtonsoft からの移行にあたっての互換設定:
+        // - WriteIndented: 旧実装が Formatting.Indented だったため、キャッシュファイルの見た目を維持する
+        // - PropertyNameCaseInsensitive: System.Text.Json の既定は大文字小文字を「区別する」が、
+        //   Newtonsoft の既定は「区別しない」。旧実装が書いたキャッシュは C# のプロパティ名どおりの
+        //   PascalCase なので実際には一致するが、既存ファイルを一切壊さないよう明示的に緩めておく。
+        //   なお読み込み失敗時は警告ログを出して null を返し、呼び出し側が再取得するため
+        //   最悪でもキャッシュミス（性能低下）で済み、データ損失にはならない
+        [JsonSourceGenerationOptions(WriteIndented = true, PropertyNameCaseInsensitive = true)]
+        [JsonSerializable(typeof(CachedDriverInfo))]
+        private sealed partial class WhqlJsonContext : JsonSerializerContext { }
+
         /// <summary>
         /// ファイル名に使用できない文字を置き換えます
         /// </summary>
