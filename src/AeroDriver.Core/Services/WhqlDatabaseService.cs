@@ -64,30 +64,19 @@ namespace AeroDriver.Core.Services
                     return cachedDriver;
                 }
                 
-                // ハードウェアIDからベンダーIDとデバイスIDを抽出
-                string? vendorId = null;
-                string? deviceId = null;
-                
-                var venMatch = Regex.Match(hardwareId, @"VEN_([0-9A-F]{4})", RegexOptions.IgnoreCase);
-                if (venMatch.Success)
+                // ハードウェアIDを解析（PCI の VEN/DEV と USB の VID/PID の双方に対応）。
+                // 以前は VEN_/DEV_ のみを見てバス接頭辞に "PCI\" を決め打ちしていたため、
+                // USB デバイスは常に「抽出できませんでした」となり更新を見つけられなかった
+                if (!HardwareIdParser.TryParse(hardwareId, out var parsed) || parsed == null)
                 {
-                    vendorId = venMatch.Groups[1].Value;
-                }
-                
-                var devMatch = Regex.Match(hardwareId, @"DEV_([0-9A-F]{4})", RegexOptions.IgnoreCase);
-                if (devMatch.Success)
-                {
-                    deviceId = devMatch.Groups[1].Value;
-                }
-                
-                if (string.IsNullOrEmpty(vendorId) || string.IsNullOrEmpty(deviceId))
-                {
-                    _logger.LogWarning("ハードウェアID {HardwareId} からVEN/DEVコードを抽出できませんでした", hardwareId);
+                    _logger.LogWarning(
+                        "ハードウェアID {HardwareId} からベンダー/プロダクトIDを抽出できませんでした（PCI/USB以外のバスの可能性）",
+                        hardwareId);
                     return null;
                 }
-                
-                // 検索クエリの構築
-                string searchQuery = $"PCI\\VEN_{vendorId}&DEV_{deviceId}";
+
+                // 検索クエリの構築（バス修飾された正規形）
+                string searchQuery = parsed.CoreId;
                 
                 // Windows Update Catalogから検索
                 var searchResults = await SearchCatalogAsync(searchQuery);

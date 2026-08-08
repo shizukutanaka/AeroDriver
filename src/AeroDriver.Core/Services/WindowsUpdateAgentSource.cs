@@ -2,9 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -225,9 +225,11 @@ namespace AeroDriver.Core.Services
                     string hwId = (string)update.DriverHardwareID;
                     info.HardwareID = hwId;
 
-                    // HardwareID から VEN/DEV を抽出して DeviceID の代替に使う
-                    var m = Regex.Match(hwId, @"PCI\\VEN_[0-9A-F]{4}&DEV_[0-9A-F]{4}", RegexOptions.IgnoreCase);
-                    if (m.Success) info.DeviceID = m.Value;
+                    // HardwareID から正規形を取り出して DeviceID の代替に使う。
+                    // PCI(VEN/DEV)だけでなく USB(VID/PID)も解決する。複合USBデバイスは
+                    // インターフェースごとにドライバーが割り当たるため MI まで含めた形を使う
+                    if (HardwareIdParser.TryParse(hwId, out var parsedId) && parsedId != null)
+                        info.DeviceID = parsedId.QualifiedId;
                 });
 
                 // ダウンロードURL（最初のコンテンツのみ）
