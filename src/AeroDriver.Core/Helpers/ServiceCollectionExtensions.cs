@@ -61,6 +61,8 @@ namespace AeroDriver.Core
 
             // コアサービス
             services.AddSingleton<ISettingsService, SettingsService>();  // 設定はアプリ全体で共有
+            // 履歴は追記のみ。同一ファイルへの書き込みを直列化するためシングルトンで共有する
+            services.AddSingleton<IInstallHistoryService, InstallHistoryService>();
             services.AddScoped<IDriverService, DriverService>();
             services.AddScoped<IBackupService, BackupService>();
             services.AddScoped<IWhqlDatabaseService, WhqlDatabaseService>();

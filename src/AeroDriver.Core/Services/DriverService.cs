@@ -25,6 +25,8 @@ namespace AeroDriver.Core.Services
         private readonly HttpClient _httpClient;
         // null 許容: 未登録(テスト等)なら照合はスキップされる
         private readonly VulnerableDriverBlocklist? _vulnerableDriverBlocklist;
+        // null 許容: 未登録(テスト等)なら履歴記録はスキップされる(記録は本処理の前提ではない)
+        private readonly IInstallHistoryService? _installHistory;
         private bool _disposed;
 
         // WMIキャッシュ — SemaphoreSlim(1,1) で async-safe な排他制御
@@ -45,9 +47,11 @@ namespace AeroDriver.Core.Services
             IBackupService backupService,
             IEnumerable<IDriverUpdateSource> updateSources,
             IHttpClientFactory httpClientFactory,
-            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
+            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null,
+            IInstallHistoryService? installHistory = null)
         {
             _vulnerableDriverBlocklist = vulnerableDriverBlocklist;
+            _installHistory = installHistory;
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
             _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
             _backupService = backupService ?? throw new ArgumentNullException(nameof(backupService));
@@ -377,8 +381,9 @@ namespace AeroDriver.Core.Services
                         driverUpdate.DeviceName);
                 }
 
+                bool backupCreated = false;
                 if (_settingsService.BackupEnabled)
-                    await _backupService.BackupDriverAsync(driverUpdate);
+                    backupCreated = await _backupService.BackupDriverAsync(driverUpdate);
 
                 if (string.IsNullOrEmpty(driverUpdate.DownloadUrl))
                 {
@@ -473,6 +478,12 @@ namespace AeroDriver.Core.Services
                     }
 
                     bool success = installResult == DriverInstallResult.Success;
+
+                    // 監査証跡を残す(成功・失敗の両方)。記録失敗はインストール結果に影響させない
+                    await RecordHistoryAsync(
+                        driverUpdate, installResult, success, restoreSequence, backupCreated, cancellationToken)
+                        .ConfigureAwait(false);
+
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
                     return installResult;
                 }
@@ -491,6 +502,58 @@ namespace AeroDriver.Core.Services
                 _logger.LogError(ex, "ドライバーインストール中にエラーが発生しました: {DeviceID}", driverUpdate.DeviceID);
                 UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, false, ex.Message));
                 return DriverInstallResult.UnknownError;
+            }
+        }
+
+        /// <summary>
+        /// インストール結果を監査証跡に記録します。履歴サービス未登録なら何もしません。
+        /// 記録の失敗は握り潰します(監査のためにインストール結果を変えない)。
+        /// </summary>
+        private async Task RecordHistoryAsync(
+            DriverInfo driverUpdate,
+            DriverInstallResult result,
+            bool success,
+            long? restoreSequence,
+            bool backupCreated,
+            CancellationToken cancellationToken)
+        {
+            if (_installHistory == null) return;
+
+            try
+            {
+                // 置き換えられた側のバージョンは、キャッシュ済みのインストール済み一覧から引く
+                // (ここでWMIを再スキャンすると、インストール直後で状態が変わっており不正確になる)
+                string? fromVersion = null;
+                if (!string.IsNullOrEmpty(driverUpdate.HardwareID) && _cachedDrivers != null)
+                {
+                    fromVersion = _cachedDrivers
+                        .FirstOrDefault(d => string.Equals(d.HardwareID, driverUpdate.HardwareID,
+                                                           StringComparison.OrdinalIgnoreCase))
+                        ?.DriverVersion;
+                }
+
+                await _installHistory.RecordAsync(new InstallHistoryEntry
+                {
+                    TimestampUtc = DateTime.UtcNow,
+                    DeviceId = driverUpdate.DeviceID,
+                    DeviceName = driverUpdate.DeviceName,
+                    HardwareId = driverUpdate.HardwareID,
+                    FromVersion = fromVersion,
+                    ToVersion = driverUpdate.DriverVersion,
+                    UpdateSource = driverUpdate.UpdateSource,
+                    Result = result.ToString(),
+                    Success = success,
+                    RestorePointSequence = restoreSequence,
+                    BackupCreated = backupCreated,
+                }, cancellationToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "インストール履歴の記録に失敗しました: {DeviceID}", driverUpdate.DeviceID);
             }
         }
 
