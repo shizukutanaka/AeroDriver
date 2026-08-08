@@ -37,7 +37,8 @@
 8. **JSONライブラリ混在**: `WhqlDatabaseService`はNewtonsoft、他はSystem.Text.Json
 9. **キャッシュ実装の三重複**: PciIdDatabase/VulnerableDriverBlocklist/(WhqlDatabaseServiceの
    キャッシュ)が同型のダウンロード→LOCALAPPDATA→TTLパターンを個別実装
-10. **USB非対応の更新照合**: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
+10. ~~**USB非対応の更新照合**~~ **解消済**(`HardwareIdParser` を新設し PCI/USB 双方に対応。
+    複合USBの `&MI_xx` も保持)。旧記述:: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
     USB VID/PIDデバイスは常に「見つからない」
 11. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
 12. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と
