@@ -25,13 +25,14 @@
    特にWPF XAML+CommunityToolkit.Mvvmソースジェネレーターはコンパイルエラーリスクが高い
 2. **CI不在**。GitHub Appトークンに`workflows`権限がなく`.github/workflows/build.yml`をpushできない
    (YAML本文は`FEATURE_AUDIT.md` §5に用意済み)
-3. **ブロックリストのTTLがプロセス生存中無視される**: `VulnerableDriverBlocklist.cs:72,77`の
+3. ~~**ブロックリストのTTLがプロセス生存中無視される**~~ **解消済**(643cb9e: `_loadedAtUtc` で再評価。
+   フェイルオープンの空集合は15分で再試行)。旧記述: `VulnerableDriverBlocklist.cs:72,77`の
    `if (_hashes != null) return _hashes;`により、初回ロード結果(フェイルオープンの空集合を含む)が
    プロセス終了まで固定。長時間稼働時に7日TTL・ネットワーク復旧が反映されない
-4. **WUA COMのRCW未解放**: `WindowsUpdateAgentSource.cs`は`Microsoft.Update.Session`等を
+4. ~~**WUA COMのRCW未解放**~~ **解消済**(643cb9e: `ReleaseCom` で逆順解放)。旧記述: `WindowsUpdateAgentSource.cs`は`Microsoft.Update.Session`等を
    `Marshal.ReleaseComObject`せずGC任せ(反復ポーリングでネイティブリソースが滞留しうる)
 5. **テーマ/言語が永続化されない**: `ISettingsService`に該当キーがなく、GUIの選択は再起動で消える
-6. **一括インストールのAdminRequired非効率**: 管理者権限がない場合も全件を順に試行して全件失敗する
+6. ~~**一括インストールのAdminRequired非効率**~~ **解消済**(643cb9e: 即中断して1回だけ通知)。旧記述: 管理者権限がない場合も全件を順に試行して全件失敗する
    (`MainViewModel.InstallAllUpdatesAsync` / CLI `RunInstallAllAsync`)
 7. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
 8. ~~**JSONライブラリ混在**~~ **解消済**: `WhqlDatabaseService` を System.Text.Json
@@ -45,6 +46,14 @@
 12. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と
     CLI `Program.DescribeInstallResult`は、成功時の接頭辞だけ`ILanguageService.GetString`で翻訳し、
     失敗理由の本文はハードコードの日本語。非日本語UIでも失敗メッセージが日本語で出る
+14. ~~**インストール履歴/監査証跡なし**~~ **解消済**(f1227cf: `InstallHistoryService`、CLI `history`)
+15. ~~**「バックアップ」ボタンがカスタムインストールを実行**~~ **解消済**(bda8420: `Button_CustomInstall` を
+    全10言語に追加し、`Button_Backup` は実バックアップコマンドへ結線)
+16. ~~**`Settings_CreateRestorePoint` が実体のない約束**~~ **解消済**(bda8420: `SystemRestoreHelper`)
+17. ~~**バックアップが書き込み専用**~~ **解消済**(bda8420: `GetAvailableBackupsAsync` と
+    世代指定 `RollbackDriverAsync` を `IDriverService` に追加、GUIにバックアップボタン)
+18. **`DisableDriverAsync` がUIから到達不能**(実装済み・ブートクリティカル保護付きだが CLI/GUI に導線なし)
+
 13. **`RunAsync`の`_cts`はコマンドのCanExecute(`IsBusy`)にのみ依存**(`MainViewModel.cs:272-307`):
     多重起動はCanExecuteで防いでいるが、`_cts`自体に再入ガードがない。将来コマンドを
     プログラム的に直接呼ぶ改修を入れると`_cts`が上書きされうる(現状は問題なし・要注意点)
@@ -65,14 +74,14 @@
 
 ### P1 — 高価値・要注意 [Opus]
 
-- [ ] **ブロックリストTTLのプロセス内再評価**(短所3): `EnsureLoadedAsync`で`_hashes`と併せて
+- [x] ~~**ブロックリストTTLのプロセス内再評価**(短所3)~~ 完了(643cb9e): `EnsureLoadedAsync`で`_hashes`と併せて
   ロード時刻を保持し、TTL超過なら`_loadLock`内で再ロード。フェイルオープンの空集合は
   短い再試行間隔(例: 15分)にする。対象: `src/AeroDriver.Core/Services/VulnerableDriverBlocklist.cs`。
   受け入れ条件: 既存`VulnerableDriverBlocklistTests`がpassし、「空集合が再試行される」テストを追加
-- [ ] **一括インストールのAdminRequired早期中断**(短所6): 1件目が`AdminRequired`なら残りをスキップし
+- [x] ~~**一括インストールのAdminRequired早期中断**(短所6)~~ 完了(643cb9e): 1件目が`AdminRequired`なら残りをスキップし
   「管理者権限が必要」を1回だけ表示。対象: `MainViewModel.InstallAllUpdatesAsync`、
   CLI `Program.RunInstallAllAsync`。受け入れ条件: 非管理者実行時にN回ではなく1回で失敗を報告
-- [ ] **WUA RCWの明示解放**(短所4): `SearchUpdatesAsync`/`FindDriverAsync`のCOMオブジェクトを
+- [x] ~~**WUA RCWの明示解放**(短所4)~~ 完了(643cb9e): `SearchUpdatesAsync`/`FindDriverAsync`のCOMオブジェクトを
   try/finallyで`Marshal.FinalReleaseComObject`。dynamic経由のRCW解放は罠が多いためOpus推奨。
   受け入れ条件: 既存の「COM不在環境でグレースフル」テストがpassのまま
 
