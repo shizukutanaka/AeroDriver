@@ -38,7 +38,7 @@
 9. **キャッシュ実装の三重複**: PciIdDatabase/VulnerableDriverBlocklist/(WhqlDatabaseServiceの
    キャッシュ)が同型のダウンロード→LOCALAPPDATA→TTLパターンを個別実装
 10. ~~**USB非対応の更新照合**~~ **解消済**(`HardwareIdParser` を新設し PCI/USB 双方に対応。
-    複合USBの `&MI_xx` も保持)。旧記述:: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
+    複合USBの `&MI_xx` も保持)。旧記述: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
     USB VID/PIDデバイスは常に「見つからない」
 11. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
 12. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と
@@ -86,7 +86,8 @@
 - [ ] **MainViewModelのユニットテスト**(短所7): `AeroDriver.UI.Tests`プロジェクト新設
   (注意: 過去に幽霊参照事故あり。slnへの追加を確実に)。`IFileDialogService`/`IThemeService`/
   `IServiceScopeFactory`をNSubstituteでモックし、Scan/InstallAll/言語切替の状態遷移を検証
-- [ ] **USB VID/PID対応**(短所10): `WhqlDatabaseService`の正規表現に`USB\VID_xxxx&PID_xxxx`分岐を追加
+- [x] ~~**USB VID/PID対応**(短所10)~~ 完了(36d710c): `HardwareIdParser` を新設し
+  `WhqlDatabaseService` と `WindowsUpdateAgentSource` の双方から利用。複合USBの `&MI_xx` も保持
 - [ ] **JSON統一**(短所8): `WhqlDatabaseService`のNewtonsoftをSystem.Text.Jsonに移行し
   パッケージ参照を削除(`AeroDriver.Languages`のNewtonsoft参照も未使用なら削除)
 - [ ] **失敗メッセージのローカライズ**(短所12): `DriverInstallResult`各値のメッセージを
