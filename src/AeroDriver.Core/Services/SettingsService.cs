@@ -11,7 +11,9 @@ namespace AeroDriver.Core.Services
     /// アプリケーション設定を JSON ファイルで永続化します。
     /// %LOCALAPPDATA%\AeroDriver\settings.json に保存。
     /// </summary>
-    public sealed class SettingsService : ISettingsService
+    // partial: 入れ子の SettingsJsonContext は JSON ソースジェネレーターが生成する partial クラスであり、
+    // それを内包する型自身も partial でないと生成コードを差し込めない
+    public sealed partial class SettingsService : ISettingsService
     {
         private readonly ILogger<SettingsService> _logger;
         private readonly string _settingsPath;

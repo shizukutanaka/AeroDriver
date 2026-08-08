@@ -81,11 +81,21 @@ namespace AeroDriver.CLI
                 Environment.ExitCode = await RunDetailsAsync(serviceProvider, deviceId),
                 deviceIdOption);
 
+            var historyLimitOption = new Option<int>("--limit",
+                () => 20, "表示する履歴の最大件数（0で全件）");
+            var historyCommand = new Command("history",
+                "ドライバーインストールの履歴（監査証跡）を新しい順に表示します")
+            { historyLimitOption };
+            historyCommand.SetHandler(async (int limit) =>
+                Environment.ExitCode = await RunHistoryAsync(serviceProvider, limit),
+                historyLimitOption);
+
             rootCommand.AddCommand(scanCommand);
             rootCommand.AddCommand(updateCommand);
             rootCommand.AddCommand(installCommand);
             rootCommand.AddCommand(rollbackCommand);
             rootCommand.AddCommand(detailsCommand);
+            rootCommand.AddCommand(historyCommand);
 
             var parseResult = await rootCommand.InvokeAsync(args);
             // InvokeAsync はパースエラー等で非0を返す。ハンドラー内の失敗は Environment.ExitCode に
@@ -125,6 +135,53 @@ namespace AeroDriver.CLI
             {
                 Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
                 logger.LogError(ex, "ドライバースキャン中にエラーが発生しました");
+                return ExitFailure;
+            }
+        }
+
+        /// <summary>
+        /// インストール履歴（監査証跡）を新しい順に表示します。
+        /// 「更新後に不具合が出た。何を戻せばよいか」に答えるためのコマンド。
+        /// </summary>
+        private static async Task<int> RunHistoryAsync(IServiceProvider serviceProvider, int limit)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var history = scope.ServiceProvider.GetRequiredService<IInstallHistoryService>();
+
+            try
+            {
+                var entries = await history.GetHistoryAsync(limit);
+                if (entries.Count == 0)
+                {
+                    Console.WriteLine("インストール履歴はまだありません。");
+                    return ExitSuccess;
+                }
+
+                foreach (var e in entries)
+                {
+                    // 記録はUTC。表示はユーザーのローカル時刻に変換する
+                    var when = e.TimestampUtc.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss");
+                    var mark = e.Success ? "OK  " : "NG  ";
+                    var versions = string.IsNullOrEmpty(e.FromVersion)
+                        ? e.ToVersion ?? "?"
+                        : $"{e.FromVersion} -> {e.ToVersion}";
+
+                    Console.WriteLine($"{when}  {mark}{e.DeviceName,-36} {versions}");
+                    Console.WriteLine($"    結果: {e.Result}  ソース: {e.UpdateSource ?? "-"}  " +
+                                      $"バックアップ: {(e.BackupCreated ? "あり" : "なし")}  " +
+                                      $"復元ポイント: {(e.RestorePointSequence?.ToString() ?? "なし")}");
+                    if (!string.IsNullOrEmpty(e.DeviceId))
+                        Console.WriteLine($"    DeviceID: {e.DeviceId}");
+                }
+
+                Console.WriteLine($"\n{entries.Count} 件");
+                return ExitSuccess;
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"履歴の読み込みに失敗しました: {ex.Message}");
+                logger.LogError(ex, "インストール履歴の読み込み中にエラーが発生しました");
                 return ExitFailure;
             }
         }
