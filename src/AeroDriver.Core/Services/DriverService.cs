@@ -257,6 +257,18 @@ namespace AeroDriver.Core.Services
                     cancellationToken.ThrowIfCancellationRequested();
 
                     if (string.IsNullOrEmpty(candidate.HardwareID)) continue;
+
+                    // ベータ版は既定で除外する（ISettingsService.IncludeBetaDrivers で明示的に許可可能）。
+                    // 判定は WUA の IUpdate::IsBeta に由来する DriverInfo.IsBeta のみを使う。
+                    // WHQL非認定＝ベータではないため IsWHQLCertified を代用してはいけない
+                    if (candidate.IsBeta && !_settingsService.IncludeBetaDrivers)
+                    {
+                        _logger.LogDebug(
+                            "ベータ版のため候補から除外しました: {DeviceName} {Version}",
+                            candidate.DeviceName, candidate.DriverVersion);
+                        continue;
+                    }
+
                     if (!installedByHwId.TryGetValue(candidate.HardwareID, out var current)) continue;
                     if (!VersionHelper.IsNewer(candidate.DriverVersion, current.DriverVersion)) continue;
 

@@ -20,6 +20,15 @@ namespace AeroDriver.Core.Models
 
         /// <summary>カタログ検索等で使う内部ID（Windows Update Catalog の updateId 等）</summary>
         public string? Id { get; set; }
+
+        /// <summary>
+        /// ベータ（プレリリース）版のドライバーかどうか。
+        /// Windows Update 経由の場合は WUA の <c>IUpdate::IsBeta</c> をそのまま反映します。
+        /// WHQL認定の有無とは別概念です（非WHQLでも製品版のドライバーは存在するため、
+        /// <see cref="IsWHQLCertified"/> が false であることをベータの判定に使ってはいけません）。
+        /// 判定材料が無いソースでは false のままになります。
+        /// </summary>
+        public bool IsBeta { get; set; }
     }
 
     public class DriverDetailInfo : DriverInfo

@@ -1,6 +1,7 @@
 using System.Windows;
 using System.Windows.Threading;
 using AeroDriver.Core;
+using AeroDriver.Core.Interfaces;
 using AeroDriver.Languages.Services;
 using AeroDriver.UI.Services;
 using AeroDriver.UI.ViewModels;
@@ -37,6 +38,17 @@ namespace AeroDriver.UI
 
             var window = _serviceProvider.GetRequiredService<MainWindow>();
             window.Show();
+
+            // ISettingsService.AutoUpdateEnabled（既定 true）が有効なら、起動時に
+            // 更新確認を一度だけ自動実行する。ウィンドウ表示後に投げるため起動は遅延しない。
+            // インストールは行わない（確認のみ）: 無人での自動インストールは
+            // ユーザーの明示的な同意なしにシステムを変更することになるため
+            var settings = _serviceProvider.GetRequiredService<ISettingsService>();
+            if (settings.AutoUpdateEnabled)
+            {
+                var viewModel = _serviceProvider.GetRequiredService<MainViewModel>();
+                _ = viewModel.CheckUpdatesCommand.ExecuteAsync(null);
+            }
         }
 
         private void OnDispatcherUnhandledException(object sender, DispatcherUnhandledExceptionEventArgs e)
