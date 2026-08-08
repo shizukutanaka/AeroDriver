@@ -77,6 +77,16 @@ namespace AeroDriver.Core.Services
             }
         }
 
+        public bool CreateRestorePoint
+        {
+            get { lock (_lock) return _data.CreateRestorePoint; }
+            set
+            {
+                lock (_lock) _data = _data with { CreateRestorePoint = value };
+                Save();
+            }
+        }
+
         public void Save()
         {
             try
@@ -120,17 +130,23 @@ namespace AeroDriver.Core.Services
         }
 
         // record でイミュータブルな設定データを表現（with 式で更新）
+        // 既存の settings.json には後続フィールドが存在しないが、positional record の
+        // デシリアライズでは欠けた引数が型の既定値になるため読み込みは壊れない。
+        // ただし bool の既定は false なので、既定 true にしたい項目は Load() 後に補正せず
+        // 「false = 明示的に無効化」と解釈できる設計にしておくこと。
         private sealed record SettingsData(
             bool AutoUpdateEnabled,
             bool IncludeBetaDrivers,
             bool BackupEnabled,
-            int MaxBackupGenerations)
+            int MaxBackupGenerations,
+            bool CreateRestorePoint = true)
         {
             public static readonly SettingsData Default = new(
                 AutoUpdateEnabled: true,
                 IncludeBetaDrivers: false,
                 BackupEnabled: true,
-                MaxBackupGenerations: 3);
+                MaxBackupGenerations: 3,
+                CreateRestorePoint: true);
         }
 
         // JsonSerializerContext: Source Generation でリフレクション不要なシリアライザーを生成

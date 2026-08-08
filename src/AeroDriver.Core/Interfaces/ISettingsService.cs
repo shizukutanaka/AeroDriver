@@ -24,6 +24,13 @@ namespace AeroDriver.Core.Interfaces
         /// バックアップの最大世代数
         /// </summary>
         int MaxBackupGenerations { get; set; }
+
+        /// <summary>
+        /// ドライバーインストール前にWindowsのシステム復元ポイントを作成するかどうか。
+        /// 作成できない環境(Server SKU・システムの保護が無効・直近24時間以内に作成済み)では
+        /// 警告ログを出してインストールは継続します。
+        /// </summary>
+        bool CreateRestorePoint { get; set; }
         
         /// <summary>
         /// 設定を保存する

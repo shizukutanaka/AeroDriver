@@ -225,13 +225,37 @@ namespace AeroDriver.CLI
                 }
 
                 int success = 0, failed = 0, total = updates.Count;
+                bool abortedForAdmin = false;
                 for (int i = 0; i < updates.Count; i++)
                 {
                     var target = updates[i];
                     Console.WriteLine($"[{i + 1}/{total}] {target.DeviceName} ...");
                     var result = await driverService.InstallDriverUpdateWithResultAsync(target);
                     Console.WriteLine("  " + DescribeInstallResult(result, target));
-                    if (result == DriverInstallResult.Success) success++; else failed++;
+
+                    if (result == DriverInstallResult.Success)
+                    {
+                        success++;
+                    }
+                    else if (result == DriverInstallResult.AdminRequired)
+                    {
+                        // 環境要因のため残りも必ず失敗する → 即中断（同じ失敗をN回繰り返さない）
+                        abortedForAdmin = true;
+                        break;
+                    }
+                    else
+                    {
+                        failed++;
+                    }
+                }
+
+                if (abortedForAdmin)
+                {
+                    int skipped = total - success - failed;
+                    Console.Error.WriteLine(
+                        $"\n管理者権限がないため中断しました。管理者として再実行してください。" +
+                        $"（成功: {success} / {total}, 未実行: {skipped}）");
+                    return ExitFailure;
                 }
 
                 Console.WriteLine($"\n{lang.GetString("Status_Complete")}: {success} / {total}" +

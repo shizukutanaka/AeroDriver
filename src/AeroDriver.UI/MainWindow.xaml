@@ -17,6 +17,8 @@
                 <Button Content="{Binding InstallButtonText}" Command="{Binding InstallSelectedCommand}" Padding="8,2" />
                 <Button Content="{Binding UpdateAllButtonText}" Command="{Binding InstallAllUpdatesCommand}" Padding="8,2" />
                 <Button Content="{Binding CustomInstallButtonText}" Command="{Binding InstallCustomDriverCommand}" Padding="8,2" />
+                <Separator />
+                <Button Content="{Binding BackupButtonText}" Command="{Binding BackupSelectedCommand}" Padding="8,2" />
                 <Button Content="{Binding RollbackButtonText}" Command="{Binding RollbackSelectedCommand}" Padding="8,2" />
                 <Separator />
                 <Button Content="キャンセル" Command="{Binding CancelCommand}" Padding="8,2" />

@@ -43,6 +43,25 @@ namespace AeroDriver.Core.Interfaces
         Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default);
 
         /// <summary>
+        /// 指定デバイスの現在のドライバーを明示的にバックアップします(更新前の任意の時点で退避したい場合)。
+        /// インストール時の自動バックアップとは独立して呼び出せます。
+        /// </summary>
+        Task<bool> BackupDriverAsync(string deviceId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 指定デバイスで復元可能なバックアップ世代の一覧を返します(新しい順)。
+        /// 一覧の各要素は <see cref="RollbackDriverAsync(string, string?, CancellationToken)"/> の
+        /// backupVersion にそのまま渡せます。バックアップが無い場合は空配列。
+        /// </summary>
+        Task<IReadOnlyList<string>> GetAvailableBackupsAsync(string deviceId, CancellationToken cancellationToken = default);
+
+        /// <summary>
+        /// 世代を指定してドライバーを復元します。<paramref name="backupVersion"/> が null の場合は
+        /// 最新のバックアップを使用します(引数1つのオーバーロードと同じ挙動)。
+        /// </summary>
+        Task<bool> RollbackDriverAsync(string deviceId, string? backupVersion, CancellationToken cancellationToken = default);
+
+        /// <summary>
         /// デバイスを無効化します。ストレージコントローラーやシステムデバイスなど
         /// ブートクリティカルなクラスは誤操作防止のため既定で拒否されます。
         /// 意図的に無効化したい場合は <paramref name="force"/> を true にしてください。
