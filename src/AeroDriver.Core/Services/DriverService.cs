@@ -973,10 +973,19 @@ namespace AeroDriver.Core.Services
 
             // EXE/MSI は任意コード実行そのものなので Authenticode 署名を必須にする。
             // HTTPS で配信元の完全性は守られても、ファイル自体の発行元検証は別問題。
-            if (ext is "exe" or "msi" && !AuthenticodeHelper.HasValidSignature(filePath))
+            if (ext is "exe" or "msi")
             {
-                _logger.LogWarning("Authenticode 署名が無効または存在しないためインストールを拒否しました: {Path}", filePath);
-                return DriverInstallResult.SignatureInvalid;
+                // 失敗理由を区別してログに残す。特に「失効を確認できなかった」(オフライン等)と
+                // 「実際に失効している」は意味がまったく違うため、同じ文言で片付けない。
+                // ただし判定はフェイルクローズのまま: 検証できない署名は通さない
+                int status = AuthenticodeHelper.VerifyTrustStatus(filePath);
+                if (status != 0)
+                {
+                    _logger.LogWarning(
+                        "Authenticode 署名の検証に失敗したためインストールを拒否しました: {Path} — {Reason}",
+                        filePath, AuthenticodeHelper.DescribeVerificationFailure(status));
+                    return DriverInstallResult.SignatureInvalid;
+                }
             }
 
             // cab はドライバーパッケージ（.inf 等）を格納したキャビネットで pnputil に直接渡せないため、

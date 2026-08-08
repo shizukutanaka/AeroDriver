@@ -71,4 +71,60 @@ public class AuthenticodeHelperTests
             File.Delete(garbagePath);
         }
     }
+
+    // ── 検証失敗の原因説明 ──
+    // 「失効を確認できなかった」と「実際に失効している」を同じ扱いにすると、
+    // オフライン環境のユーザーが正常なドライバーを不正だと誤解する
+
+    [Fact]
+    public void DescribeVerificationFailure_Success_SaysValid()
+    {
+        AuthenticodeHelper.DescribeVerificationFailure(0).Should().Contain("有効");
+    }
+
+    [Fact]
+    public void DescribeVerificationFailure_RevocationUnreachable_IsDistinctFromRevoked()
+    {
+        const int certERevocationFailure = unchecked((int)0x800B010E); // 確認できなかった
+        const int certERevoked = unchecked((int)0x800B010C);           // 実際に失効
+
+        var unreachable = AuthenticodeHelper.DescribeVerificationFailure(certERevocationFailure);
+        var revoked = AuthenticodeHelper.DescribeVerificationFailure(certERevoked);
+
+        unreachable.Should().NotBe(revoked, "両者は意味がまったく異なる");
+        unreachable.Should().Contain("確認できませんでした");
+        revoked.Should().Contain("失効しています");
+    }
+
+    [Theory]
+    [InlineData(unchecked((int)0x800B0100))] // TRUST_E_NOSIGNATURE
+    [InlineData(unchecked((int)0x80096010))] // TRUST_E_BAD_DIGEST
+    [InlineData(unchecked((int)0x800B0109))] // CERT_E_UNTRUSTEDROOT
+    [InlineData(unchecked((int)0x800B010A))] // CERT_E_CHAINING
+    [InlineData(unchecked((int)0x800B0101))] // CERT_E_EXPIRED
+    [InlineData(unchecked((int)0x800B0111))] // TRUST_E_EXPLICIT_DISTRUST
+    public void DescribeVerificationFailure_KnownCodes_GiveSpecificReason(int status)
+    {
+        var message = AuthenticodeHelper.DescribeVerificationFailure(status);
+
+        message.Should().NotBeNullOrWhiteSpace();
+        // 汎用のフォールバック文言ではなく、原因が特定できている
+        message.Should().NotContain("署名検証に失敗しました (0x");
+    }
+
+    [Fact]
+    public void DescribeVerificationFailure_UnknownCode_FallsBackWithHexStatus()
+    {
+        AuthenticodeHelper.DescribeVerificationFailure(unchecked((int)0xDEADBEEF))
+            .Should().Contain("DEADBEEF");
+    }
+
+    [Fact]
+    public void VerifyTrustStatus_NonWindows_FailsClosed()
+    {
+        // Windows 以外では検証できないため、成功(0)を返してはいけない
+        if (OperatingSystem.IsWindows()) return;
+
+        AuthenticodeHelper.VerifyTrustStatus("/nonexistent/file.exe").Should().NotBe(0);
+    }
 }

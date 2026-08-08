@@ -42,6 +42,9 @@
 10. ~~**USB非対応の更新照合**~~ **解消済**(`HardwareIdParser` を新設し PCI/USB 双方に対応。
     複合USBの `&MI_xx` も保持)。旧記述: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
     USB VID/PIDデバイスは常に「見つからない」
+19. 署名検証は**フェイルクローズのまま維持**。ただし失効を「確認できなかった」(オフライン等)ケースは
+    実際の失効・改ざんと区別してログに出す(`AuthenticodeHelper.DescribeVerificationFailure`)。
+    ポリシーを緩めたわけではない点に注意
 11. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
 12. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と
     CLI `Program.DescribeInstallResult`は、成功時の接頭辞だけ`ILanguageService.GetString`で翻訳し、
