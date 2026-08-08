@@ -92,6 +92,48 @@ namespace AeroDriver.Core.Helpers
         // 持つか」を確認できないため、真正な Authenticode 検証には本来の
         // Windows API である WinVerifyTrust を呼び出す必要がある。
 
+        // WinVerifyTrust の戻り値は LONG（HRESULT マクロで判定してはいけない、と公式に注記あり）。
+        // 成功は 0 のみ。以下は信頼プロバイダーが返す代表的な失敗コード（winerror.h / softpub.h）で、
+        // 「なぜ失敗したか」をユーザーに正しく伝えるために使う。判定自体は 0 以外すべて拒否のまま。
+        private const int TRUST_E_NOSIGNATURE = unchecked((int)0x800B0100);
+        private const int TRUST_E_BAD_DIGEST = unchecked((int)0x80096010);
+        private const int TRUST_E_SUBJECT_NOT_TRUSTED = unchecked((int)0x800B0004);
+        private const int TRUST_E_EXPLICIT_DISTRUST = unchecked((int)0x800B0111);
+        private const int CERT_E_UNTRUSTEDROOT = unchecked((int)0x800B0109);
+        private const int CERT_E_CHAINING = unchecked((int)0x800B010A);
+        private const int CERT_E_EXPIRED = unchecked((int)0x800B0101);
+        private const int CERT_E_REVOKED = unchecked((int)0x800B010C);
+        private const int CERT_E_REVOCATION_FAILURE = unchecked((int)0x800B010E);
+        /// <summary>Windows 以外で検証を試みた場合に返す値（信頼プロバイダーが存在しない）。</summary>
+        public const int TRUST_E_PROVIDER_UNKNOWN_STATUS = unchecked((int)0x800B0001);
+
+        /// <summary>
+        /// WinVerifyTrust の戻り値を、原因が分かる説明文に変換します。
+        ///
+        /// 特に <c>CERT_E_REVOCATION_FAILURE</c> と <c>CERT_E_REVOKED</c> の区別が重要です。
+        /// 前者は「失効状態を<b>確認できなかった</b>」（多くはネットワーク不通）で署名自体は
+        /// 壊れていない可能性が高く、後者は「証明書が実際に<b>失効させられている</b>」という
+        /// 深刻な状態です。両方を「署名が無効」と表示すると、オフライン環境のユーザーが
+        /// 正常なドライバーを不正だと誤解します（ネットワークドライバーの導入時など、
+        /// ネットワークが無い状態でのインストールは実際によくある場面です）。
+        /// </summary>
+        public static string DescribeVerificationFailure(int status) => status switch
+        {
+            0 => "署名は有効です",
+            TRUST_E_NOSIGNATURE => "ファイルに Authenticode 署名がありません",
+            TRUST_E_BAD_DIGEST => "署名がファイルの現在の内容と一致しません（改ざんまたは破損の可能性）",
+            TRUST_E_EXPLICIT_DISTRUST => "この署名は明示的に信頼しない設定になっています",
+            TRUST_E_SUBJECT_NOT_TRUSTED => "署名者が信頼されていません",
+            CERT_E_UNTRUSTEDROOT => "証明書チェーンのルートが信頼されていません",
+            CERT_E_CHAINING => "証明書チェーンを構築できませんでした",
+            CERT_E_EXPIRED => "証明書の有効期限が切れており、有効なタイムスタンプもありません",
+            CERT_E_REVOKED => "証明書が失効しています（発行元によって取り消された証明書です）",
+            CERT_E_REVOCATION_FAILURE =>
+                "証明書の失効状態を確認できませんでした（ネットワーク未接続の可能性）。" +
+                "署名自体が無効とは限りませんが、安全のためインストールは中止します",
+            _ => $"署名検証に失敗しました (0x{status:X8})",
+        };
+
         private const uint WTD_UI_NONE = 2;
         private const uint WTD_REVOKE_WHOLECHAIN = 1;
         private const uint WTD_CHOICE_FILE = 1;
@@ -142,10 +184,17 @@ namespace AeroDriver.Core.Helpers
         /// チェック込み）で検証できるかを確認します。戻り値0（ERROR_SUCCESS）のみ true。
         /// Windows 以外の環境では常に false（フェイルクローズ）。
         /// </summary>
-        private static bool VerifyTrust(string filePath)
+        private static bool VerifyTrust(string filePath) => VerifyTrustStatus(filePath) == 0;
+
+        /// <summary>
+        /// <see cref="VerifyTrust"/> と同じ検証を行い、WinVerifyTrust の生の戻り値を返します。
+        /// 0 が成功。失敗理由を <see cref="DescribeVerificationFailure"/> で説明したい場合に使います。
+        /// Windows 以外では <see cref="TRUST_E_PROVIDER_UNKNOWN_STATUS"/> を返します（フェイルクローズ）。
+        /// </summary>
+        public static int VerifyTrustStatus(string filePath)
         {
             if (!OperatingSystem.IsWindows())
-                return false;
+                return TRUST_E_PROVIDER_UNKNOWN_STATUS;
 
             var fileInfo = new WINTRUST_FILE_INFO
             {
@@ -186,7 +235,7 @@ namespace AeroDriver.Core.Helpers
                 data.dwStateAction = WTD_STATEACTION_CLOSE;
                 WinVerifyTrust(hwnd, WinTrustActionGenericVerifyV2, ref data);
 
-                return result == 0; // ERROR_SUCCESS = 検証成功（信頼できる署名）
+                return result; // 0 (ERROR_SUCCESS) = 検証成功（信頼できる署名）
             }
             finally
             {
