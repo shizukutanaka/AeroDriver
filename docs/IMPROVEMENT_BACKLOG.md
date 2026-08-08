@@ -34,7 +34,8 @@
 6. **一括インストールのAdminRequired非効率**: 管理者権限がない場合も全件を順に試行して全件失敗する
    (`MainViewModel.InstallAllUpdatesAsync` / CLI `RunInstallAllAsync`)
 7. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
-8. **JSONライブラリ混在**: `WhqlDatabaseService`はNewtonsoft、他はSystem.Text.Json
+8. ~~**JSONライブラリ混在**~~ **解消済**: `WhqlDatabaseService` を System.Text.Json
+   (ソースジェネレーション)へ移行し、Newtonsoft.Json のパッケージ参照を全削除
 9. **キャッシュ実装の三重複**: PciIdDatabase/VulnerableDriverBlocklist/(WhqlDatabaseServiceの
    キャッシュ)が同型のダウンロード→LOCALAPPDATA→TTLパターンを個別実装
 10. ~~**USB非対応の更新照合**~~ **解消済**(`HardwareIdParser` を新設し PCI/USB 双方に対応。
@@ -88,8 +89,8 @@
   `IServiceScopeFactory`をNSubstituteでモックし、Scan/InstallAll/言語切替の状態遷移を検証
 - [x] ~~**USB VID/PID対応**(短所10)~~ 完了(36d710c): `HardwareIdParser` を新設し
   `WhqlDatabaseService` と `WindowsUpdateAgentSource` の双方から利用。複合USBの `&MI_xx` も保持
-- [ ] **JSON統一**(短所8): `WhqlDatabaseService`のNewtonsoftをSystem.Text.Jsonに移行し
-  パッケージ参照を削除(`AeroDriver.Languages`のNewtonsoft参照も未使用なら削除)
+- [x] ~~**JSON統一**(短所8)~~ 完了: `WhqlDatabaseService` を System.Text.Json ソースジェネレーションへ
+  移行。`AeroDriver.Core` と `AeroDriver.Languages`(未使用だった)双方の Newtonsoft 参照を削除
 - [ ] **失敗メッセージのローカライズ**(短所12): `DriverInstallResult`各値のメッセージを
   リソースキー化(`Install_Result_AdminRequired`等)して全10言語に追加し、`DescribeResult`/
   `DescribeInstallResult`を`ILanguageService`経由に。受け入れ条件: 非日本語カルチャで
