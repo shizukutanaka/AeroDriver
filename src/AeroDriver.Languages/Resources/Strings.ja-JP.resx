@@ -79,6 +79,9 @@
   <data name="Button_Backup" xml:space="preserve">
     <value>バックアップ</value>
   </data>
+  <data name="Button_CustomInstall" xml:space="preserve">
+    <value>ファイルから導入</value>
+  </data>
   <data name="Button_Restore" xml:space="preserve">
     <value>復元</value>
   </data>

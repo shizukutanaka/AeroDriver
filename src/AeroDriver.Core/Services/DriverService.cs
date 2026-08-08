@@ -437,7 +437,29 @@ namespace AeroDriver.Core.Services
                         return DriverInstallResult.KnownVulnerableDriver;
                     }
 
-                    var installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
+                    // 全てのセキュリティゲート(HTTPS・署名・BYOVD照合)を通過した後、
+                    // 実際にシステムを変更する直前に復元ポイントを作成する。
+                    // 作成できない環境(Server SKU・保護無効・24時間レート制限)でも
+                    // インストールは継続する(フェイルオープン。SystemRestoreHelper 参照)
+                    long? restoreSequence = null;
+                    if (_settingsService.CreateRestorePoint && OperatingSystem.IsWindows())
+                    {
+                        restoreSequence = SystemRestoreHelper.BeginRestorePoint(
+                            _logger, $"AeroDriver: {driverUpdate.DeviceName} {driverUpdate.DriverVersion}");
+                    }
+
+                    DriverInstallResult installResult;
+                    try
+                    {
+                        installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
+                    }
+                    finally
+                    {
+                        // BEGIN と対で必ず呼ぶ(未完了の復元ポイントを残さない)
+                        if (restoreSequence.HasValue && OperatingSystem.IsWindows())
+                            SystemRestoreHelper.EndRestorePoint(_logger, restoreSequence.Value);
+                    }
+
                     bool success = installResult == DriverInstallResult.Success;
                     UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(driverUpdate, success));
                     return installResult;
@@ -460,14 +482,47 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        public async Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default)
+        public async Task<bool> BackupDriverAsync(string deviceId, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
+            ElevationGuard.ThrowIfNotElevated("ドライバーのバックアップ");
+
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // 実ファイル退避には InfName 等が必要なため、可能なら実物のドライバー情報を使う
+            var driver = (await GetAllDriversAsync(null, cancellationToken).ConfigureAwait(false))
+                             .FirstOrDefault(d => string.Equals(d.DeviceID, deviceId, StringComparison.OrdinalIgnoreCase))
+                         ?? new DriverInfo { DeviceID = deviceId };
+
+            _logger.LogInformation("ドライバーをバックアップします: {DeviceID}", deviceId);
+            return await _backupService.BackupDriverAsync(driver).ConfigureAwait(false);
+        }
+
+        public Task<IReadOnlyList<string>> GetAvailableBackupsAsync(
+            string deviceId, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // GetAvailableBackups はファイルシステム列挙のみで同期完結する
+            var backups = _backupService.GetAvailableBackups(new DriverInfo { DeviceID = deviceId });
+            return Task.FromResult<IReadOnlyList<string>>(backups);
+        }
+
+        public Task<bool> RollbackDriverAsync(string deviceId, CancellationToken cancellationToken = default)
+            => RollbackDriverAsync(deviceId, backupVersion: null, cancellationToken);
+
+        public async Task<bool> RollbackDriverAsync(
+            string deviceId, string? backupVersion, CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrEmpty(deviceId)) throw new ArgumentException("デバイスIDが必要です", nameof(deviceId));
             ElevationGuard.ThrowIfNotElevated("ドライバーのロールバック");
 
             try
             {
-                _logger.LogInformation("ドライバーをロールバックします: {DeviceID}", deviceId);
+                _logger.LogInformation(
+                    "ドライバーをロールバックします: {DeviceID} (世代: {Version})",
+                    deviceId, backupVersion ?? "最新");
 
                 var driver = new DriverInfo { DeviceID = deviceId };
 
@@ -477,7 +532,7 @@ namespace AeroDriver.Core.Services
                     return false;
                 }
 
-                bool result = await _backupService.RestoreDriverAsync(driver);
+                bool result = await _backupService.RestoreDriverAsync(driver, backupVersion);
 
                 if (result)
                     _logger.LogInformation("ロールバック完了: {DeviceID}", deviceId);

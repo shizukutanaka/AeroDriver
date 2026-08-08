@@ -30,6 +30,9 @@
   <data name="Button_Backup" xml:space="preserve">
     <value>Backup</value>
   </data>
+  <data name="Button_CustomInstall" xml:space="preserve">
+    <value>Installa da file</value>
+  </data>
   <data name="Button_Restore" xml:space="preserve">
     <value>Ripristina</value>
   </data>
