@@ -74,6 +74,37 @@ public class WindowsUpdateAgentSourceTests
     }
 
     [Fact]
+    public void MapToDriverInfo_MapsIsBetaFromWuaProperty()
+    {
+        // IUpdate::IsBeta がベータ判定の正式なシグナル（WHQL認定の有無とは別概念）
+        dynamic update = new System.Dynamic.ExpandoObject();
+        update.Title = "Beta Display Driver";
+        update.DriverVerVersion = "99.0.0.1";
+        update.DriverHardwareID = "PCI\\VEN_10DE&DEV_2204";
+        update.IsBeta = true;
+
+        var info = _sut.MapToDriverInfo(update);
+
+        info.Should().NotBeNull();
+        info!.IsBeta.Should().BeTrue();
+    }
+
+    [Fact]
+    public void MapToDriverInfo_NoIsBetaProperty_DefaultsToNotBeta()
+    {
+        // IsBeta を公開しないソース/古い実装では製品版扱い（false）にフォールバックする
+        dynamic update = new System.Dynamic.ExpandoObject();
+        update.Title = "Release Display Driver";
+        update.DriverVerVersion = "31.0.15.3667";
+        update.DriverHardwareID = "PCI\\VEN_10DE&DEV_2204";
+
+        var info = _sut.MapToDriverInfo(update);
+
+        info.Should().NotBeNull();
+        info!.IsBeta.Should().BeFalse();
+    }
+
+    [Fact]
     public void MapToDriverInfo_ExtractsDeviceIdFromHardwareId()
     {
         dynamic update = new System.Dynamic.ExpandoObject();

@@ -215,6 +215,11 @@ namespace AeroDriver.Core.Services
                 // （DriverDate には別途 DriverVerDate を正しく使っている、下記参照）
                 TrySet(() => info.DriverVersion = (string)update.DriverVerVersion);
                 TrySet(() => info.DriverProviderName = (string)update.DriverProvider);
+
+                // IUpdate::IsBeta（Windows XP 以降で利用可能）がベータ版判定の正式なシグナル。
+                // 取得できない場合は false のまま＝製品版扱いにする（安全側: ベータを
+                // 誤ってブロックするより、既定でベータを除外する設定側で守る）
+                TrySet(() => info.IsBeta = (bool)update.IsBeta);
                 TrySet(() =>
                 {
                     string hwId = (string)update.DriverHardwareID;
