@@ -21,45 +21,40 @@
 
 ## 短所(確認済みの事実)
 
+行番号まで確認した事実のみ。解決済みの項目も「何が問題だったか」の記録として残す。
+
+### 未解決
+
 1. **全コードがビルド未検証**(最重要)。開発環境に.NET SDKがなく静的検証のみ。
    特にWPF XAML+CommunityToolkit.Mvvmソースジェネレーターはコンパイルエラーリスクが高い
 2. **CI不在**。GitHub Appトークンに`workflows`権限がなく`.github/workflows/build.yml`をpushできない
    (YAML本文は`FEATURE_AUDIT.md` §5に用意済み)
-3. ~~**ブロックリストのTTLがプロセス生存中無視される**~~ **解消済**(643cb9e: `_loadedAtUtc` で再評価。
-   フェイルオープンの空集合は15分で再試行)。旧記述: `VulnerableDriverBlocklist.cs:72,77`の
-   `if (_hashes != null) return _hashes;`により、初回ロード結果(フェイルオープンの空集合を含む)が
-   プロセス終了まで固定。長時間稼働時に7日TTL・ネットワーク復旧が反映されない
-4. ~~**WUA COMのRCW未解放**~~ **解消済**(643cb9e: `ReleaseCom` で逆順解放)。旧記述: `WindowsUpdateAgentSource.cs`は`Microsoft.Update.Session`等を
-   `Marshal.ReleaseComObject`せずGC任せ(反復ポーリングでネイティブリソースが滞留しうる)
-5. **テーマ/言語が永続化されない**: `ISettingsService`に該当キーがなく、GUIの選択は再起動で消える
-6. ~~**一括インストールのAdminRequired非効率**~~ **解消済**(643cb9e: 即中断して1回だけ通知)。旧記述: 管理者権限がない場合も全件を順に試行して全件失敗する
-   (`MainViewModel.InstallAllUpdatesAsync` / CLI `RunInstallAllAsync`)
-7. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
-8. ~~**JSONライブラリ混在**~~ **解消済**: `WhqlDatabaseService` を System.Text.Json
-   (ソースジェネレーション)へ移行し、Newtonsoft.Json のパッケージ参照を全削除
-9. **キャッシュ実装の三重複**: PciIdDatabase/VulnerableDriverBlocklist/(WhqlDatabaseServiceの
-   キャッシュ)が同型のダウンロード→LOCALAPPDATA→TTLパターンを個別実装
-10. ~~**USB非対応の更新照合**~~ **解消済**(`HardwareIdParser` を新設し PCI/USB 双方に対応。
-    複合USBの `&MI_xx` も保持)。旧記述: `WhqlDatabaseService.FindDriverByHardwareIdAsync`はPCI VEN/DEVのみ。
-    USB VID/PIDデバイスは常に「見つからない」
-19. 署名検証は**フェイルクローズのまま維持**。ただし失効を「確認できなかった」(オフライン等)ケースは
-    実際の失効・改ざんと区別してログに出す(`AuthenticodeHelper.DescribeVerificationFailure`)。
-    ポリシーを緩めたわけではない点に注意
-11. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
-12. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と
-    CLI `Program.DescribeInstallResult`は、成功時の接頭辞だけ`ILanguageService.GetString`で翻訳し、
-    失敗理由の本文はハードコードの日本語。非日本語UIでも失敗メッセージが日本語で出る
-14. ~~**インストール履歴/監査証跡なし**~~ **解消済**(f1227cf: `InstallHistoryService`、CLI `history`)
-15. ~~**「バックアップ」ボタンがカスタムインストールを実行**~~ **解消済**(bda8420: `Button_CustomInstall` を
-    全10言語に追加し、`Button_Backup` は実バックアップコマンドへ結線)
-16. ~~**`Settings_CreateRestorePoint` が実体のない約束**~~ **解消済**(bda8420: `SystemRestoreHelper`)
-17. ~~**バックアップが書き込み専用**~~ **解消済**(bda8420: `GetAvailableBackupsAsync` と
-    世代指定 `RollbackDriverAsync` を `IDriverService` に追加、GUIにバックアップボタン)
-18. **`DisableDriverAsync` がUIから到達不能**(実装済み・ブートクリティカル保護付きだが CLI/GUI に導線なし)
+3. **テーマ/言語が永続化されない**: `ISettingsService`に該当キーがなく、GUIの選択は再起動で消える
+4. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
+5. **キャッシュ実装の三重複**: PciIdDatabase/VulnerableDriverBlocklist/WhqlDatabaseService が
+   同型のダウンロード→LOCALAPPDATA→TTLパターンを個別実装
+6. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
+7. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult` と CLI `DescribeInstallResult` は
+   成功時の接頭辞だけ翻訳し、失敗理由の本文はハードコードの日本語
+8. **`DisableDriverAsync` がUIから到達不能**: 実装済み(ブートクリティカル保護付き)だが CLI/GUI に導線なし
+9. **`RunAsync`の`_cts`に再入ガードがない**(`MainViewModel`): 多重起動はCanExecuteで防いでいるが、
+   将来コマンドをプログラム的に直接呼ぶ改修を入れると`_cts`が上書きされうる(現状は問題なし・要注意点)
 
-13. **`RunAsync`の`_cts`はコマンドのCanExecute(`IsBusy`)にのみ依存**(`MainViewModel.cs:272-307`):
-    多重起動はCanExecuteで防いでいるが、`_cts`自体に再入ガードがない。将来コマンドを
-    プログラム的に直接呼ぶ改修を入れると`_cts`が上書きされうる(現状は問題なし・要注意点)
+### 解決済み(記録)
+
+| # | 問題 | 解決 |
+|---|------|------|
+| A | ブロックリストのTTLがプロセス生存中無視され、フェイルオープンの空集合が固定化 | 643cb9e: `_loadedAtUtc` で再評価。空集合は15分で再試行 |
+| B | WUA COMのRCWを解放せずGC任せ | 643cb9e: `ReleaseCom` で逆順解放 |
+| C | 一括インストールがAdminRequiredでも全件試行し全件失敗 | 643cb9e: 即中断して1回だけ通知 |
+| D | 「バックアップ」ボタンが実際にはカスタムインストールを実行 | bda8420: `Button_CustomInstall` を全10言語に追加し分離 |
+| E | `Settings_CreateRestorePoint` が実体のない約束 | bda8420: `SystemRestoreHelper`(`SRSetRestorePointW`) |
+| F | バックアップが書き込み専用(一覧・世代選択が不能) | bda8420: `GetAvailableBackupsAsync` と世代指定 `RollbackDriverAsync` |
+| G | 死に設定 `AutoUpdateEnabled` / `IncludeBetaDrivers` | c6b49dc: 消費箇所を実装。ベータ判定は `IUpdate::IsBeta` |
+| H | インストール履歴/監査証跡なし | f1227cf: `InstallHistoryService`(JSONL追記)、CLI `history` |
+| I | JSONライブラリ混在(Newtonsoft + System.Text.Json) | 6bee763: STJ へ統一し Newtonsoft 参照を全削除 |
+| J | USB非対応の更新照合(PCI決め打ち) | 36d710c: `HardwareIdParser` で PCI/USB 双方に対応 |
+| K | 署名検証の失敗理由が全て「署名が無効」で、オフライン時に誤診断 | `DescribeVerificationFailure` で原因を区別(**フェイルクローズは維持**) |
 
 ---
 
