@@ -247,7 +247,7 @@ namespace AeroDriver.CLI
 
                 var result = await driverService.InstallDriverUpdateWithResultAsync(target);
                 Console.WriteLine(DescribeInstallResult(result, target));
-                return result == DriverInstallResult.Success ? ExitSuccess : ExitFailure;
+                return result.IsSuccess() ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)
             {
@@ -290,7 +290,7 @@ namespace AeroDriver.CLI
                     var result = await driverService.InstallDriverUpdateWithResultAsync(target);
                     Console.WriteLine("  " + DescribeInstallResult(result, target));
 
-                    if (result == DriverInstallResult.Success)
+                    if (result.IsSuccess())
                     {
                         success++;
                     }
@@ -336,6 +336,8 @@ namespace AeroDriver.CLI
         private static string DescribeInstallResult(DriverInstallResult result, DriverInfo target) => result switch
         {
             DriverInstallResult.Success => $"インストール完了: {target.DeviceName} {target.DriverVersion}",
+            DriverInstallResult.SuccessRebootRequired =>
+                $"インストール完了: {target.DeviceName} {target.DriverVersion}（変更を有効にするには再起動が必要です）",
             DriverInstallResult.AdminRequired => "インストール失敗: 管理者権限が必要です。アプリケーションを管理者として実行してください。",
             DriverInstallResult.NoDownloadUrl => "インストール失敗: ダウンロードURLがありません。",
             DriverInstallResult.InsecureDownloadUrl => "インストール失敗: ダウンロードURLがHTTPSではありません。",

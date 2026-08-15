@@ -301,9 +301,24 @@ namespace AeroDriver.Core.Services
             await stdErrTask.ConfigureAwait(false);
             await process.WaitForExitAsync().ConfigureAwait(false);
 
-            return process.ExitCode == 0 &&
-                   (output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
-                    output.Contains("正常", StringComparison.OrdinalIgnoreCase));
+            // 3010(再起動が必要)・1641(再起動開始済み)は pnputil の「成功」コード。
+            // 0 以外を一律に失敗とすると、実際には復元できているのに失敗と報告してしまう
+            var outcome = InstallerExitCode.Interpret(process.ExitCode);
+            if (outcome == InstallerOutcome.SuccessRebootRequired)
+            {
+                _logger.LogInformation(
+                    "ドライバーを復元しました。変更を有効にするには再起動が必要です (終了コード {ExitCode})",
+                    process.ExitCode);
+                return true;
+            }
+
+            if (outcome != InstallerOutcome.Success)
+                return false;
+
+            // 終了コード0のときのみ出力文字列も確認する（補助的な確認）。
+            // ロケール依存のため、これ単独を成否の根拠にはしない
+            return output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
+                   output.Contains("正常", StringComparison.OrdinalIgnoreCase);
         }
 
         public async Task CleanupOldBackupsAsync(int maxGenerations)

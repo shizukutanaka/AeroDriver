@@ -336,7 +336,7 @@ namespace AeroDriver.Core.Services
         public async Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default)
         {
             var result = await InstallDriverUpdateWithResultAsync(driverUpdate, cancellationToken).ConfigureAwait(false);
-            return result == DriverInstallResult.Success;
+            return result.IsSuccess();
         }
 
         /// <summary>
@@ -477,7 +477,7 @@ namespace AeroDriver.Core.Services
                             SystemRestoreHelper.EndRestorePoint(_logger, restoreSequence.Value);
                     }
 
-                    bool success = installResult == DriverInstallResult.Success;
+                    bool success = installResult.IsSuccess();
 
                     // 監査証跡を残す(成功・失敗の両方)。記録失敗はインストール結果に影響させない
                     await RecordHistoryAsync(
@@ -892,7 +892,7 @@ namespace AeroDriver.Core.Services
 
                 string ext = Path.GetExtension(driverPath).ToLowerInvariant();
                 var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
-                return installResult == DriverInstallResult.Success;
+                return installResult.IsSuccess();
             }
             catch (OperationCanceledException)
             {
@@ -1039,7 +1039,38 @@ namespace AeroDriver.Core.Services
             if (process == null) return DriverInstallResult.InstallerFailed;
 
             await process.WaitForExitAsync(ct);
-            return process.ExitCode == 0 ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
+            return MapExitCode(process.ExitCode, filePath);
+        }
+
+        /// <summary>
+        /// インストーラー/pnputil の終了コードを <see cref="DriverInstallResult"/> に変換します。
+        /// 3010(再起動が必要)・1641(再起動開始済み)は<b>成功</b>であり、0 以外を一律に
+        /// 失敗として扱ってはいけません（ドライバーは 3010 で終わることが非常に多い）。
+        /// </summary>
+        private DriverInstallResult MapExitCode(int exitCode, string target)
+        {
+            switch (InstallerExitCode.Interpret(exitCode))
+            {
+                case InstallerOutcome.Success:
+                    return DriverInstallResult.Success;
+
+                case InstallerOutcome.SuccessRebootRequired:
+                    _logger.LogInformation(
+                        "インストールは成功しました。変更を有効にするには再起動が必要です (終了コード {ExitCode}): {Target}",
+                        exitCode, target);
+                    return DriverInstallResult.SuccessRebootRequired;
+
+                case InstallerOutcome.NoMatchingDevices:
+                    _logger.LogWarning(
+                        "該当するデバイスが無いか、既により新しいドライバーが入っています (終了コード {ExitCode}): {Target}",
+                        exitCode, target);
+                    return DriverInstallResult.InstallerFailed;
+
+                default:
+                    _logger.LogWarning(
+                        "インストールに失敗しました (終了コード {ExitCode}): {Target}", exitCode, target);
+                    return DriverInstallResult.InstallerFailed;
+            }
         }
 
         /// <summary>
@@ -1092,7 +1123,7 @@ namespace AeroDriver.Core.Services
                 if (process == null) return DriverInstallResult.InstallerFailed;
 
                 await process.WaitForExitAsync(ct);
-                return process.ExitCode == 0 ? DriverInstallResult.Success : DriverInstallResult.InstallerFailed;
+                return MapExitCode(process.ExitCode, infPath);
             }
             finally
             {

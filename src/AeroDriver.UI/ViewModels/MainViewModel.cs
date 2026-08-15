@@ -171,7 +171,7 @@ namespace AeroDriver.UI.ViewModels
             {
                 var result = await driverService.InstallDriverUpdateWithResultAsync(target, ct).ConfigureAwait(true);
                 StatusMessage = DescribeResult(result, target);
-                if (result == DriverInstallResult.Success)
+                if (result.IsSuccess())
                     AvailableUpdates.Remove(target);
             }).ConfigureAwait(true);
         }
@@ -190,6 +190,7 @@ namespace AeroDriver.UI.ViewModels
             {
                 var queue = AvailableUpdates.ToList(); // 反復中に一覧を変更するためスナップショット
                 int success = 0, failed = 0, total = queue.Count;
+                int rebootRequired = 0; // 成功のうち再起動が必要だった件数
                 bool abortedForAdmin = false;
 
                 for (int i = 0; i < queue.Count; i++)
@@ -199,10 +200,11 @@ namespace AeroDriver.UI.ViewModels
                     StatusMessage = $"{_lang.GetString("Status_Updating")} ({i + 1}/{total}): {target.DeviceName}";
 
                     var result = await driverService.InstallDriverUpdateWithResultAsync(target, ct).ConfigureAwait(true);
-                    if (result == DriverInstallResult.Success)
+                    if (result.IsSuccess())
                     {
                         AvailableUpdates.Remove(target);
                         success++;
+                        if (result == DriverInstallResult.SuccessRebootRequired) rebootRequired++;
                     }
                     else if (result == DriverInstallResult.AdminRequired)
                     {
@@ -228,7 +230,8 @@ namespace AeroDriver.UI.ViewModels
                 else
                 {
                     StatusMessage = $"{_lang.GetString("Status_Complete")}: {success} / {total}" +
-                                    (failed > 0 ? $" ({_lang.GetString("Status_Error")}: {failed})" : string.Empty);
+                                    (failed > 0 ? $" ({_lang.GetString("Status_Error")}: {failed})" : string.Empty) +
+                                    (rebootRequired > 0 ? $" — {rebootRequired} 件は再起動が必要です" : string.Empty);
                 }
             }).ConfigureAwait(true);
 
@@ -351,6 +354,9 @@ namespace AeroDriver.UI.ViewModels
         private string DescribeResult(DriverInstallResult result, DriverInfo target) => result switch
         {
             DriverInstallResult.Success => $"{_lang.GetString("Status_Complete")}: {target.DeviceName} {target.DriverVersion}",
+            DriverInstallResult.SuccessRebootRequired =>
+                $"{_lang.GetString("Status_Complete")}: {target.DeviceName} {target.DriverVersion}"
+                + " — 変更を有効にするには再起動が必要です",
             DriverInstallResult.AdminRequired => "管理者権限が必要です。管理者として実行してください。",
             DriverInstallResult.NoDownloadUrl => "ダウンロードURLがありません。",
             DriverInstallResult.InsecureDownloadUrl => "ダウンロードURLがHTTPSではありません。",
