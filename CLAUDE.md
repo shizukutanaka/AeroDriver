@@ -35,13 +35,22 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 
 - **dotnet SDKがある環境**: `dotnet build AeroDriver.sln && dotnet test` を必ず実行
   (注意: `AeroDriver.UI`はnet8.0-windowsのためWindowsが必要)
-- **SDKが無い環境**では最低限の静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
+- **SDKが無いと思ったらまず導入を試すこと**: Ubuntu なら `apt-get update && apt-get install -y dotnet-sdk-8.0`
+  で入る(2026-08時点で確認済み)。ただし NuGet はプロキシ遮断されるため、外部パッケージに依存する
+  プロジェクトは restore できない。**BCLのみに依存する純粋ロジックは `tools/offline-verify` で
+  実コンパイル+実行検証できる**(`cd tools/offline-verify && dotnet run`)。新しい純粋ロジックを
+  足したらここにも追加すること
+- **それでも検証できない部分**では静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
   - 波括弧/括弧バランス(python等で機械チェック)
   - リソースキー追加時は**全10言語**の`.resx`に追加し、XML妥当性とキーパリティを機械検証
   - XAMLの`{Binding XxxCommand}`名 ⇔ ViewModelの`[RelayCommand]`メソッド名の一致
   - DIライフタイム(Singleton→Scopedのcaptive dependencyを作らない)
-- **重要**: 2026-07時点で全コードがビルド未検証(SDKなし環境で開発)。SDKが使えるなら
-  まずビルドを通すことが最優先タスク(`IMPROVEMENT_BACKLOG.md` P0参照)
+- **重要**: サービス層とWPFは依然ビルド未検証。Windows実機で
+  `dotnet build AeroDriver.sln && dotnet test` を通すことが最優先タスク
+  (`IMPROVEMENT_BACKLOG.md` P0参照)
+- **XMLコメントに連続ハイフンを書かないこと**。`Directory.Build.props` に
+  `dotnet --info` と書かれていたせいでファイルが不正XMLになり、
+  全プロジェクトのビルドが即失敗する状態になっていた実績がある
 
 ## 作業後の義務
 

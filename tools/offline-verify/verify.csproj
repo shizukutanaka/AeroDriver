@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <RestorePackages>false</RestorePackages>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="../../src/AeroDriver.Core/Helpers/HardwareIdParser.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/InstallerExitCode.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/VersionHelper.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/DriverInstallOrder.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/WqlSanitizer.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Models/DriverInstallResult.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Models/DriverInfo.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Models/InstallHistoryEntry.cs" />
+  </ItemGroup>
+</Project>
