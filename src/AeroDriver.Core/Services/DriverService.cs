@@ -38,6 +38,12 @@ namespace AeroDriver.Core.Services
         // WMIスキャン単体のタイムアウト（ユーザーキャンセルとリンク）
         private static readonly TimeSpan WmiScanTimeout = TimeSpan.FromSeconds(60);
 
+        // ドライバーパッケージのダウンロード上限。フルGPUドライバー（~1-2GB）は通すが、
+        // リダイレクト先の差し替えやバグによる青天井のディスク書き込みを防ぐ防御的な上限。
+        private const long MaxDownloadBytes = 4L * 1024 * 1024 * 1024; // 4 GiB
+        // ストリーミング読み取りのチャンクサイズ（FileStream のバッファと揃える）
+        private const int DownloadChunkBytes = 81920;
+
         public event EventHandler<UpdatesAvailableEventArgs>? UpdatesAvailable;
         public event EventHandler<UpdatesInstalledEventArgs>? UpdatesInstalled;
 
@@ -421,17 +427,45 @@ namespace AeroDriver.Core.Services
 
                     using (response)
                     {
-                        // ArrayPool でダウンロードバッファを再利用: ReadAsByteArrayAsync は LOH に大きな配列を確保するため
-                        var contentLength = (int)(response.Content.Headers.ContentLength ?? 4 * 1024 * 1024);
-                        var buffer = ArrayPool<byte>.Shared.Rent(contentLength);
+                        // 宣言された Content-Length で早期に上限超過を弾く（本文を読む前の防御）。
+                        // ヘッダーはサーバー申告値で信用できないため、下のストリーミングでも実バイト数を数える。
+                        // ContentLength は long? かつ 2GB 超もありうるため int へキャストしない
+                        long? declaredLength = response.Content.Headers.ContentLength;
+                        if (declaredLength.HasValue && declaredLength.Value > MaxDownloadBytes)
+                        {
+                            _logger.LogWarning(
+                                "ダウンロードサイズが上限を超えています（宣言 {Declared} バイト > 上限 {Max} バイト）: {Url}",
+                                declaredLength.Value, MaxDownloadBytes, driverUpdate.DownloadUrl);
+                            UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(
+                                driverUpdate, false, "ダウンロードサイズが上限を超えています"));
+                            return DriverInstallResult.DownloadFailed;
+                        }
+
+                        // ストリーミングのチャンクバッファは固定サイズ（Content-Length サイズを借りると
+                        // サーバー申告値次第で LOH に巨大配列を確保してしまい、ArrayPool の意味がなくなる）。
+                        var buffer = ArrayPool<byte>.Shared.Rent(DownloadChunkBytes);
                         try
                         {
                             using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
                                 bufferSize: 81920, useAsync: true);
                             using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                            long total = 0;
                             int read;
                             while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                            {
+                                total += read;
+                                // 実バイト数での上限チェック（Content-Length を偽ったり省略しても防げる）
+                                if (total > MaxDownloadBytes)
+                                {
+                                    _logger.LogWarning(
+                                        "ダウンロードサイズが上限 {Max} バイトを超えたため中止しました: {Url}",
+                                        MaxDownloadBytes, driverUpdate.DownloadUrl);
+                                    UpdatesInstalled?.Invoke(this, new UpdatesInstalledEventArgs(
+                                        driverUpdate, false, "ダウンロードサイズが上限を超えています"));
+                                    return DriverInstallResult.DownloadFailed;
+                                }
                                 await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                            }
                         }
                         finally
                         {
