@@ -31,5 +31,14 @@
     <Compile Include="../../src/AeroDriver.Core/Helpers/AuthenticodeHelper.cs" />
     <Compile Include="../../src/AeroDriver.Core/Helpers/SystemRestoreHelper.cs" />
     <Compile Include="../../src/AeroDriver.Core/Helpers/ElevationGuard.cs" />
+    <!-- WMI 非依存のサービス（HTTP/プロセス/COM遅延バインディング） -->
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/IDriverUpdateSource.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/IWhqlDatabaseService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/IBackupService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/PciIdDatabase.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/WhqlDatabaseService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/PnpUtilDriverSource.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/WindowsUpdateAgentSource.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/BackupService.cs" />
   </ItemGroup>
 </Project>

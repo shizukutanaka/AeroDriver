@@ -57,7 +57,7 @@ namespace AeroDriver.Core.Services
         public async Task<IReadOnlyList<DriverInfo>> GetInstalledDriversAsync(
             CancellationToken cancellationToken = default)
         {
-            var output = await RunPnpUtilAsync("/enum-drivers /all", cancellationToken);
+            var output = await RunPnpUtilAsync(["/enum-drivers", "/all"], cancellationToken);
             return ParseEnumOutput(output);
         }
 

@@ -100,7 +100,7 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        private async Task<FrozenDictionary<string, (string, FrozenDictionary<string, string>)>> EnsureLoadedAsync(CancellationToken ct)
+        private async Task<FrozenDictionary<string, (string Name, FrozenDictionary<string, string> Devices)>> EnsureLoadedAsync(CancellationToken ct)
         {
             if (_db != null) return _db;
 
@@ -148,18 +148,19 @@ namespace AeroDriver.Core.Services
                 if (File.Exists(_cacheFile))
                     _db = await ParseFileAsync(_cacheFile, ct).ConfigureAwait(false);
                 else
-                    _db = new(); // 空でフォールバック
+                    // FrozenDictionary は公開コンストラクターを持たないため Empty を使う
+                    _db = FrozenDictionary<string, (string Name, FrozenDictionary<string, string> Devices)>.Empty;
             }
         }
 
-        private static async Task<FrozenDictionary<string, (string, FrozenDictionary<string, string>)>> ParseFileAsync(
+        private static async Task<FrozenDictionary<string, (string Name, FrozenDictionary<string, string> Devices)>> ParseFileAsync(
             string path, CancellationToken ct)
         {
             var content = await File.ReadAllTextAsync(path, ct).ConfigureAwait(false);
             return Parse(content);
         }
 
-        private static FrozenDictionary<string, (string, FrozenDictionary<string, string>)> Parse(string content)
+        private static FrozenDictionary<string, (string Name, FrozenDictionary<string, string> Devices)> Parse(string content)
         {
             // 中間バッファ: パース中は mutable Dictionary、完成後に FrozenDictionary へ変換
             var builder = new Dictionary<string, (string, Dictionary<string, string>)>(StringComparer.OrdinalIgnoreCase);
