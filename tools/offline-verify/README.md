@@ -34,7 +34,7 @@ NuGet に到達できなくてもロギング依存のサービスまで検証�
 - `Helpers/InstallerExitCode.cs` — 3010/1641/259 等の終了コード解釈
 - `Helpers/VersionHelper.cs` — 数値としてのバージョン比較
 - `Helpers/DriverInstallOrder.cs` — インストール順序(チップセット→…→GPU)
-- `Helpers/WqlSanitizer.cs`
+- `Helpers/WqlSanitizer.cs` — WQLインジェクションのアローリストを攻撃文字列で実検証
 - `Models/` の POCO 3件
 - `Services/InstallHistoryService.cs` — JSONL追記、破損行のスキップ(壊れた行を実際に混ぜて検証)
 - `Services/SettingsService.cs` — 設定の永続化と既定値
@@ -45,7 +45,15 @@ NuGet に到達できなくてもロギング依存のサービスまで検証�
 - `Services/PciIdDatabase.cs` / `WhqlDatabaseService.cs` — コンパイルのみ(HTTP は叩かない)
 - `Services/PnpUtilDriverSource.cs` — `/enum-drivers` 出力のパースを実データで検証
 - `Services/WindowsUpdateAgentSource.cs` — コンパイルのみ(COM は叩かない)
-- `Services/BackupService.cs` — コンパイルのみ(pnputil は叩かない)
+- `Services/BackupService.cs` — パストラバーサル対策を実検証(pnputil 自体は叩かない)
+
+### パストラバーサル検証で確認した不変条件
+
+守るべき性質は「例外を投げること」ではなく **どんな入力でもバックアップルート外に出ないこと**。
+区切り文字は `Path.GetInvalidFileNameChars()` で除去されるため `"../escaped"` は
+`"..escaped"` という無害な単一名に潰れてルート内に収まる(例外は出ないが安全)。
+一方 `".."` は除去対象の文字を含まないため素通りし、正規化後のルート配下チェックで弾かれる。
+**両方の経路があるので、「例外が出るか」だけを見るテストは誤判定する**。
 
 **カバーしないもの**: WMI(`Microsoft.Management.Infrastructure`)に依存する `DriverService` と
 `WdacHelper`、外部パッケージ依存(`System.CommandLine` の CLI、

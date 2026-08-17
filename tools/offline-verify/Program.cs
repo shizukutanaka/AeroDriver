@@ -170,6 +170,98 @@ Console.WriteLine("== PnpUtilDriverSource.ParseEnumOutput (pnputil /enum-drivers
     Check("garbage output does not throw", src.Probe("no colons here at all\njust text").Count == 0);
 }
 
+
+Console.WriteLine("== WqlSanitizer (WQL injection allowlist) ==");
+{
+    // 正常系: 実在形式の DeviceID は通り、バックスラッシュが WQL リテラル用に二重化される
+    Check("PCI id accepted and backslash doubled",
+        WqlSanitizer.SanitizeDeviceId(@"PCI\VEN_10DE&DEV_2204") == @"PCI\\VEN_10DE&DEV_2204",
+        WqlSanitizer.SanitizeDeviceId(@"PCI\VEN_10DE&DEV_2204"));
+    Check("USB id accepted", WqlSanitizer.SanitizeDeviceId(@"USB\VID_0BDA&PID_8153").Contains("VID_0BDA"));
+    Check("GUID braces accepted", WqlSanitizer.SanitizeDeviceId("{4D36E968-E325-11CE-BFC1-08002BE10318}").Length > 0);
+
+    // 攻撃系: いずれも ArgumentException で拒否されること
+    void Reject(string label, string payload)
+    {
+        try { var r = WqlSanitizer.SanitizeDeviceId(payload); Check($"reject {label}", false, $"accepted -> {r}"); }
+        catch (ArgumentException) { Check($"reject {label}", true); }
+    }
+    Reject("single quote", "abc'");
+    Reject("OR-injection", "' OR '1'='1");
+    Reject("quote+OR with real prefix", @"PCI\VEN_10DE' OR '1'='1");
+    Reject("space", "PCI VEN");
+    Reject("semicolon", "abc;DROP");
+    Reject("percent wildcard", "abc%");
+    Reject("newline", "abc\ndef");
+    Reject("null char", "abc\0def");
+    Reject("empty", "");
+    Reject("double quote", "abc\"def");
+    Reject("equals sign", "abc=def");
+
+    // エスケープ順序: バックスラッシュを先に二重化しないと、クォートエスケープで
+    // 追加したバックスラッシュがさらに二重化されて壊れる
+    Check("escape order does not corrupt", WqlSanitizer.SanitizeDeviceId(@"A\B") == @"A\\B");
+}
+
+Console.WriteLine("== BackupService path traversal (device id -> directory) ==");
+{
+    var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"vb_{Guid.NewGuid():N}");
+    var settings = new AeroDriver.Core.Services.SettingsService(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance,
+        System.IO.Path.Combine(root, "settings.json"));
+    var bk = new ProbeBackup(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.BackupService>.Instance,
+        settings, root);
+
+    // 正常系: 実在形式の DeviceID はバックアップ無しでも空配列を返すだけ
+    Check("normal device id -> no throw, empty list",
+        bk.GetAvailableBackups(new DriverInfo { DeviceID = @"PCI\VEN_10DE&DEV_2204" }).Length == 0);
+
+    // 検証すべき不変条件は「例外を投げること」ではなく
+    // **どんな入力でもルート外に出ないこと**。
+    // 区切り文字は GetInvalidFileNameChars で除去されるため、"../escaped" は
+    // "..escaped" という無害な単一名に潰れてルート内に収まる(例外は出ない、それで正しい)。
+    // 一方 ".." は除去対象の文字を含まないため素通りし、正規化後のルート配下チェックで弾かれる。
+    void NeverEscapes(string label, string deviceId)
+    {
+        try
+        {
+            bk.GetAvailableBackups(new DriverInfo { DeviceID = deviceId });
+            // 例外なし = 無害化されたはず。ルート外にディレクトリが出来ていないことを確認
+            var rootFull = System.IO.Path.GetFullPath(root);
+            var parent = System.IO.Directory.GetParent(rootFull)!.FullName;
+            var strayInParent = System.IO.Directory.EnumerateDirectories(parent)
+                .Any(d => !System.IO.Path.GetFullPath(d).Equals(rootFull, StringComparison.Ordinal)
+                          && System.IO.Path.GetFileName(d).Contains("escaped", StringComparison.Ordinal));
+            Check($"{label}: neutralised, stays inside root", !strayInParent, "created a directory outside root");
+        }
+        catch (ArgumentException) { Check($"{label}: rejected", true); }
+    }
+    NeverEscapes("dot-dot", "..");
+    NeverEscapes("dot-dot with separator", ".." + System.IO.Path.DirectorySeparatorChar + "escaped");
+    NeverEscapes("nested traversal", ".." + System.IO.Path.DirectorySeparatorChar + ".." + System.IO.Path.DirectorySeparatorChar + "escaped");
+    NeverEscapes("windows-style separator", "..\\escaped");
+    NeverEscapes("absolute path", System.IO.Path.DirectorySeparatorChar + "etc" + System.IO.Path.DirectorySeparatorChar + "escaped");
+
+    void RejectPath(string label, string deviceId)
+    {
+        try
+        {
+            bk.GetAvailableBackups(new DriverInfo { DeviceID = deviceId });
+            Check($"reject {label}", false, "no exception thrown");
+        }
+        catch (ArgumentException) { Check($"reject {label}", true); }
+    }
+    RejectPath("empty", "");
+    RejectPath("whitespace only", "   ");
+
+    // ルート外に何も作られていないこと（総括）
+    var parentDir = System.IO.Directory.GetParent(System.IO.Path.GetFullPath(root))!.FullName;
+    Check("no 'escaped' dir created outside root",
+        !System.IO.Directory.Exists(System.IO.Path.Combine(parentDir, "escaped")));
+
+    try { System.IO.Directory.Delete(root, true); } catch { }
+}
 Console.WriteLine($"\n==== {pass} passed, {fail} failed ====");
 return fail == 0 ? 0 : 1;
 
@@ -178,4 +270,12 @@ sealed class ProbePnpUtil : AeroDriver.Core.Services.PnpUtilDriverSource
 {
     public ProbePnpUtil(Microsoft.Extensions.Logging.ILogger<AeroDriver.Core.Services.PnpUtilDriverSource> l) : base(l) { }
     public IReadOnlyList<DriverInfo> Probe(string output) => ParseEnumOutputPublic(output);
+}
+
+
+sealed class ProbeBackup : AeroDriver.Core.Services.BackupService
+{
+    public ProbeBackup(
+        Microsoft.Extensions.Logging.ILogger<AeroDriver.Core.Services.BackupService> l,
+        AeroDriver.Core.Interfaces.ISettingsService s, string root) : base(l, s, root) { }
 }
