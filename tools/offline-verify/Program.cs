@@ -262,6 +262,53 @@ Console.WriteLine("== BackupService path traversal (device id -> directory) ==")
 
     try { System.IO.Directory.Delete(root, true); } catch { }
 }
+
+Console.WriteLine("== BackupService generation retention (keeps NEWEST, not oldest) ==");
+{
+    var root = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"vr_{Guid.NewGuid():N}");
+    var settings = new AeroDriver.Core.Services.SettingsService(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance,
+        System.IO.Path.Combine(root, "settings.json"));
+    var bk = new ProbeBackup(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.BackupService>.Instance,
+        settings, root);
+
+    var driver = new DriverInfo { DeviceID = @"PCI\\VEN_TEST&DEV_0001" };
+    // GetAvailableBackups 経由でデバイスディレクトリを作らせ、その実パスを得る
+    bk.GetAvailableBackups(driver);
+    var deviceDir = System.IO.Directory.GetDirectories(root).Single(d => !d.EndsWith(".json"));
+
+    // 時系列が明確な5世代を作る（naming は backup_yyyyMMddHHmmss）
+    string[] stamps = { "20260101100000", "20260102100000", "20260103100000", "20260104100000", "20260105100000" };
+    foreach (var st in stamps) System.IO.Directory.CreateDirectory(System.IO.Path.Combine(deviceDir, $"backup_{st}"));
+
+    Check("5 generations created", System.IO.Directory.GetDirectories(deviceDir, "backup_*").Length == 5);
+
+    await bk.CleanupOldBackupsAsync(3);
+
+    var remaining = System.IO.Directory.GetDirectories(deviceDir, "backup_*")
+        .Select(System.IO.Path.GetFileName).OrderBy(x => x).ToArray();
+    Check("3 generations retained", remaining.Length == 3, $"got {remaining.Length}");
+    Check("kept the NEWEST three (not the oldest)",
+        remaining.SequenceEqual(new[]{ "backup_20260103100000", "backup_20260104100000", "backup_20260105100000" }),
+        string.Join(",", remaining));
+
+    // 一覧は新しい順で返る
+    var listed = bk.GetAvailableBackups(driver);
+    Check("GetAvailableBackups returns newest first",
+        listed.Length == 3 && listed[0] == "20260105100000", string.Join(",", listed));
+
+    // maxGenerations が世代数以上なら何も消さない
+    await bk.CleanupOldBackupsAsync(10);
+    Check("no deletion when limit exceeds count",
+        System.IO.Directory.GetDirectories(deviceDir, "backup_*").Length == 3);
+
+    // 0以下は例外
+    try { await bk.CleanupOldBackupsAsync(0); Check("reject maxGenerations=0", false, "no throw"); }
+    catch (ArgumentOutOfRangeException) { Check("reject maxGenerations=0", true); }
+
+    try { System.IO.Directory.Delete(root, true); } catch { }
+}
 Console.WriteLine($"\n==== {pass} passed, {fail} failed ====");
 return fail == 0 ? 0 : 1;
 
