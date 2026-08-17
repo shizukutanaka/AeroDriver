@@ -27,7 +27,7 @@
 
 1. **大部分がビルド未検証**(最重要)。ただし状況は改善: Linux環境に .NET SDK 8 を
    `apt install dotnet-sdk-8.0` で導入でき、**BCLのみに依存する純粋ロジックは実コンパイル+実行で
-   検証済み**(`tools/offline-verify`、**82アサーション全通過**、Core の24ファイル)。ILogger 依存のサービス
+   検証済み**(`tools/offline-verify`、**88アサーション全通過**、Core の24ファイル)。ILogger 依存のサービス
    (`InstallHistoryService`/`SettingsService`/`AuthenticodeHelper` 等)も ASP.NET Core 共有
    フレームワーク経由で検証済み。
    **未検証のまま残るもの**: WMI(`Microsoft.Management.Infrastructure`)依存の `DriverService` と
@@ -45,7 +45,11 @@
 7. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult` と CLI `DescribeInstallResult` は
    成功時の接頭辞だけ翻訳し、失敗理由の本文はハードコードの日本語
 8. **`DisableDriverAsync` がUIから到達不能**: 実装済み(ブートクリティカル保護付き)だが CLI/GUI に導線なし
-9. **`RunAsync`の`_cts`に再入ガードがない**(`MainViewModel`): 多重起動はCanExecuteで防いでいるが、
+9. **バックアップ名のタイムスタンプが秒精度**(`BackupService.cs:55`、`backup_yyyyMMddHHmmss`):
+   同一デバイスを同一秒内に2回バックアップすると同じディレクトリになり、pnputil の
+   エクスポート先が混ざって `backup_info.json` も上書きされる。通常経路は1デバイス1回のため
+   発生条件は狭いが、リトライ時に起こりうる(**低優先**。世代保持・復元の順序自体は実行検証済みで正しい)
+10. **`RunAsync`の`_cts`に再入ガードがない**(`MainViewModel`): 多重起動はCanExecuteで防いでいるが、
    将来コマンドをプログラム的に直接呼ぶ改修を入れると`_cts`が上書きされうる(現状は問題なし・要注意点)
 
 ### 解決済み(記録)
