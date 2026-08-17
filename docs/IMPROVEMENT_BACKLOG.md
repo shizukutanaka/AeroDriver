@@ -30,8 +30,10 @@
    検証済み**(`tools/offline-verify`、**52アサーション全通過**)。ILogger 依存のサービス
    (`InstallHistoryService`/`SettingsService`/`AuthenticodeHelper` 等)も ASP.NET Core 共有
    フレームワーク経由で検証済み。
-   **未検証のまま残るもの**: NuGet(api.nuget.org)がプロキシ遮断されているため
-   `Microsoft.Extensions.*` に依存するサービス層全体、および WPF(`net8.0-windows`)。
+   **未検証のまま残るもの**: WMI(`Microsoft.Management.Infrastructure`)依存の `DriverService`/
+   `BackupService`/`PnpUtilDriverSource`、および NuGet(api.nuget.org)がプロキシ遮断のため
+   restore できない外部パッケージ依存(CLI の `System.CommandLine`、WPF の
+   `CommunityToolkit.Mvvm`、テストの xunit)。
    特にWPF XAML+CommunityToolkit.Mvvmソースジェネレーターはコンパイルエラーリスクが高い
 2. **CI不在**。GitHub Appトークンに`workflows`権限がなく`.github/workflows/build.yml`をpushできない
    (YAML本文は`FEATURE_AUDIT.md` §5に用意済み)

@@ -51,4 +51,8 @@ NuGet に到達できなくてもロギング依存のサービスまで検証�
 ## 純粋ロジックを追加したら
 
 `verify.csproj` に `<Compile Include>` を1行足し、`Program.cs` にアサーションを
-追加すること。BCL以外の `using` があるファイルはここには入れられない。
+追加すること。
+
+入れられる条件: `using` が BCL(`System.*`)・`AeroDriver.*`・`Microsoft.Extensions.*` のみ。
+`Microsoft.Management.Infrastructure`(WMI)やその他の NuGet パッケージを使うファイルは
+restore できないため入れられない。
