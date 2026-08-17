@@ -7,6 +7,12 @@
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
     <RestorePackages>false</RestorePackages>
   </PropertyGroup>
+  <!-- Microsoft.Extensions.* は ASP.NET Core 共有フレームワークに同梱されているため、
+       NuGet に到達できなくても FrameworkReference で参照できる -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
   <ItemGroup>
     <Compile Include="../../src/AeroDriver.Core/Helpers/HardwareIdParser.cs" />
     <Compile Include="../../src/AeroDriver.Core/Helpers/InstallerExitCode.cs" />
@@ -16,5 +22,14 @@
     <Compile Include="../../src/AeroDriver.Core/Models/DriverInstallResult.cs" />
     <Compile Include="../../src/AeroDriver.Core/Models/DriverInfo.cs" />
     <Compile Include="../../src/AeroDriver.Core/Models/InstallHistoryEntry.cs" />
+    <!-- ILogger のみに依存するサービス/ヘルパー（WMI・COM 非依存のもの） -->
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/IInstallHistoryService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/ISettingsService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/InstallHistoryService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/SettingsService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Services/VulnerableDriverBlocklist.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/AuthenticodeHelper.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/SystemRestoreHelper.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/ElevationGuard.cs" />
   </ItemGroup>
 </Project>

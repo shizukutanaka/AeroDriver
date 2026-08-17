@@ -62,8 +62,12 @@ namespace AeroDriver.Core.Helpers
             try
             {
                 // Issuer/Subject/有効期間の表示用メタデータ抽出のみに使用。信頼判定には使わない。
+                // 注意: CreateFromSignedFile は X509Certificate（基底型）で宣言された静的メソッドで、
+                // 戻り値も X509Certificate。X509Certificate2 経由で呼んでも戻り値は昇格しないため、
+                // NotBefore/NotAfter を読むには X509Certificate2 へ明示的に包み直す必要がある
 #pragma warning disable SYSLIB0057 // CreateFromSignedFile は .NET 9 で非推奨だが .NET 8 では利用可能
-                using var cert = X509Certificate2.CreateFromSignedFile(filePath);
+                using var signedFileCert = X509Certificate.CreateFromSignedFile(filePath);
+                using var cert = new X509Certificate2(signedFileCert);
 #pragma warning restore SYSLIB0057
 
                 return new CertificateInfo
