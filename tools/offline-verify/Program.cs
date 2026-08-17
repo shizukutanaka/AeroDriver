@@ -135,5 +135,47 @@ Console.WriteLine("== SystemRestoreHelper (non-Windows no-op) ==");
     Check("EndRestorePoint(0) does not throw", true);
 }
 
+
+Console.WriteLine("== PnpUtilDriverSource.ParseEnumOutput (pnputil /enum-drivers output) ==");
+{
+    // ParseEnumOutputPublic は protected virtual なので、テスト用サブクラス経由で叩く
+    var src = new ProbePnpUtil(Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.PnpUtilDriverSource>.Instance);
+    var sample = string.Join("\n", new[]{
+        "Published Name:     oem12.inf",
+        "Original Name:      nv_dispi.inf",
+        "Provider Name:      NVIDIA",
+        "Class Name:         Display adapters",
+        "Class GUID:         {4D36E968-E325-11CE-BFC1-08002BE10318}",
+        "Driver Version:     01/15/2026 31.0.15.3667",
+        "Signer Name:        Microsoft Windows Hardware Compatibility Publisher",
+        "",
+        "Published Name:     oem34.inf",
+        "Original Name:      e1d68x64.inf",
+        "Provider Name:      Intel",
+        "Class Name:         Network adapters",
+        "Class GUID:         {4D36E972-E325-11CE-BFC1-08002BE10318}",
+        "Driver Version:     02/02/2026 12.19.2.60",
+        "Signer Name:        Microsoft Windows Hardware Compatibility Publisher",
+        "",
+    });
+    var parsed = src.Probe(sample);
+    Check("parses 2 driver blocks", parsed.Count == 2, $"got {parsed.Count}");
+    if (parsed.Count == 2)
+    {
+        Check("provider parsed", parsed[0].DriverProviderName == "NVIDIA", $"got {parsed[0].DriverProviderName}");
+        Check("version parsed (not the date)", parsed[0].DriverVersion == "31.0.15.3667", $"got {parsed[0].DriverVersion}");
+        Check("second block provider", parsed[1].DriverProviderName == "Intel", $"got {parsed[1].DriverProviderName}");
+    }
+    Check("empty output -> empty list", src.Probe("").Count == 0);
+    Check("garbage output does not throw", src.Probe("no colons here at all\njust text").Count == 0);
+}
+
 Console.WriteLine($"\n==== {pass} passed, {fail} failed ====");
 return fail == 0 ? 0 : 1;
+
+
+sealed class ProbePnpUtil : AeroDriver.Core.Services.PnpUtilDriverSource
+{
+    public ProbePnpUtil(Microsoft.Extensions.Logging.ILogger<AeroDriver.Core.Services.PnpUtilDriverSource> l) : base(l) { }
+    public IReadOnlyList<DriverInfo> Probe(string output) => ParseEnumOutputPublic(output);
+}

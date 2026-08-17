@@ -42,9 +42,13 @@ NuGet に到達できなくてもロギング依存のサービスまで検証�
 - `Helpers/AuthenticodeHelper.cs` — 検証失敗理由の説明、非Windowsでのフェイルクローズ
 - `Helpers/SystemRestoreHelper.cs` — 非Windowsでの no-op
 - `Helpers/ElevationGuard.cs`
+- `Services/PciIdDatabase.cs` / `WhqlDatabaseService.cs` — コンパイルのみ(HTTP は叩かない)
+- `Services/PnpUtilDriverSource.cs` — `/enum-drivers` 出力のパースを実データで検証
+- `Services/WindowsUpdateAgentSource.cs` — コンパイルのみ(COM は叩かない)
+- `Services/BackupService.cs` — コンパイルのみ(pnputil は叩かない)
 
-**カバーしないもの**: WMI(`Microsoft.Management.Infrastructure`)に依存する `DriverService`/
-`BackupService`/`PnpUtilDriverSource`、外部パッケージ依存(`System.CommandLine` の CLI、
+**カバーしないもの**: WMI(`Microsoft.Management.Infrastructure`)に依存する `DriverService` と
+`WdacHelper`、外部パッケージ依存(`System.CommandLine` の CLI、
 `CommunityToolkit.Mvvm` の WPF、xunit のテストプロジェクト)。
 これらは引き続き Windows 実機での `dotnet build AeroDriver.sln && dotnet test` が必要。
 
