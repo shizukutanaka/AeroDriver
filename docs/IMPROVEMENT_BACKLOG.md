@@ -27,7 +27,9 @@
 
 1. **大部分がビルド未検証**(最重要)。ただし状況は改善: Linux環境に .NET SDK 8 を
    `apt install dotnet-sdk-8.0` で導入でき、**BCLのみに依存する純粋ロジックは実コンパイル+実行で
-   検証済み**(`tools/offline-verify`、28アサーション全通過)。
+   検証済み**(`tools/offline-verify`、**52アサーション全通過**)。ILogger 依存のサービス
+   (`InstallHistoryService`/`SettingsService`/`AuthenticodeHelper` 等)も ASP.NET Core 共有
+   フレームワーク経由で検証済み。
    **未検証のまま残るもの**: NuGet(api.nuget.org)がプロキシ遮断されているため
    `Microsoft.Extensions.*` に依存するサービス層全体、および WPF(`net8.0-windows`)。
    特にWPF XAML+CommunityToolkit.Mvvmソースジェネレーターはコンパイルエラーリスクが高い
@@ -58,6 +60,7 @@
 | H | インストール履歴/監査証跡なし | f1227cf: `InstallHistoryService`(JSONL追記)、CLI `history` |
 | I | JSONライブラリ混在(Newtonsoft + System.Text.Json) | 6bee763: STJ へ統一し Newtonsoft 参照を全削除 |
 | J | USB非対応の更新照合(PCI決め打ち) | 36d710c: `HardwareIdParser` で PCI/USB 双方に対応 |
+| O | `AuthenticodeHelper.GetCertificateInfo` が**コンパイル不能**。`CreateFromSignedFile` は基底 `X509Certificate` を返すため `var` で `NotBefore`/`NotAfter` が解決できず CS1061 | `X509Certificate2` に明示的に包み直す。実コンパイルで発見 |
 | N | `Directory.Build.props` のXMLコメント内に `--`(`dotnet --info`)があり不正XML。**全プロジェクトのビルドが即失敗する状態だった** | コメント文言を修正。全 props/targets/csproj/resx/config/xaml のXML妥当性を一括検証 |
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |

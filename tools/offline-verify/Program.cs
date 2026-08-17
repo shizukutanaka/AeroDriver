@@ -61,5 +61,79 @@ Check("GPU by flag when DeviceClass null",
     DriverInstallOrder.GetPriority(new DriverInfo{ IsGraphicsDriver=true })
     == DriverInstallOrder.GetPriority(new DriverInfo{ DeviceClass="DISPLAY" }));
 
+
+Console.WriteLine("== InstallHistoryService (JSONL append-only, torn-line resilience) ==");
+{
+    var hist = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"vh_{Guid.NewGuid():N}.jsonl");
+    var svc = new AeroDriver.Core.Services.InstallHistoryService(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.InstallHistoryService>.Instance, hist);
+
+    await svc.RecordAsync(new InstallHistoryEntry {
+        TimestampUtc = new DateTime(2026,3,1,12,0,0,DateTimeKind.Utc),
+        DeviceName="GPU", FromVersion="1.0", ToVersion="2.0",
+        Result="Success", Success=true, RestorePointSequence=42, BackupCreated=true });
+    await svc.RecordAsync(new InstallHistoryEntry { TimestampUtc=DateTime.UtcNow, DeviceName="NIC", ToVersion="3.0", Success=false, Result="InstallerFailed" });
+
+    var all = await svc.GetHistoryAsync();
+    Check("2 entries recorded", all.Count==2, $"got {all.Count}");
+    Check("newest first", all[0].DeviceName=="NIC", $"got {all[0].DeviceName}");
+    Check("restore point sequence round-trips", all[1].RestorePointSequence==42);
+    Check("failures are recorded too", all[0].Success==false);
+    Check("UTC timestamp preserved", all[1].TimestampUtc==new DateTime(2026,3,1,12,0,0,DateTimeKind.Utc));
+
+    // torn final line (the reason JSONL was chosen)
+    await File.AppendAllTextAsync(hist, "{\"DeviceName\":\"Torn\",\"ToVer");
+    var afterTorn = await svc.GetHistoryAsync();
+    Check("torn final line skipped, earlier entries survive", afterTorn.Count==2, $"got {afterTorn.Count}");
+
+    // corrupt middle line
+    await File.AppendAllTextAsync(hist, "\nnot json at all\n");
+    await svc.RecordAsync(new InstallHistoryEntry { TimestampUtc=DateTime.UtcNow, DeviceName="After", Success=true });
+    var afterCorrupt = await svc.GetHistoryAsync();
+    Check("corrupt middle line skipped", afterCorrupt.Count==3 && afterCorrupt[0].DeviceName=="After", $"got {afterCorrupt.Count}");
+
+    Check("limit respected", (await svc.GetHistoryAsync(limit:2)).Count==2);
+    File.Delete(hist);
+}
+
+Console.WriteLine("== SettingsService (persistence + new CreateRestorePoint key) ==");
+{
+    var cfg = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"vs_{Guid.NewGuid():N}.json");
+    var log = Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance;
+    var s1 = new AeroDriver.Core.Services.SettingsService(log, cfg);
+    Check("CreateRestorePoint defaults true", s1.CreateRestorePoint);
+    Check("BackupEnabled defaults true", s1.BackupEnabled);
+    Check("IncludeBetaDrivers defaults false", !s1.IncludeBetaDrivers);
+    s1.CreateRestorePoint = false;
+    s1.MaxBackupGenerations = 7;
+    var s2 = new AeroDriver.Core.Services.SettingsService(log, cfg);
+    Check("CreateRestorePoint persisted", !s2.CreateRestorePoint);
+    Check("MaxBackupGenerations persisted", s2.MaxBackupGenerations==7);
+    Check("MaxBackupGenerations clamps to >=1", new AeroDriver.Core.Services.SettingsService(log, cfg){ MaxBackupGenerations = 0 }.MaxBackupGenerations>=1);
+    File.Delete(cfg);
+}
+
+Console.WriteLine("== AuthenticodeHelper (failure-reason diagnosis) ==");
+{
+    Check("0 -> valid", AuthenticodeHelper.DescribeVerificationFailure(0).Contains("有効"));
+    var unreachable = AuthenticodeHelper.DescribeVerificationFailure(unchecked((int)0x800B010E));
+    var revoked     = AuthenticodeHelper.DescribeVerificationFailure(unchecked((int)0x800B010C));
+    Check("revocation-unreachable != actually-revoked", unreachable != revoked);
+    Check("unreachable mentions could-not-check", unreachable.Contains("確認できませんでした"));
+    Check("revoked mentions revoked", revoked.Contains("失効しています"));
+    Check("bad digest is specific", !AuthenticodeHelper.DescribeVerificationFailure(unchecked((int)0x80096010)).Contains("0x"));
+    Check("unknown code falls back with hex", AuthenticodeHelper.DescribeVerificationFailure(unchecked((int)0xDEADBEEF)).Contains("DEADBEEF"));
+    Check("non-Windows VerifyTrustStatus fails closed", AuthenticodeHelper.VerifyTrustStatus("/no/such/file.exe") != 0);
+    Check("non-Windows HasValidSignature false", !AuthenticodeHelper.HasValidSignature("/no/such/file.exe"));
+}
+
+Console.WriteLine("== SystemRestoreHelper (non-Windows no-op) ==");
+{
+    var log = Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance;
+    Check("BeginRestorePoint returns null off-Windows", SystemRestoreHelper.BeginRestorePoint(log, "test") is null);
+    SystemRestoreHelper.EndRestorePoint(log, 0);
+    Check("EndRestorePoint(0) does not throw", true);
+}
+
 Console.WriteLine($"\n==== {pass} passed, {fail} failed ====");
 return fail == 0 ? 0 : 1;
