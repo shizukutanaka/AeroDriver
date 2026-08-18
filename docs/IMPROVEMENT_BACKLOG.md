@@ -35,9 +35,9 @@
    (`tools/offline-verify`、**93アサーション全通過**)。
    **WPF層(`tools/ui-typecheck`)と CLI(`tools/cli-typecheck`)の手書きC#も型検査済み**
    — スタブに対する実コンパイルで、**プロジェクト内の全C#が何らかの形でコンパイラを通った**。
-   到達できないのは WMI 依存(`DriverService`/`WdacHelper`)、**XAML のコンパイル**(Windows専用)、
-   **ソースジェネレーターの実出力**、および NuGet 遮断で restore できないもの
-   (CLI の `System.CommandLine`、xunit)
+   **WMI依存の `DriverService`/`WdacHelper` も型検査済み**(`tools/core-typecheck`)。
+   到達できないのは **実行時の挙動**のみ: XAML のコンパイル(Windows専用)、ソースジェネレーターの
+   実出力、実WMIクエリ、System.CommandLine の実パース、および xunit が restore できないためのテスト実行
 2. **CI 不在**: GitHub App トークンに `workflows` 権限がなく push 不可(YAML は `FEATURE_AUDIT.md` §5)
 3. **MainViewModel のユニットテスト**: xunit/NSubstitute が restore できないため作成不可。
    設計はモック可能なままなので、NuGet が使える環境で着手できる
@@ -65,6 +65,7 @@
 | H | インストール履歴/監査証跡なし | f1227cf: `InstallHistoryService`(JSONL追記)、CLI `history` |
 | I | JSONライブラリ混在(Newtonsoft + System.Text.Json) | 6bee763: STJ へ統一し Newtonsoft 参照を全削除 |
 | J | USB非対応の更新照合(PCI決め打ち) | 36d710c: `HardwareIdParser` で PCI/USB 双方に対応 |
+| T | `SetDriverState` が `CimMethodResult.ReturnValue` を `object` と誤認(コメントにも明記)。実際の型は `CimMethodParameter` で `is uint` は **CS8121 でコンパイル不能**。Disable/Enable 削除後は呼び出し元ゼロの孤児でもあった | 直さず削除(30行)。誰も呼ばないコードのコンパイルエラーを直すのは無駄 |
 | S | `GetAvailableBackupsAsync` を PR #10 で追加したが**消費者を繋いでいなかった**(API だけ生えた状態)。「バックアップが書き込み専用」の解決を報告済みだったが未完成 | CLI `backups` コマンドと `rollback --version` を追加して実際に世代選択できるようにした |
 | R | `WhqlDatabaseService`(Windows Update CatalogのHTMLスクレイピング)と `PciIdDatabase` が**本番コードから一切呼ばれていないデッドコード**。DI登録と自身のテストのみが参照 | 835行を削除。更新取得は WUA COM(公式API)、デバイス名は WMI が既に提供しており機能重複 |
 | Q | `PnpUtilDriverSource` の `/enum-drivers /all` 呼び出しが `string[]` 引数に単一文字列を渡し CS1503。**コンパイル不能**、かつ引数分割の規則にも違反 | `["/enum-drivers", "/all"]` に修正 |

@@ -843,36 +843,6 @@ namespace AeroDriver.Core.Services
         }
 
         public int CompareVersions(string version1, string version2) => VersionHelper.Compare(version1, version2);
-
-        private static bool SetDriverState(string deviceId, bool enable, CancellationToken ct)
-        {
-            // Task.Run の CancellationToken は開始前のキャンセルしか防げないため、
-            // デリゲート内でも明示的にチェックする
-            ct.ThrowIfCancellationRequested();
-
-            var safeId = WqlSanitizer.SanitizeDeviceId(deviceId);
-            using var session = CimSession.Create(null);
-            var instances = session.QueryInstances(
-                @"root\cimv2", "WQL",
-                $"SELECT * FROM Win32_PnPEntity WHERE DeviceID = '{safeId}'");
-
-            foreach (var inst in instances)
-            {
-                using (inst) // CimInstance はネイティブMIハンドルを保持するIDisposable
-                {
-                    ct.ThrowIfCancellationRequested();
-                    var result = session.InvokeMethod(inst, enable ? "Enable" : "Disable", null);
-
-                    // 呼び出しが非nullを返しても、CIMメソッドの ReturnValue が 0 (成功) とは限らない。
-                    // Win32_PnPEntity.Enable/Disable: 0=成功, 非0=各種失敗コード（権限不足・デバイス使用中等）
-                    // CimMethodResult.ReturnValue は object 型でボックス化された生の戻り値を保持する
-                    return result?.ReturnValue is uint code && code == 0;
-                }
-            }
-
-            return false;
-        }
-
         /// <summary>
         /// ファイルが既知の脆弱ドライバー(LOLDriversリスト)ならtrueを返しログに記録する。
         /// ブロックリスト未登録(null)や照合自体の失敗はfalse(フェイルオープン)—

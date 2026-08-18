@@ -15,7 +15,7 @@ run() {
 run "offline-verify: Core の実コンパイル+実行" offline-verify dotnet run -v q --nologo
 
 # 2/3. スタブに対する型検査(出力は成否のみで十分)
-for t in ui-typecheck cli-typecheck; do
+for t in core-typecheck ui-typecheck cli-typecheck; do
     printf '\n=== %s: 型検査 ===\n' "$t"
     if out=$(cd "$t" && dotnet build -v q --nologo 2>&1); then
         echo "  Build succeeded"
