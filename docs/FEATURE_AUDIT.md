@@ -22,14 +22,18 @@
 - `update`: 全`IDriverUpdateSource`に問い合わせ、更新候補を一覧表示。`--install-all`で
   インストール推奨順(チップセット→…→GPU)の一括インストール。1件でも失敗すると非0終了コード
 - `install --device-id <id>`: `DriverInstallResult` enumで失敗理由を区別して表示
-- `rollback --device-id <id>`: バックアップから実ファイル復元
+- `backups --device-id <id>`: 復元可能なバックアップ世代を新しい順に一覧
+- `rollback --device-id <id> [--version <世代>]`: バックアップから実ファイル復元(世代指定可)
+- `history [--limit N]`: インストール履歴(監査証跡)を新しい順に表示
 - `details --device-id <id>`: 個別マッピング済みフィールド+生のWMIプロパティ全件を表示
 
 ### ドライバー検出・更新 (`src/AeroDriver.Core/Services/DriverService.cs`)
 - `CimSession`(現行WMI API)によるドライバー列挙。`ManagementObjectSearcher`は完全廃止済み
 - `IAsyncEnumerable<DriverInfo> StreamAllDriversAsync`: `BoundedChannel(256)+Wait`でバックプレッシャー制御
 - `SemaphoreSlim(1,1)`による非同期セーフなキャッシュ(TTL 30秒)
-- 更新ソース: `PnpUtilDriverSource`(pnputil.exe)、`WindowsUpdateAgentSource`(WUA COM)、`WhqlDatabaseService`(Windows Update Catalog)
+- 更新ソース: `PnpUtilDriverSource`(pnputil.exe)、`WindowsUpdateAgentSource`(WUA COM)
+  (Windows Update Catalog の HTML スクレイピングを行っていた `WhqlDatabaseService` は
+   本番から呼ばれておらず、WUA COM と機能重複だったため削除済み)
 - インストール順序計画: `Helpers/DriverInstallOrder.cs`(純粋関数)が`DeviceClass`に基づき
   チップセット/システム基盤 → ストレージ → バス(USB) → ネットワーク → その他 → GPU(表示) の順に並べ替える。
   `CheckForUpdatesAsync`が返す更新一覧に適用済みのため、CLIの`update`とGUIの更新タブの両方が
@@ -55,22 +59,22 @@
   /`InstallCustomDriverAsync`/`BackupService.RestoreDriverAsync`/
   `PnpUtilDriverSource.AddDriverAsync`の全インストール/再インストール経路に適用済み
 - `DriverService.InstallDriverUpdateAsync`: ダウンロードURLのHTTPS強制
-- `DriverService.DisableDriverAsync`: ブートクリティカルなPnPクラス(DiskDrive/SCSIAdapter/System/Computer/Volume)の無効化を`force`なしで拒否
 - 全`Process.Start`呼び出しは`ArgumentList`使用(シェル経由のコマンドインジェクション不可)
 - `src/AeroDriver.Core/Helpers/WdacHelper.cs`: WDAC/DeviceGuard強制モード検出
 
 ### エラー診断
 - `src/AeroDriver.Core/Models/DriverInstallResult.cs`: インストール失敗理由を区別するenum
-  (AdminRequired/NoDownloadUrl/InsecureDownloadUrl/DownloadFailed/SignatureInvalid/InstallerFailed/Cancelled/UnknownError)
+  (AdminRequired/NoDownloadUrl/InsecureDownloadUrl/DownloadFailed/SignatureInvalid/
+   KnownVulnerableDriver/InstallerFailed/Cancelled/SuccessRebootRequired/UnknownError)。
+  各理由は `Install_*` リソースキーで全10言語に翻訳済み
 - `DriverService.InstallDriverUpdateWithResultAsync`が本体、既存の`bool`版は薄いラッパー
 
 ### 多言語基盤
 - `src/AeroDriver.Languages/Services/LanguageService.cs`: リソースベースの文字列取得+カルチャフォールバック
 - CLIに接続済み(`AeroDriver.CLI.csproj`が`AeroDriver.Languages`を参照)
-- **実際に翻訳済みなのは ja-JP と en-US のみ**(詳細は下記セクション3)
+- 全10言語×29キーを翻訳済み(インストール失敗理由の `Install_*` 10キーを含む)。GUI から即時切替可能で、選択は永続化される
 
 ### パフォーマンス最適化
-- `PciIdDatabase`: `FrozenDictionary`によるロックフリーO(1)ルックアップ(50,000+ベンダー)
 - `DriverService`: `ArrayPool<byte>`によるダウンロードバッファ再利用(LOHフラグメント防止)
 - `[LoggerMessage]`ソースジェネレーターによるホットパスのログ最適化
 - `SettingsService`: `JsonSerializerContext`ソースジェネレーション(リフレクション不要)
@@ -116,8 +120,8 @@
   ファイルアクセス系の例外はベストエフォート項目の欠落として握りつぶし、詳細取得全体は失敗させない。
 
 ~~`src/AeroDriver.Languages/Resources/` 配下の8言語の`.resx`が空~~ → **解消済み**。
-de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と同じ18キーの
-翻訳を追加し、`LanguageService.SupportedCultures`を10言語に復元した。
+de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と同じキーの
+翻訳を追加し、`LanguageService.SupportedCultures`を10言語に復元した(現在は29キー)。
 (補足: 空だった8ファイルはresheaderのアセンブリ名まで`...`と壊れていたため全面書き直した)
 
 ### セキュリティ系ヘルパーのテストカバレッジ状況
@@ -132,6 +136,9 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 ---
 
 ## 4. 修正済みバグ一覧(宣言と実装の不一致が原因だったもの)
+
+> 注: `WhqlDatabaseService`/`PciIdDatabase` に関する行は当時の記録。両者はその後
+> 本番から呼ばれていないデッドコードとして削除されたため、現在このコードは存在しない。
 
 | バグ | 該当ファイル | 内容 |
 |------|------------|------|
