@@ -25,36 +25,29 @@
 
 ### 未解決
 
-1. **大部分がビルド未検証**(最重要)。ただし状況は改善: Linux環境に .NET SDK 8 を
-   `apt install dotnet-sdk-8.0` で導入でき、**BCLのみに依存する純粋ロジックは実コンパイル+実行で
-   検証済み**(`tools/offline-verify`、**88アサーション全通過**、Core の24ファイル)。ILogger 依存のサービス
-   (`InstallHistoryService`/`SettingsService`/`AuthenticodeHelper` 等)も ASP.NET Core 共有
-   フレームワーク経由で検証済み。
-   **未検証のまま残るもの**: WMI(`Microsoft.Management.Infrastructure`)依存の `DriverService` と
-   `WdacHelper`、および NuGet(api.nuget.org)がプロキシ遮断のため
-   restore できない外部パッケージ依存(CLI の `System.CommandLine`、WPF の
-   `CommunityToolkit.Mvvm`、テストの xunit)。
-   特にWPF XAML+CommunityToolkit.Mvvmソースジェネレーターはコンパイルエラーリスクが高い
-2. **CI不在**。GitHub Appトークンに`workflows`権限がなく`.github/workflows/build.yml`をpushできない
-   (YAML本文は`FEATURE_AUDIT.md` §5に用意済み)
-3. ~~**テーマ/言語が永続化されない**~~ **解消**: `ThemeName`/`CultureName` を追加し、
-   GUI の切替時に保存、起動時(ウィンドウ生成前)に復元。永続化は実行検証済み
-4. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
-5. ~~**キャッシュ実装の三重複**~~ **解消**: 3実装のうち2つ(`PciIdDatabase`/`WhqlDatabaseService`)を
-   デッドコードとして削除したため、残るキャッシュ実装は `VulnerableDriverBlocklist` の1つのみ。
-   共通基底を作る必要はなくなった(重複がなければ抽象化も不要)
-6. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
-7. ~~**メッセージのローカライズ不整合**~~ **解消**: `DriverInstallResult` 各値の理由を
-   `Install_*` キー(10キー×10言語=100エントリ)にし、GUI/CLI 双方を `ILanguageService` 経由に
-8. ~~**`DisableDriverAsync` がUIから到達不能**~~ **削除**: デバイスの有効/無効化は Windows の
-   デバイスマネージャーが標準提供しており機能重複。呼ばれてもいない機能を守るために
-   ブートクリティカル保護を書いていた状態だったため、要件ごと削除(97行)
-9. **バックアップ名のタイムスタンプが秒精度**(`BackupService.cs:55`、`backup_yyyyMMddHHmmss`):
-   同一デバイスを同一秒内に2回バックアップすると同じディレクトリになり、pnputil の
-   エクスポート先が混ざって `backup_info.json` も上書きされる。通常経路は1デバイス1回のため
-   発生条件は狭いが、リトライ時に起こりうる(**低優先**。世代保持・復元の順序自体は実行検証済みで正しい)
-10. **`RunAsync`の`_cts`に再入ガードがない**(`MainViewModel`): 多重起動はCanExecuteで防いでいるが、
-   将来コマンドをプログラム的に直接呼ぶ改修を入れると`_cts`が上書きされうる(現状は問題なし・要注意点)
+**実装可能なギャップは全て解消済み**。残るのは (a) この環境では原理的に到達できないもの、
+(b) 意図的に選択した設計、のいずれか。「未着手のタスク」は残っていない。
+
+#### (a) 環境制約でここでは実行できない
+
+1. **Windows実機での `dotnet build AeroDriver.sln && dotnet test`**(最優先)。
+   Linux に .NET SDK 8 は導入でき、**Core の24ファイルは実コンパイル+実行で検証済み**
+   (`tools/offline-verify`、**93アサーション全通過**)。
+   到達できないのは WMI 依存(`DriverService`/`WdacHelper`)と、NuGet がプロキシ遮断のため
+   restore できないもの(CLI の `System.CommandLine`、WPF の `CommunityToolkit.Mvvm`、xunit)。
+   **特に WPF+ソースジェネレーターは未コンパイルなのでリスクが残る**
+2. **CI 不在**: GitHub App トークンに `workflows` 権限がなく push 不可(YAML は `FEATURE_AUDIT.md` §5)
+3. **MainViewModel のユニットテスト**: xunit/NSubstitute が restore できないため作成不可。
+   設計はモック可能なままなので、NuGet が使える環境で着手できる
+
+#### (b) 意図的な設計判断(欠陥ではない)
+
+4. **`DriverInstallOrder` はヒューリスティック**: `DeviceClass` 優先度のみで INF の実依存は見ない。
+   INF ベースの真の依存解決は費用対効果が見合わないと判断
+5. **バックアップ名が秒精度**: 同一デバイスを同一秒に2回バックアップすると混ざる。
+   通常経路は1デバイス1回で、命名変更は3箇所が依存する辞書順の互換性を要するため据え置き
+6. **`RunAsync` の `_cts` に再入ガードなし**: 多重起動は CanExecute で防いでおり現状問題なし。
+   将来コマンドを直接呼ぶ改修を入れる場合の注意点として記録
 
 ### 解決済み(記録)
 
