@@ -38,7 +38,9 @@ namespace AeroDriver.Core.Services
                 var results = new List<DriverInfo>();
 
                 // RCWを finally で確実に解放するため object で保持する(dynamic を直接
-                // Marshal に渡すと意図しない解放になりうる。詳細は INSTRUCTIONS_OPUS.md タスク3)
+                // Marshal に渡すと意図しない RCW を掴む/例外になることがある)。
+                // 各 update はマッピング完了後に解放する: 早すぎる解放は読み取り中の
+                // プロパティを壊す。外側は逆順に解放する
                 object? session = null, searcher = null, searchResult = null, updates = null;
                 try
                 {

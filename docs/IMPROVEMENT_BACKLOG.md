@@ -83,8 +83,7 @@
 
 ## 改善タスク
 
-> [Opus]タスクの罠と設計背景は [INSTRUCTIONS_OPUS.md](INSTRUCTIONS_OPUS.md)、
-> [Sonnet]タスクの手順書は [INSTRUCTIONS_SONNET.md](INSTRUCTIONS_SONNET.md) を参照。
+> 仕様が確定したタスクの手順は [INSTRUCTIONS_SONNET.md](INSTRUCTIONS_SONNET.md) を参照。
 
 ### P0 — 人間の作業が必要(モデルでは完結不可)
 

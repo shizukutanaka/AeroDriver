@@ -1,8 +1,7 @@
 # Sonnet級モデル向け指示書
 
 対象: `IMPROVEMENT_BACKLOG.md`の **[Sonnet]** ラベルタスク(仕様が確定していて、迷わず実行できる作業)。
-共通規則は [/CLAUDE.md](../CLAUDE.md)。難易度の高い判断が要る [Opus] タスクは
-[INSTRUCTIONS_OPUS.md](INSTRUCTIONS_OPUS.md) に分離してある。
+共通規則は [/CLAUDE.md](../CLAUDE.md)。
 
 各タスクは「触るファイルの全リスト」「変更内容」「受け入れ条件」「ハマりどころ」を手順書形式で記載。
 
@@ -76,23 +75,6 @@ GUIのテーマ・言語選択が再起動で消える。`ISettingsService`に�
 
 **ハマりどころ**: `System.Progress<T>` はテスト環境に SynchronizationContext が無いとThreadPoolで
 コールバックする。テストでは進捗の同期検証を避け、最終状態を検証する。
-
----
-
-## タスクD: USB VID/PID対応(短所10) — [P2 Sonnet]
-
-**対象**: `src/AeroDriver.Core/Services/WhqlDatabaseService.cs`(`FindDriverByHardwareIdAsync`)。
-現在は `PCI\VEN_xxxx&DEV_xxxx` の正規表現のみ。`USB\VID_xxxx&PID_xxxx` の分岐を追加。
-**受け入れ条件**: 既存 `WhqlDatabaseServiceTests` の形式で USB HardwareID のパーステストを追加。
-
----
-
-## タスクE: JSON統一(短所8) — [P2 Sonnet]
-
-**対象**: `WhqlDatabaseService.cs`(`using Newtonsoft.Json;`, 10行)を `System.Text.Json` に移行。
-移行後、`Newtonsoft.Json` の `PackageReference` を各 `.csproj` から削除(`AeroDriver.Languages.csproj:14`
-にもあるが未使用なら削除)。**ハマりどころ**: Newtonsoftの `JsonConvert.DeserializeObject<T>` の
-null戻り値ハンドリング(FEATURE_AUDIT §4で過去に修正した箇所)を System.Text.Json でも維持する。
 
 ---
 

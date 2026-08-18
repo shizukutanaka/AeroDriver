@@ -6,8 +6,7 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 
 **最初に読むもの**: `docs/FEATURE_AUDIT.md`(実装済み/修正済み/未解決の引き継ぎ台帳)と
 `docs/IMPROVEMENT_BACKLOG.md`(長所/短所/優先度付き改善タスク。推奨モデルラベル付き)。
-着手するタスクに応じて、**Opus級は `docs/INSTRUCTIONS_OPUS.md`**(罠・設計背景・不変条件)、
-**Sonnet級は `docs/INSTRUCTIONS_SONNET.md`**(手順書形式のタスク仕様)も読むこと。
+仕様が確定した残タスクの手順は `docs/INSTRUCTIONS_SONNET.md` にある。
 
 ## 絶対規則(違反PRは出さない)
 
@@ -18,7 +17,11 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 5. **`ProcessStartInfo.ArgumentList`** を使う。文字列結合で引数を組み立てない
 6. **宣言と実装を一致させる**: nullable注釈・XMLdoc・READMEは、実装がその通り動くことを
    確認してから書く。このリポジトリで最も繰り返し破られてきたルール
-7. 外部入力(WMI文字列・ダウンロードURL・ユーザー指定パス)は信用しない:
+7. **セキュリティ判定はフェイルクローズ、可用性層はフェイルオープン**。この非対称は意図的:
+   署名検証・BYOVD照合は「確認できなければ拒否」(検証不能な物を通さない)。
+   復元ポイント作成・ブロックリスト取得・履歴記録は「失敗しても本処理を止めない」
+   (安全網が使えないことを理由に機能全体を殺さない)。**一方に合わせて「統一」しないこと**
+8. 外部入力(WMI文字列・ダウンロードURL・ユーザー指定パス)は信用しない:
    WQLは`WqlSanitizer`、パスは`Path.GetFullPath`正規化+ルート配下検証 or `Path.GetFileName`
 
 ## やってはいけない「近代化」(根拠は FEATURE_AUDIT.md §7)
