@@ -7,26 +7,7 @@
 
 ---
 
-## タスクA: 失敗メッセージのローカライズ(短所12) — [P2 Sonnet]
-
-`MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と CLI `Program.DescribeInstallResult` は
-成功接頭辞だけ翻訳し、失敗理由がハードコード日本語。全て `ILanguageService` 経由にする。
-
-**手順**:
-1. `DriverInstallResult` の各値に対応するリソースキーを決める(例: `Install_AdminRequired`,
-   `Install_NoDownloadUrl`, `Install_InsecureUrl`, `Install_DownloadFailed`, `Install_SignatureInvalid`,
-   `Install_KnownVulnerable`, `Install_InstallerFailed`, `Install_Cancelled`, `Install_UnknownError`)。
-2. **全10言語の `.resx`** (`src/AeroDriver.Languages/Resources/Strings.*.resx`)に同じキーで `<data>` を追加。
-   Pythonで一括挿入し、`xml.dom.minidom` で妥当性、キー数パリティ(現在19→28キー)を機械検証すること。
-3. `DescribeResult`/`DescribeInstallResult` を `_lang.GetString("Install_...")` 呼び出しに置換。
-   デバイス名等の埋め込みは `GetString(key, args)` オーバーロード(既存)を使う。
-
-**ハマりどころ**: 1言語でもキーが欠けると `GetString` が `"[キー名]"` を表示する。挿入後に
-`grep -c 'name="Install_AdminRequired"' Strings.*.resx` で10ファイル全てにあることを必ず確認。
-
----
-
-## タスクB: MainViewModelのユニットテスト(短所7) — [P2 Sonnet]
+## タスクA: MainViewModelのユニットテスト(短所7) — [P2 Sonnet]
 
 **手順**:
 1. `tests/AeroDriver.UI.Tests/AeroDriver.UI.Tests.csproj` を新設(`net8.0-windows`、

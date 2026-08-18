@@ -24,6 +24,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>Actualizar</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>Se requieren privilegios de administrador. Ejecute como administrador.</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>No hay URL de descarga disponible.</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>La URL de descarga no es HTTPS.</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>Error de descarga. Compruebe su conexión de red.</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>No se pudo verificar la firma del instalador.</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>Bloqueado: controlador vulnerable conocido (BYOVD). Detalles: https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>El instalador informó de un error.</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>La instalación fue cancelada.</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>Se requiere reiniciar para completar el cambio.</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>Se produjo un error desconocido.</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>Actualizar todo</value>
   </data>

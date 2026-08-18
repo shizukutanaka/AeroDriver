@@ -233,8 +233,8 @@ namespace AeroDriver.UI.ViewModels
                 {
                     int skipped = total - success - failed;
                     StatusMessage =
-                        $"管理者権限が必要なため中断しました。管理者として実行してください。" +
-                        $"({_lang.GetString("Status_Complete")}: {success} / {total}, 未実行: {skipped})";
+                        $"{_lang.GetString("Install_AdminRequired")} " +
+                        $"({_lang.GetString("Status_Complete")}: {success} / {total}, {skipped})";
                 }
                 else
                 {
@@ -360,21 +360,39 @@ namespace AeroDriver.UI.ViewModels
             }
         }
 
-        private string DescribeResult(DriverInstallResult result, DriverInfo target) => result switch
+        /// <summary>
+        /// インストール結果をユーザー向けメッセージにします。
+        /// 理由メッセージは引数なしのリソースキーにし、デバイス名はここで前置きする。
+        /// 翻訳側にプレースホルダーを持たせると、10言語のどれか1つで個数がずれた瞬間に
+        /// 実行時例外になるため、書式の組み立ては呼び出し側に閉じ込めておく。
+        /// </summary>
+        private string DescribeResult(DriverInstallResult result, DriverInfo target)
         {
-            DriverInstallResult.Success => $"{_lang.GetString("Status_Complete")}: {target.DeviceName} {target.DriverVersion}",
-            DriverInstallResult.SuccessRebootRequired =>
-                $"{_lang.GetString("Status_Complete")}: {target.DeviceName} {target.DriverVersion}"
-                + " — 変更を有効にするには再起動が必要です",
-            DriverInstallResult.AdminRequired => "管理者権限が必要です。管理者として実行してください。",
-            DriverInstallResult.NoDownloadUrl => "ダウンロードURLがありません。",
-            DriverInstallResult.InsecureDownloadUrl => "ダウンロードURLがHTTPSではありません。",
-            DriverInstallResult.DownloadFailed => "ダウンロードに失敗しました。",
-            DriverInstallResult.SignatureInvalid => "インストーラーの署名が無効です。",
-            DriverInstallResult.KnownVulnerableDriver => "既知の脆弱ドライバー(BYOVD)のためブロックしました。",
-            DriverInstallResult.InstallerFailed => $"インストールに失敗しました: {target.DeviceName}",
-            DriverInstallResult.Cancelled => "キャンセルされました。",
-            _ => $"不明なエラー: {target.DeviceName}",
+            var name = target.DeviceName ?? string.Empty;
+
+            if (result == DriverInstallResult.Success)
+                return $"{_lang.GetString("Status_Complete")}: {name} {target.DriverVersion}";
+
+            if (result == DriverInstallResult.SuccessRebootRequired)
+                return $"{_lang.GetString("Status_Complete")}: {name} {target.DriverVersion}"
+                     + $" — {_lang.GetString("Install_RebootRequired")}";
+
+            var reason = _lang.GetString(ResultResourceKey(result));
+            return string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}";
+        }
+
+        /// <summary>失敗理由に対応するリソースキー。</summary>
+        private static string ResultResourceKey(DriverInstallResult result) => result switch
+        {
+            DriverInstallResult.AdminRequired        => "Install_AdminRequired",
+            DriverInstallResult.NoDownloadUrl        => "Install_NoDownloadUrl",
+            DriverInstallResult.InsecureDownloadUrl  => "Install_InsecureUrl",
+            DriverInstallResult.DownloadFailed       => "Install_DownloadFailed",
+            DriverInstallResult.SignatureInvalid     => "Install_SignatureInvalid",
+            DriverInstallResult.KnownVulnerableDriver=> "Install_KnownVulnerable",
+            DriverInstallResult.InstallerFailed      => "Install_InstallerFailed",
+            DriverInstallResult.Cancelled            => "Install_Cancelled",
+            _                                        => "Install_UnknownError",
         };
     }
 }
