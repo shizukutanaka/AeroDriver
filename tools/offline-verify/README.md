@@ -42,7 +42,6 @@ NuGet に到達できなくてもロギング依存のサービスまで検証�
 - `Helpers/AuthenticodeHelper.cs` — 検証失敗理由の説明、非Windowsでのフェイルクローズ
 - `Helpers/SystemRestoreHelper.cs` — 非Windowsでの no-op
 - `Helpers/ElevationGuard.cs`
-- `Services/PciIdDatabase.cs` / `WhqlDatabaseService.cs` — コンパイルのみ(HTTP は叩かない)
 - `Services/PnpUtilDriverSource.cs` — `/enum-drivers` 出力のパースを実データで検証
 - `Services/WindowsUpdateAgentSource.cs` — コンパイルのみ(COM は叩かない)
 - `Services/BackupService.cs` — パストラバーサル対策と世代保持を実検証(pnputil 自体は叩かない)

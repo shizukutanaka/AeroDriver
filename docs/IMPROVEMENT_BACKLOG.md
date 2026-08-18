@@ -39,8 +39,9 @@
    (YAML本文は`FEATURE_AUDIT.md` §5に用意済み)
 3. **テーマ/言語が永続化されない**: `ISettingsService`に該当キーがなく、GUIの選択は再起動で消える
 4. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
-5. **キャッシュ実装の三重複**: PciIdDatabase/VulnerableDriverBlocklist/WhqlDatabaseService が
-   同型のダウンロード→LOCALAPPDATA→TTLパターンを個別実装
+5. ~~**キャッシュ実装の三重複**~~ **解消**: 3実装のうち2つ(`PciIdDatabase`/`WhqlDatabaseService`)を
+   デッドコードとして削除したため、残るキャッシュ実装は `VulnerableDriverBlocklist` の1つのみ。
+   共通基底を作る必要はなくなった(重複がなければ抽象化も不要)
 6. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
 7. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult` と CLI `DescribeInstallResult` は
    成功時の接頭辞だけ翻訳し、失敗理由の本文はハードコードの日本語
@@ -66,6 +67,7 @@
 | H | インストール履歴/監査証跡なし | f1227cf: `InstallHistoryService`(JSONL追記)、CLI `history` |
 | I | JSONライブラリ混在(Newtonsoft + System.Text.Json) | 6bee763: STJ へ統一し Newtonsoft 参照を全削除 |
 | J | USB非対応の更新照合(PCI決め打ち) | 36d710c: `HardwareIdParser` で PCI/USB 双方に対応 |
+| R | `WhqlDatabaseService`(Windows Update CatalogのHTMLスクレイピング)と `PciIdDatabase` が**本番コードから一切呼ばれていないデッドコード**。DI登録と自身のテストのみが参照 | 835行を削除。更新取得は WUA COM(公式API)、デバイス名は WMI が既に提供しており機能重複 |
 | Q | `PnpUtilDriverSource` の `/enum-drivers /all` 呼び出しが `string[]` 引数に単一文字列を渡し CS1503。**コンパイル不能**、かつ引数分割の規則にも違反 | `["/enum-drivers", "/all"]` に修正 |
 | P | `PciIdDatabase` が**コンパイル不能**。タプル要素名をフィールドだけで宣言し全メソッドシグネチャで落としていたため `entry.Name`/`.Devices` が解決不能(CS1061)、さらに `FrozenDictionary` に `new()`(CS0144) | 全シグネチャで要素名を統一し、空値は `.Empty` に |
 | O | `AuthenticodeHelper.GetCertificateInfo` が**コンパイル不能**。`CreateFromSignedFile` は基底 `X509Certificate` を返すため `var` で `NotBefore`/`NotAfter` が解決できず CS1061 | `X509Certificate2` に明示的に包み直す。実コンパイルで発見 |

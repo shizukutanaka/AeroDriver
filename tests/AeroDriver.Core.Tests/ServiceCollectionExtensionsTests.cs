@@ -10,7 +10,7 @@ namespace AeroDriver.Core.Tests;
 
 /// <summary>
 /// ConfigureServices の DI 配線が実際に解決可能かを検証する。
-/// これまで専用テストがなく、WhqlDatabaseService の HttpClient 未登録
+/// これまで専用テストがなく、HttpClient 未登録
 /// （new HttpClient() を直接生成していた回帰）のような配線ミスは
 /// 実行時（CLIやアプリ起動時）まで発覚しなかった。
 /// コンストラクターはどのサービスも Windows専用APIを直接呼ばないため、
@@ -28,7 +28,6 @@ public class ServiceCollectionExtensionsTests
         using var provider = BuildProvider();
 
         provider.GetRequiredService<ISettingsService>().Should().NotBeNull();
-        provider.GetRequiredService<PciIdDatabase>().Should().NotBeNull();
     }
 
     [Fact]
@@ -39,7 +38,6 @@ public class ServiceCollectionExtensionsTests
 
         scope.ServiceProvider.GetRequiredService<IDriverService>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<IBackupService>().Should().NotBeNull();
-        scope.ServiceProvider.GetRequiredService<IWhqlDatabaseService>().Should().NotBeNull();
     }
 
     [Fact]
@@ -58,14 +56,12 @@ public class ServiceCollectionExtensionsTests
     [Fact]
     public void ConfigureServices_HttpClientFactory_CreatesNamedClientsWithoutThrowing()
     {
-        // WhqlDatabaseService の "new HttpClient()" 直接生成バグの回帰防止:
+        // "new HttpClient()" 直接生成バグの回帰防止:
         // 各サービス名で名前付きクライアントが実際に生成できることを確認する
         using var provider = BuildProvider();
         var factory = provider.GetRequiredService<IHttpClientFactory>();
 
         factory.CreateClient(nameof(DriverService)).Should().NotBeNull();
-        factory.CreateClient(nameof(PciIdDatabase)).Should().NotBeNull();
-        factory.CreateClient(nameof(WhqlDatabaseService)).Should().NotBeNull();
     }
 
     [Fact]

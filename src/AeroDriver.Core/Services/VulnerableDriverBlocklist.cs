@@ -16,7 +16,7 @@ namespace AeroDriver.Core.Services
     /// データソースは LOLDrivers プロジェクトの公式JSON(無料・機械可読)。
     /// Microsoftの脆弱ドライバーブロックリストはHVCI有効時しか強制されず、更新も
     /// 年1〜2回と遅い(CVE-2025-59033参照)ため、インストーラー側での自衛層として追加。
-    /// キャッシュ方式は <see cref="PciIdDatabase"/> と同じ(%LOCALAPPDATA%、7日TTL)。
+    /// キャッシュは %LOCALAPPDATA% に置き、7日TTLで更新する。
     /// </summary>
     public class VulnerableDriverBlocklist
     {
