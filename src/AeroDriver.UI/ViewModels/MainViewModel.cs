@@ -209,7 +209,7 @@ namespace AeroDriver.UI.ViewModels
                     else if (result == DriverInstallResult.AdminRequired)
                     {
                         // AdminRequired は環境要因。残り全件も必ず同じ理由で失敗するため、
-                        // N回繰り返さず即中断して1回だけ通知する(INSTRUCTIONS_OPUS.md タスク2)
+                        // N回繰り返さず即中断して1回だけ通知する
                         abortedForAdmin = true;
                         break;
                     }
