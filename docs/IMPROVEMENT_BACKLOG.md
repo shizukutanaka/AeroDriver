@@ -12,7 +12,7 @@
 |------|------|
 | セキュリティ多層防御 | `WinVerifyTrust`による真正Authenticode検証(`AuthenticodeHelper.cs`)、BYOVDブロックリスト全経路適用(`VulnerableDriverBlocklist.cs`+DriverService/BackupService/PnpUtilDriverSource)、WQLサニタイズ(`WqlSanitizer.cs`)、パストラバーサル対策3件、HTTPS強制、TOCTOU対策(ダウンロード〜実行間のFileShare.Readロック)、`ElevationGuard` |
 | 引き継ぎ文化 | `docs/FEATURE_AUDIT.md`が実装/修正/未解決を台帳化。「宣言と実装の一致」規律 |
-| テスト容易設計 | protectedコンストラクタでキャッシュパス注入(PciIdDatabase/VulnerableDriverBlocklist/BackupService)、純粋関数化(`DriverInstallOrder`/`VersionHelper`/`WqlSanitizer`)、GUIも`IFileDialogService`/`IThemeService`で抽象化 |
+| テスト容易設計 | protectedコンストラクタでキャッシュパス注入(VulnerableDriverBlocklist/BackupService)、純粋関数化(`DriverInstallOrder`/`VersionHelper`/`WqlSanitizer`)、GUIも`IFileDialogService`/`IThemeService`で抽象化 |
 | 性能配慮 | `FrozenDictionary/Set`、`ArrayPool`、`[LoggerMessage]`、JSONソースジェネレーション、BoundedChannelバックプレッシャー |
 | ロジック共有 | CLI/GUIが同一Coreサービスを消費(例: 一括インストール順序は`CheckForUpdatesAsync`1箇所で決まり両UIに反映) |
 | ローカライズ | 10言語×19キー、パリティ機械検証済み。GUIは言語即時切替対応 |
@@ -114,10 +114,10 @@
 - [ ] **MainViewModelのユニットテスト**(短所7): `AeroDriver.UI.Tests`プロジェクト新設
   (注意: 過去に幽霊参照事故あり。slnへの追加を確実に)。`IFileDialogService`/`IThemeService`/
   `IServiceScopeFactory`をNSubstituteでモックし、Scan/InstallAll/言語切替の状態遷移を検証
-- [x] ~~**USB VID/PID対応**(短所10)~~ 完了(36d710c): `HardwareIdParser` を新設し
-  `WhqlDatabaseService` と `WindowsUpdateAgentSource` の双方から利用。複合USBの `&MI_xx` も保持
-- [x] ~~**JSON統一**(短所8)~~ 完了: `WhqlDatabaseService` を System.Text.Json ソースジェネレーションへ
-  移行。`AeroDriver.Core` と `AeroDriver.Languages`(未使用だった)双方の Newtonsoft 参照を削除
+- [x] ~~**USB VID/PID対応**(短所10)~~ 完了(36d710c): `HardwareIdParser` を新設。
+  現在の利用者は `WindowsUpdateAgentSource`(`WhqlDatabaseService` は後にデッドコードとして削除)
+- [x] ~~**JSON統一**(短所8)~~ 完了: Newtonsoft 参照を全削除(その後 `WhqlDatabaseService` 自体を
+  デッドコードとして削除したため、この移行作業自体が不要だった)
 - [ ] **失敗メッセージのローカライズ**(短所12): `DriverInstallResult`各値のメッセージを
   リソースキー化(`Install_Result_AdminRequired`等)して全10言語に追加し、`DescribeResult`/
   `DescribeInstallResult`を`ILanguageService`経由に。受け入れ条件: 非日本語カルチャで
@@ -125,6 +125,5 @@
 
 ### P3 — リファクタリング(急がない)
 
-- [ ] キャッシュ基盤の共通化(短所9): `CachedRemoteFile`等の基底に3実装を集約
 - [ ] GUI: 一括インストール完了時の結果サマリーダイアログ(成功/失敗の内訳一覧)
 - [ ] INFベースの真の依存解決(短所11)は費用対効果を検討してから
