@@ -38,6 +38,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 
 - **dotnet SDKがある環境**: `dotnet build AeroDriver.sln && dotnet test` を必ず実行
   (注意: `AeroDriver.UI`はnet8.0-windowsのためWindowsが必要)
+- **まず `tools/verify-all.sh` を実行する**。この環境で可能な検証(Core の実コンパイル+実行、
+  WPF/CLI の型検査、XML妥当性、リソースキーのパリティ)を一括で回す。**変更後は必ず通すこと**
 - **SDKが無いと思ったらまず導入を試すこと**: Ubuntu なら `apt-get update && apt-get install -y dotnet-sdk-8.0`
   で入る(2026-08時点で確認済み)。ただし NuGet はプロキシ遮断されるため、外部パッケージに依存する
   プロジェクトは restore できない。**BCLのみに依存する純粋ロジックは `tools/offline-verify` で

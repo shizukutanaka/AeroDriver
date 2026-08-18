@@ -57,6 +57,18 @@ For known strengths/weaknesses and the prioritized improvement backlog, see
 [docs/IMPROVEMENT_BACKLOG.md](docs/IMPROVEMENT_BACKLOG.md); contributor/AI
 working rules live in [CLAUDE.md](CLAUDE.md).
 
+## ✅ Verification
+
+```bash
+tools/verify-all.sh   # runs everything checkable without Windows
+```
+
+Core is compiled and executed for real (93 assertions); the WPF and CLI layers are
+type-checked against minimal stubs because their packages cannot be restored here.
+This does **not** replace `dotnet build AeroDriver.sln && dotnet test` on Windows —
+XAML compilation, source-generator output, WMI behaviour and command-line parsing
+still need a real build. Each tool's README states its own limits.
+
 ## 🛠️ Development
 
 ```bash
