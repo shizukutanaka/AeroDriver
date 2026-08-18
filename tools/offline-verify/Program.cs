@@ -110,6 +110,17 @@ Console.WriteLine("== SettingsService (persistence + new CreateRestorePoint key)
     Check("CreateRestorePoint persisted", !s2.CreateRestorePoint);
     Check("MaxBackupGenerations persisted", s2.MaxBackupGenerations==7);
     Check("MaxBackupGenerations clamps to >=1", new AeroDriver.Core.Services.SettingsService(log, cfg){ MaxBackupGenerations = 0 }.MaxBackupGenerations>=1);
+
+    // テーマ/言語の永続化（GUIの選択が再起動後も残ること）
+    Check("ThemeName defaults to null (未設定)", s2.ThemeName is null);
+    Check("CultureName defaults to null (未設定)", s2.CultureName is null);
+    s2.ThemeName = "Dark";
+    s2.CultureName = "ja-JP";
+    var s3 = new AeroDriver.Core.Services.SettingsService(log, cfg);
+    Check("ThemeName persisted across instances", s3.ThemeName == "Dark", s3.ThemeName ?? "(null)");
+    Check("CultureName persisted across instances", s3.CultureName == "ja-JP", s3.CultureName ?? "(null)");
+    // 既存キーが巻き添えで壊れていないこと
+    Check("existing keys survive the new fields", s3.MaxBackupGenerations == 7 && !s3.CreateRestorePoint);
     File.Delete(cfg);
 }
 

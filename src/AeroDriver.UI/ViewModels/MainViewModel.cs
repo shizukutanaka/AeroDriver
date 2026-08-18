@@ -24,6 +24,7 @@ namespace AeroDriver.UI.ViewModels
         private readonly ILanguageService _lang;
         private readonly IFileDialogService _fileDialog;
         private readonly IThemeService _themeService;
+        private readonly ISettingsService _settings;
         private readonly ILogger<MainViewModel> _logger;
         private CancellationTokenSource? _cts;
 
@@ -92,19 +93,26 @@ namespace AeroDriver.UI.ViewModels
             ILanguageService lang,
             IFileDialogService fileDialog,
             IThemeService themeService,
+            ISettingsService settings,
             ILogger<MainViewModel> logger)
         {
             _scopeFactory = scopeFactory;
             _lang = lang;
             _fileDialog = fileDialog;
             _themeService = themeService;
+            _settings = settings;
             _logger = logger;
             _selectedCulture = _lang.CurrentCulture;
             _selectedTheme = themeService.CurrentTheme;
         }
 
         // テーマ切替: SelectedTheme が変わったら ThemeService に反映
-        partial void OnSelectedThemeChanged(AppTheme value) => _themeService.Apply(value);
+        partial void OnSelectedThemeChanged(AppTheme value)
+        {
+            _themeService.Apply(value);
+            // 選択を永続化する。保存できなくてもテーマ自体は適用済みなので処理は継続する
+            _settings.ThemeName = value.ToString();
+        }
 
         // 言語切替: SelectedCulture が変わったら実際のカルチャを切り替え、
         // ローカライズ済みラベルすべての再評価を促す
@@ -112,6 +120,7 @@ namespace AeroDriver.UI.ViewModels
         {
             if (value == null) return;
             _lang.SetCulture(value);
+            _settings.CultureName = value.Name;
             OnPropertyChanged(nameof(ScanButtonText));
             OnPropertyChanged(nameof(CheckUpdatesButtonText));
             OnPropertyChanged(nameof(InstallButtonText));

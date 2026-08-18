@@ -33,6 +33,17 @@ namespace AeroDriver.Core.Interfaces
         bool CreateRestorePoint { get; set; }
         
         /// <summary>
+        /// GUI で選択されたテーマ名(<c>AppTheme</c> の名前)。null は未設定。
+        /// </summary>
+        string? ThemeName { get; set; }
+
+        /// <summary>
+        /// GUI で選択されたカルチャ名(例: "ja-JP")。null は未設定で、
+        /// この場合は OS の UI カルチャに従います。
+        /// </summary>
+        string? CultureName { get; set; }
+
+        /// <summary>
         /// 設定を保存する
         /// </summary>
         void Save();

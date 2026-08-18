@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Windows;
 using System.Windows.Threading;
 using AeroDriver.Core;
@@ -36,6 +37,10 @@ namespace AeroDriver.UI
             // ハンドルされない UI 例外でプロセスごと落とさず、ユーザーに提示してログに残す
             DispatcherUnhandledException += OnDispatcherUnhandledException;
 
+            // 保存された選択を復元してから MainWindow を生成する。
+            // 生成後に適用すると、初回描画が既定のテーマ/言語で一瞬表示されてしまう
+            RestorePreferences(_serviceProvider);
+
             var window = _serviceProvider.GetRequiredService<MainWindow>();
             window.Show();
 
@@ -48,6 +53,35 @@ namespace AeroDriver.UI
             {
                 var viewModel = _serviceProvider.GetRequiredService<MainViewModel>();
                 _ = viewModel.CheckUpdatesCommand.ExecuteAsync(null);
+            }
+        }
+
+        /// <summary>
+        /// 前回終了時のテーマ/言語を復元します。設定が無い(初回起動)、値が不正、
+        /// 対応外のカルチャの場合は何もせず既定のまま続行します。
+        /// </summary>
+        private static void RestorePreferences(IServiceProvider provider)
+        {
+            var settings = provider.GetRequiredService<ISettingsService>();
+            var logger = provider.GetService<ILogger<App>>();
+
+            var themeName = settings.ThemeName;
+            if (!string.IsNullOrEmpty(themeName) &&
+                Enum.TryParse<AppTheme>(themeName, ignoreCase: true, out var theme))
+            {
+                provider.GetRequiredService<IThemeService>().Apply(theme);
+            }
+
+            var cultureName = settings.CultureName;
+            if (!string.IsNullOrEmpty(cultureName))
+            {
+                var lang = provider.GetRequiredService<ILanguageService>();
+                // 対応外のカルチャが保存されていても落とさない。
+                // SupportedCultures に無ければ無視して OS 既定のままにする
+                var match = lang.SupportedCultures.FirstOrDefault(c =>
+                    string.Equals(c.Name, cultureName, StringComparison.OrdinalIgnoreCase));
+                if (match != null) lang.SetCulture(match);
+                else logger?.LogInformation("保存されたカルチャ {Culture} は未対応のため無視します", cultureName);
             }
         }
 

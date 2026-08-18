@@ -89,6 +89,26 @@ namespace AeroDriver.Core.Services
             }
         }
 
+        public string? ThemeName
+        {
+            get { lock (_lock) return _data.ThemeName; }
+            set
+            {
+                lock (_lock) _data = _data with { ThemeName = value };
+                Save();
+            }
+        }
+
+        public string? CultureName
+        {
+            get { lock (_lock) return _data.CultureName; }
+            set
+            {
+                lock (_lock) _data = _data with { CultureName = value };
+                Save();
+            }
+        }
+
         public void Save()
         {
             try
@@ -141,14 +161,19 @@ namespace AeroDriver.Core.Services
             bool IncludeBetaDrivers,
             bool BackupEnabled,
             int MaxBackupGenerations,
-            bool CreateRestorePoint = true)
+            bool CreateRestorePoint = true,
+            // GUI の選択を再起動後も保つ。null = 未設定(初回起動時は OS 既定に従う)
+            string? ThemeName = null,
+            string? CultureName = null)
         {
             public static readonly SettingsData Default = new(
                 AutoUpdateEnabled: true,
                 IncludeBetaDrivers: false,
                 BackupEnabled: true,
                 MaxBackupGenerations: 3,
-                CreateRestorePoint: true);
+                CreateRestorePoint: true,
+                ThemeName: null,
+                CultureName: null);
         }
 
         // JsonSerializerContext: Source Generation でリフレクション不要なシリアライザーを生成

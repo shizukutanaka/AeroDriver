@@ -7,42 +7,7 @@
 
 ---
 
-## タスクA: テーマ/言語の永続化(短所5) — [P1 Sonnet]
-
-GUIのテーマ・言語選択が再起動で消える。`ISettingsService`に保存して起動時に復元する。
-
-**触るファイルと変更(この順のチェーンを全て変えないと壊れる)**:
-1. `src/AeroDriver.Core/Services/SettingsService.cs`
-   - `SettingsData` **positional record**(123-127行)に `string? ThemeName` と `string? CultureName` を追加。
-   - `SettingsData.Default`(129-133行)に既定値を追加(例: `ThemeName: "Light", CultureName: null`)。
-   - `SettingsJsonContext`(139-140行)は `[JsonSerializable(typeof(SettingsData))]` のまま変更不要
-     (レコード全体を対象にしているため自動で追随)。
-2. `src/AeroDriver.Core/Interfaces/ISettingsService.cs`
-   - `string? ThemeName { get; set; }` と `string? CultureName { get; set; }` を追加。
-3. `SettingsService.cs` のプロパティ群(38-78行と同じ形)
-   - 2つのプロパティを **必ず `lock (_lock)` で読み書きし、setterで `Save()`** を呼ぶ(既存4プロパティと同一パターン)。
-4. `src/AeroDriver.UI/App.xaml.cs`(`OnStartup`)
-   - DIビルド後、`ISettingsService` を解決して `ThemeName`/`CultureName` を読み、
-     `IThemeService.Apply(...)` と `ILanguageService.SetCulture(...)` で復元してから `MainWindow` を表示。
-5. `src/AeroDriver.UI/ViewModels/MainViewModel.cs`
-   - `OnSelectedThemeChanged`(既存)と `OnSelectedCultureChanged`(既存)で、切替時に
-     `ISettingsService.ThemeName`/`CultureName` に保存。ViewModelに `ISettingsService` をコンストラクタ注入
-     (登録は `ServiceCollectionExtensions` で `ISettingsService` が既にSingleton)。
-
-**ハマりどころ**:
-- **後方互換**: 既存の `settings.json` には新フィールドが無い。System.Text.Jsonのpositional record
-  デシリアライズでは、JSONに無いコンストラクタ引数は型の既定値(`null`)になる → `Load()` は壊れないが、
-  `ThemeName` が `null` の場合は `"Light"` 相当にフォールバックする分岐をApp側に入れる。
-- `CultureName` を復元する際、`SupportedCultures` に無い値なら無視(`LanguageService.SetCulture` の
-  挙動を確認)。
-
-**受け入れ条件**: `tests/AeroDriver.Core.Tests/Services/SettingsServiceTests.cs` に
-「ThemeName/CultureName を保存→別インスタンスで読み込むと復元される」テストを追加(既存テストの
-`new SettingsService(logger, tempFile)` パターンを流用)。
-
----
-
-## タスクB: 失敗メッセージのローカライズ(短所12) — [P2 Sonnet]
+## タスクA: 失敗メッセージのローカライズ(短所12) — [P2 Sonnet]
 
 `MainViewModel.DescribeResult`(`MainViewModel.cs:309-321`)と CLI `Program.DescribeInstallResult` は
 成功接頭辞だけ翻訳し、失敗理由がハードコード日本語。全て `ILanguageService` 経由にする。
@@ -61,7 +26,7 @@ GUIのテーマ・言語選択が再起動で消える。`ISettingsService`に�
 
 ---
 
-## タスクC: MainViewModelのユニットテスト(短所7) — [P2 Sonnet]
+## タスクB: MainViewModelのユニットテスト(短所7) — [P2 Sonnet]
 
 **手順**:
 1. `tests/AeroDriver.UI.Tests/AeroDriver.UI.Tests.csproj` を新設(`net8.0-windows`、
