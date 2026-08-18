@@ -43,13 +43,15 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   プロジェクトは restore できない。**BCLのみに依存する純粋ロジックは `tools/offline-verify` で
   実コンパイル+実行検証できる**(`cd tools/offline-verify && dotnet run`)。新しい純粋ロジックを
   足したらここにも追加すること。**WPF層の手書きC#は `tools/ui-typecheck` で型検査できる**
-  (WPF/CommunityToolkit の最小スタブに対して実コンパイル。XAML とジェネレーター実出力は対象外)
+  (WPF/CommunityToolkit の最小スタブに対して実コンパイル。XAML とジェネレーター実出力は対象外)。
+  **CLI は `tools/cli-typecheck`**(System.CommandLine の最小スタブ。実パース挙動は対象外)
 - **それでも検証できない部分**では静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
   - 波括弧/括弧バランス(python等で機械チェック)
   - リソースキー追加時は**全10言語**の`.resx`に追加し、XML妥当性とキーパリティを機械検証
   - XAMLの`{Binding XxxCommand}`名 ⇔ ViewModelの`[RelayCommand]`メソッド名の一致
   - DIライフタイム(Singleton→Scopedのcaptive dependencyを作らない)
-- **重要**: サービス層とWPFは依然ビルド未検証。Windows実機で
+- **重要**: WMI依存(`DriverService`/`WdacHelper`)・XAMLコンパイル・ソースジェネレーターの
+  実出力・System.CommandLine の実パース挙動は依然未検証。Windows実機で
   `dotnet build AeroDriver.sln && dotnet test` を通すことが最優先タスク
   (`IMPROVEMENT_BACKLOG.md` P0参照)
 - **XMLコメントに連続ハイフンを書かないこと**。`Directory.Build.props` に
