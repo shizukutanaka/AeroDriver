@@ -81,7 +81,7 @@ public class VulnerableDriverBlocklistTests : IDisposable
         (await blocklist.IsKnownVulnerableAsync(driverFile)).Should().BeTrue();
     }
 
-    // テスト用: キャッシュファイルにJSONを直接書き込んで使う（PciIdDatabaseTests と同じパターン）
+    // テスト用: キャッシュファイルにJSONを直接書き込んで使う（protected コンストラクタでキャッシュパスを注入する）
     private VulnerableDriverBlocklist CreateWithJson(string json)
     {
         var cacheFile = Path.Combine(Path.GetTempPath(), $"test_loldrivers_{Guid.NewGuid():N}.json");
