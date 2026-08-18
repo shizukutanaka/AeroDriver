@@ -45,7 +45,9 @@
 6. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
 7. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult` と CLI `DescribeInstallResult` は
    成功時の接頭辞だけ翻訳し、失敗理由の本文はハードコードの日本語
-8. **`DisableDriverAsync` がUIから到達不能**: 実装済み(ブートクリティカル保護付き)だが CLI/GUI に導線なし
+8. ~~**`DisableDriverAsync` がUIから到達不能**~~ **削除**: デバイスの有効/無効化は Windows の
+   デバイスマネージャーが標準提供しており機能重複。呼ばれてもいない機能を守るために
+   ブートクリティカル保護を書いていた状態だったため、要件ごと削除(97行)
 9. **バックアップ名のタイムスタンプが秒精度**(`BackupService.cs:55`、`backup_yyyyMMddHHmmss`):
    同一デバイスを同一秒内に2回バックアップすると同じディレクトリになり、pnputil の
    エクスポート先が混ざって `backup_info.json` も上書きされる。通常経路は1デバイス1回のため
@@ -67,6 +69,7 @@
 | H | インストール履歴/監査証跡なし | f1227cf: `InstallHistoryService`(JSONL追記)、CLI `history` |
 | I | JSONライブラリ混在(Newtonsoft + System.Text.Json) | 6bee763: STJ へ統一し Newtonsoft 参照を全削除 |
 | J | USB非対応の更新照合(PCI決め打ち) | 36d710c: `HardwareIdParser` で PCI/USB 双方に対応 |
+| S | `GetAvailableBackupsAsync` を PR #10 で追加したが**消費者を繋いでいなかった**(API だけ生えた状態)。「バックアップが書き込み専用」の解決を報告済みだったが未完成 | CLI `backups` コマンドと `rollback --version` を追加して実際に世代選択できるようにした |
 | R | `WhqlDatabaseService`(Windows Update CatalogのHTMLスクレイピング)と `PciIdDatabase` が**本番コードから一切呼ばれていないデッドコード**。DI登録と自身のテストのみが参照 | 835行を削除。更新取得は WUA COM(公式API)、デバイス名は WMI が既に提供しており機能重複 |
 | Q | `PnpUtilDriverSource` の `/enum-drivers /all` 呼び出しが `string[]` 引数に単一文字列を渡し CS1503。**コンパイル不能**、かつ引数分割の規則にも違反 | `["/enum-drivers", "/all"]` に修正 |
 | P | `PciIdDatabase` が**コンパイル不能**。タプル要素名をフィールドだけで宣言し全メソッドシグネチャで落としていたため `entry.Name`/`.Devices` が解決不能(CS1061)、さらに `FrozenDictionary` に `new()`(CS0144) | 全シグネチャで要素名を統一し、空値は `.Empty` に |

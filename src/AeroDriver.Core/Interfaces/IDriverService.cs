@@ -36,7 +36,7 @@ namespace AeroDriver.Core.Interfaces
         /// <summary>
         /// ドライバーをインストールし、失敗理由を区別できる詳細結果を返します。
         /// 管理者権限不足は例外ではなく <see cref="DriverInstallResult.AdminRequired"/> として返されます
-        /// （他の Enable/Disable/Rollback 系メソッドは例外ベースの <c>ElevationGuard.ThrowIfNotElevated</c> のままです）。
+        /// （Rollback 等の他メソッドは例外ベースの <c>ElevationGuard.ThrowIfNotElevated</c> のままです）。
         /// </summary>
         Task<DriverInstallResult> InstallDriverUpdateWithResultAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default);
 
@@ -61,13 +61,6 @@ namespace AeroDriver.Core.Interfaces
         /// </summary>
         Task<bool> RollbackDriverAsync(string deviceId, string? backupVersion, CancellationToken cancellationToken = default);
 
-        /// <summary>
-        /// デバイスを無効化します。ストレージコントローラーやシステムデバイスなど
-        /// ブートクリティカルなクラスは誤操作防止のため既定で拒否されます。
-        /// 意図的に無効化したい場合は <paramref name="force"/> を true にしてください。
-        /// </summary>
-        Task<bool> DisableDriverAsync(string deviceId, bool force = false, CancellationToken cancellationToken = default);
-        Task<bool> EnableDriverAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> InstallCustomDriverAsync(string driverPath, CancellationToken cancellationToken = default);
 

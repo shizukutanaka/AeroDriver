@@ -69,10 +69,19 @@ namespace AeroDriver.CLI
                 Environment.ExitCode = await RunInstallAsync(serviceProvider, deviceId),
                 deviceIdOption);
 
+            var backupVersionOption = new Option<string?>("--version",
+                "復元するバックアップ世代（省略時は最新）。`backups` コマンドで一覧できます");
             var rollbackCommand = new Command("rollback", "指定した DeviceID をバックアップから復元します（管理者権限が必要）")
+            { deviceIdOption, backupVersionOption };
+            rollbackCommand.SetHandler(async (string? deviceId, string? version) =>
+                Environment.ExitCode = await RunRollbackAsync(serviceProvider, deviceId, version),
+                deviceIdOption, backupVersionOption);
+
+            var backupsCommand = new Command("backups",
+                "指定した DeviceID の復元可能なバックアップ世代を新しい順に一覧します")
             { deviceIdOption };
-            rollbackCommand.SetHandler(async (string? deviceId) =>
-                Environment.ExitCode = await RunRollbackAsync(serviceProvider, deviceId),
+            backupsCommand.SetHandler(async (string? deviceId) =>
+                Environment.ExitCode = await RunListBackupsAsync(serviceProvider, deviceId),
                 deviceIdOption);
 
             var detailsCommand = new Command("details", "指定した DeviceID の詳細情報を表示します")
@@ -96,6 +105,7 @@ namespace AeroDriver.CLI
             rootCommand.AddCommand(rollbackCommand);
             rootCommand.AddCommand(detailsCommand);
             rootCommand.AddCommand(historyCommand);
+            rootCommand.AddCommand(backupsCommand);
 
             var parseResult = await rootCommand.InvokeAsync(args);
             // InvokeAsync はパースエラー等で非0を返す。ハンドラー内の失敗は Environment.ExitCode に
@@ -349,7 +359,12 @@ namespace AeroDriver.CLI
             _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",
         };
 
-        private static async Task<int> RunRollbackAsync(IServiceProvider serviceProvider, string? deviceId)
+        /// <summary>
+        /// 指定デバイスの復元可能なバックアップ世代を新しい順に一覧します。
+        /// 世代が見えないと MaxBackupGenerations が保持している世代を選べないため、
+        /// rollback --version と対で「復元を実際に使える」状態にするコマンド。
+        /// </summary>
+        private static async Task<int> RunListBackupsAsync(IServiceProvider serviceProvider, string? deviceId)
         {
             if (string.IsNullOrEmpty(deviceId))
             {
@@ -363,8 +378,64 @@ namespace AeroDriver.CLI
 
             try
             {
-                bool success = await driverService.RollbackDriverAsync(deviceId);
-                Console.WriteLine(success ? $"ロールバック完了: {deviceId}" : $"ロールバック失敗: {deviceId}");
+                var backups = await driverService.GetAvailableBackupsAsync(deviceId);
+                if (backups.Count == 0)
+                {
+                    Console.WriteLine($"バックアップがありません: {deviceId}");
+                    return ExitSuccess;
+                }
+
+                Console.WriteLine($"復元可能なバックアップ ({backups.Count} 件、新しい順):");
+                for (int i = 0; i < backups.Count; i++)
+                {
+                    // 世代名は backup_yyyyMMddHHmmss の日時部分。読みやすく整形して併記する
+                    var v = backups[i];
+                    var readable = DateTime.TryParseExact(v, "yyyyMMddHHmmss",
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        System.Globalization.DateTimeStyles.AssumeUniversal |
+                        System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt)
+                        ? dt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+                        : v;
+                    var latestTag = i == 0 ? "  (最新)" : string.Empty;
+                    Console.WriteLine($"  {v}   {readable}{latestTag}");
+                }
+
+                Console.WriteLine($"\n復元するには: rollback --device-id {deviceId} --version <世代>");
+                return ExitSuccess;
+            }
+            catch (ArgumentException ex)
+            {
+                Console.Error.WriteLine($"エラー: {ex.Message}");
+                return ExitUsageError;
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "バックアップ一覧の取得中にエラーが発生しました: {DeviceID}", deviceId);
+                Console.Error.WriteLine($"バックアップ一覧の取得に失敗しました: {ex.Message}");
+                return ExitFailure;
+            }
+        }
+
+        private static async Task<int> RunRollbackAsync(
+            IServiceProvider serviceProvider, string? deviceId, string? backupVersion = null)
+        {
+            if (string.IsNullOrEmpty(deviceId))
+            {
+                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                return ExitUsageError;
+            }
+
+            using var scope = serviceProvider.CreateScope();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
+            var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+
+            try
+            {
+                bool success = await driverService.RollbackDriverAsync(deviceId, backupVersion);
+                var which = backupVersion ?? "最新";
+                Console.WriteLine(success
+                    ? $"ロールバック完了: {deviceId} (世代: {which})"
+                    : $"ロールバック失敗: {deviceId} (世代: {which})");
                 return success ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)
