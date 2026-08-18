@@ -33,8 +33,8 @@
 1. **Windows実機での `dotnet build AeroDriver.sln && dotnet test`**(最優先)。
    Linux に .NET SDK 8 は導入でき、**Core の24ファイルは実コンパイル+実行で検証済み**
    (`tools/offline-verify`、**93アサーション全通過**)。
-   **WPF層の手書きC#3ファイルも型検査済み**(`tools/ui-typecheck`: WPF/CommunityToolkit の
-   最小スタブに対して実コンパイル)。
+   **WPF層(`tools/ui-typecheck`)と CLI(`tools/cli-typecheck`)の手書きC#も型検査済み**
+   — スタブに対する実コンパイルで、**プロジェクト内の全C#が何らかの形でコンパイラを通った**。
    到達できないのは WMI 依存(`DriverService`/`WdacHelper`)、**XAML のコンパイル**(Windows専用)、
    **ソースジェネレーターの実出力**、および NuGet 遮断で restore できないもの
    (CLI の `System.CommandLine`、xunit)
