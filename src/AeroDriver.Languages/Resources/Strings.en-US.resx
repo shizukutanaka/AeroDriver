@@ -73,6 +73,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>Update</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>Administrator privileges are required. Please run as administrator.</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>No download URL is available.</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>The download URL is not HTTPS.</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>Download failed. Check your network connection.</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>The installer's signature could not be verified.</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>Blocked: this is a known vulnerable driver (BYOVD). See https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>The installer reported a failure.</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>The installation was cancelled.</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>Restart required to complete the change.</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>An unknown error occurred.</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>Update All</value>
   </data>

@@ -24,6 +24,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>更新</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>需要管理员权限。请以管理员身份运行。</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>没有可用的下载链接。</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>下载链接不是 HTTPS。</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>下载失败。请检查网络连接。</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>无法验证安装程序的签名。</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>已阻止：这是已知的易受攻击驱动程序 (BYOVD)。详见 https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>安装程序报告了失败。</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>安装已取消。</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>需要重新启动才能完成更改。</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>发生未知错误。</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>全部更新</value>
   </data>

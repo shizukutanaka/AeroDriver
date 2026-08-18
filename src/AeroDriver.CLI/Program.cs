@@ -242,6 +242,7 @@ namespace AeroDriver.CLI
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
+            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
@@ -256,7 +257,7 @@ namespace AeroDriver.CLI
                 }
 
                 var result = await driverService.InstallDriverUpdateWithResultAsync(target);
-                Console.WriteLine(DescribeInstallResult(result, target));
+                Console.WriteLine(DescribeInstallResult(result, target, lang));
                 return result.IsSuccess() ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)
@@ -298,7 +299,7 @@ namespace AeroDriver.CLI
                     var target = updates[i];
                     Console.WriteLine($"[{i + 1}/{total}] {target.DeviceName} ...");
                     var result = await driverService.InstallDriverUpdateWithResultAsync(target);
-                    Console.WriteLine("  " + DescribeInstallResult(result, target));
+                    Console.WriteLine("  " + DescribeInstallResult(result, target, lang));
 
                     if (result.IsSuccess())
                     {
@@ -320,8 +321,8 @@ namespace AeroDriver.CLI
                 {
                     int skipped = total - success - failed;
                     Console.Error.WriteLine(
-                        $"\n管理者権限がないため中断しました。管理者として再実行してください。" +
-                        $"（成功: {success} / {total}, 未実行: {skipped}）");
+                        $"\n{lang.GetString("Install_AdminRequired")}" +
+                        $"（{lang.GetString("Status_Complete")}: {success} / {total}, {skipped}）");
                     return ExitFailure;
                 }
 
@@ -342,22 +343,37 @@ namespace AeroDriver.CLI
             }
         }
 
-        /// <summary>インストール結果を日本語メッセージに変換する（install / update --install-all 共通）。</summary>
-        private static string DescribeInstallResult(DriverInstallResult result, DriverInfo target) => result switch
+        /// <summary>
+        /// インストール結果をユーザー向けメッセージにします（install / update --install-all 共通）。
+        /// 理由は引数なしのリソースキーで訳し、デバイス名はここで前置きする
+        /// （翻訳側にプレースホルダーを置くと10言語のどれかで個数がずれた瞬間に実行時例外になる）。
+        /// </summary>
+        private static string DescribeInstallResult(
+            DriverInstallResult result, DriverInfo target, ILanguageService lang)
         {
-            DriverInstallResult.Success => $"インストール完了: {target.DeviceName} {target.DriverVersion}",
-            DriverInstallResult.SuccessRebootRequired =>
-                $"インストール完了: {target.DeviceName} {target.DriverVersion}（変更を有効にするには再起動が必要です）",
-            DriverInstallResult.AdminRequired => "インストール失敗: 管理者権限が必要です。アプリケーションを管理者として実行してください。",
-            DriverInstallResult.NoDownloadUrl => "インストール失敗: ダウンロードURLがありません。",
-            DriverInstallResult.InsecureDownloadUrl => "インストール失敗: ダウンロードURLがHTTPSではありません。",
-            DriverInstallResult.DownloadFailed => "インストール失敗: ダウンロードに失敗しました。ネットワーク接続を確認してください。",
-            DriverInstallResult.SignatureInvalid => "インストール失敗: インストーラーの署名が無効です。",
-            DriverInstallResult.KnownVulnerableDriver => "インストール失敗: 既知の脆弱ドライバー(BYOVD悪用実績あり)のためブロックしました。詳細: https://www.loldrivers.io/",
-            DriverInstallResult.InstallerFailed => $"インストール失敗: {target.DeviceName}",
-            DriverInstallResult.Cancelled => "インストールがキャンセルされました。",
-            _ => $"インストール失敗: 不明なエラー ({target.DeviceName})",
-        };
+            var name = target.DeviceName ?? string.Empty;
+
+            if (result == DriverInstallResult.Success)
+                return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}";
+
+            if (result == DriverInstallResult.SuccessRebootRequired)
+                return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}"
+                     + $" ({lang.GetString("Install_RebootRequired")})";
+
+            var reason = lang.GetString(result switch
+            {
+                DriverInstallResult.AdminRequired         => "Install_AdminRequired",
+                DriverInstallResult.NoDownloadUrl         => "Install_NoDownloadUrl",
+                DriverInstallResult.InsecureDownloadUrl   => "Install_InsecureUrl",
+                DriverInstallResult.DownloadFailed        => "Install_DownloadFailed",
+                DriverInstallResult.SignatureInvalid      => "Install_SignatureInvalid",
+                DriverInstallResult.KnownVulnerableDriver => "Install_KnownVulnerable",
+                DriverInstallResult.InstallerFailed       => "Install_InstallerFailed",
+                DriverInstallResult.Cancelled             => "Install_Cancelled",
+                _                                         => "Install_UnknownError",
+            });
+            return string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}";
+        }
 
         /// <summary>
         /// 指定デバイスの復元可能なバックアップ世代を新しい順に一覧します。

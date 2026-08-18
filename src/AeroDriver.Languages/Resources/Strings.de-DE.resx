@@ -24,6 +24,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>Aktualisieren</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>Administratorrechte sind erforderlich. Bitte als Administrator ausführen.</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>Keine Download-URL verfügbar.</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>Die Download-URL verwendet kein HTTPS.</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>Download fehlgeschlagen. Prüfen Sie die Netzwerkverbindung.</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>Die Signatur des Installers konnte nicht überprüft werden.</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>Blockiert: bekannter verwundbarer Treiber (BYOVD). Details: https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>Der Installer hat einen Fehler gemeldet.</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>Die Installation wurde abgebrochen.</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>Ein Neustart ist erforderlich, um die Änderung abzuschließen.</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>Ein unbekannter Fehler ist aufgetreten.</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>Alle aktualisieren</value>
   </data>

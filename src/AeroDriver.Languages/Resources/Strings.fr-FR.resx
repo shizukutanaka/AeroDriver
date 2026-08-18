@@ -24,6 +24,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>Mettre à jour</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>Des privilèges administrateur sont requis. Exécutez en tant qu'administrateur.</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>Aucune URL de téléchargement disponible.</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>L'URL de téléchargement n'est pas en HTTPS.</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>Échec du téléchargement. Vérifiez votre connexion réseau.</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>La signature du programme d'installation n'a pas pu être vérifiée.</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>Bloqué : pilote vulnérable connu (BYOVD). Détails : https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>Le programme d'installation a signalé un échec.</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>L'installation a été annulée.</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>Un redémarrage est nécessaire pour terminer.</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>Une erreur inconnue s'est produite.</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>Tout mettre à jour</value>
   </data>

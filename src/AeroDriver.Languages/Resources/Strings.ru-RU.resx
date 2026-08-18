@@ -24,6 +24,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>Обновить</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>Требуются права администратора. Запустите от имени администратора.</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>URL для загрузки недоступен.</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>URL загрузки не использует HTTPS.</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>Ошибка загрузки. Проверьте подключение к сети.</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>Не удалось проверить подпись установщика.</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>Заблокировано: известный уязвимый драйвер (BYOVD). Подробнее: https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>Установщик сообщил об ошибке.</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>Установка отменена.</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>Для завершения изменения требуется перезагрузка.</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>Произошла неизвестная ошибка.</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>Обновить все</value>
   </data>

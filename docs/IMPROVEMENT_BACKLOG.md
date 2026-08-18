@@ -44,8 +44,8 @@
    デッドコードとして削除したため、残るキャッシュ実装は `VulnerableDriverBlocklist` の1つのみ。
    共通基底を作る必要はなくなった(重複がなければ抽象化も不要)
 6. **DriverInstallOrderはヒューリスティック**: DeviceClass優先度のみで、INF内の実依存関係は見ない
-7. **メッセージのローカライズ不整合**: `MainViewModel.DescribeResult` と CLI `DescribeInstallResult` は
-   成功時の接頭辞だけ翻訳し、失敗理由の本文はハードコードの日本語
+7. ~~**メッセージのローカライズ不整合**~~ **解消**: `DriverInstallResult` 各値の理由を
+   `Install_*` キー(10キー×10言語=100エントリ)にし、GUI/CLI 双方を `ILanguageService` 経由に
 8. ~~**`DisableDriverAsync` がUIから到達不能**~~ **削除**: デバイスの有効/無効化は Windows の
    デバイスマネージャーが標準提供しており機能重複。呼ばれてもいない機能を守るために
    ブートクリティカル保護を書いていた状態だったため、要件ごと削除(97行)
@@ -120,10 +120,8 @@
   現在の利用者は `WindowsUpdateAgentSource`(`WhqlDatabaseService` は後にデッドコードとして削除)
 - [x] ~~**JSON統一**(短所8)~~ 完了: Newtonsoft 参照を全削除(その後 `WhqlDatabaseService` 自体を
   デッドコードとして削除したため、この移行作業自体が不要だった)
-- [ ] **失敗メッセージのローカライズ**(短所12): `DriverInstallResult`各値のメッセージを
-  リソースキー化(`Install_Result_AdminRequired`等)して全10言語に追加し、`DescribeResult`/
-  `DescribeInstallResult`を`ILanguageService`経由に。受け入れ条件: 非日本語カルチャで
-  失敗理由が翻訳表示される
+- [x] ~~**失敗メッセージのローカライズ**(短所7)~~ 完了: `Install_*` 10キーを全10言語に追加し、
+  GUI/CLI 双方を `ILanguageService` 経由に。理由は引数なしキーにしてプレースホルダー不一致を構造的に排除
 
 ### P3 — リファクタリング(急がない)
 

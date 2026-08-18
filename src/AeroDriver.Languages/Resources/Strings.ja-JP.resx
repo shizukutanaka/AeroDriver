@@ -73,6 +73,36 @@
   <data name="Button_Update" xml:space="preserve">
     <value>更新</value>
   </data>
+  <data name="Install_AdminRequired" xml:space="preserve">
+    <value>管理者権限が必要です。管理者として実行してください。</value>
+  </data>
+  <data name="Install_NoDownloadUrl" xml:space="preserve">
+    <value>ダウンロードURLがありません。</value>
+  </data>
+  <data name="Install_InsecureUrl" xml:space="preserve">
+    <value>ダウンロードURLがHTTPSではありません。</value>
+  </data>
+  <data name="Install_DownloadFailed" xml:space="preserve">
+    <value>ダウンロードに失敗しました。ネットワーク接続を確認してください。</value>
+  </data>
+  <data name="Install_SignatureInvalid" xml:space="preserve">
+    <value>インストーラーの署名を検証できませんでした。</value>
+  </data>
+  <data name="Install_KnownVulnerable" xml:space="preserve">
+    <value>既知の脆弱ドライバー(BYOVD)のためブロックしました。詳細: https://www.loldrivers.io/</value>
+  </data>
+  <data name="Install_InstallerFailed" xml:space="preserve">
+    <value>インストーラーが失敗を報告しました。</value>
+  </data>
+  <data name="Install_Cancelled" xml:space="preserve">
+    <value>インストールがキャンセルされました。</value>
+  </data>
+  <data name="Install_RebootRequired" xml:space="preserve">
+    <value>変更を有効にするには再起動が必要です。</value>
+  </data>
+  <data name="Install_UnknownError" xml:space="preserve">
+    <value>不明なエラーが発生しました。</value>
+  </data>
   <data name="Button_UpdateAll" xml:space="preserve">
     <value>すべて更新</value>
   </data>
