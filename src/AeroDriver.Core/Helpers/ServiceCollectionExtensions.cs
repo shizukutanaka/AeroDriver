@@ -25,13 +25,6 @@ namespace AeroDriver.Core
                         PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                     })
                     .AddStandardResilienceHandler();
-            services.AddHttpClient(nameof(PciIdDatabase))
-                    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-                    {
-                        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
-                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                    })
-                    .AddStandardResilienceHandler();
             services.AddHttpClient(nameof(VulnerableDriverBlocklist))
                     .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
                     {
@@ -39,19 +32,7 @@ namespace AeroDriver.Core
                         PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
                     })
                     .AddStandardResilienceHandler();
-            services.AddHttpClient(nameof(WhqlDatabaseService))
-                    .ConfigurePrimaryHttpMessageHandler(() => new SocketsHttpHandler
-                    {
-                        PooledConnectionLifetime = TimeSpan.FromMinutes(15),
-                        PooledConnectionIdleTimeout = TimeSpan.FromMinutes(2),
-                    })
-                    .AddStandardResilienceHandler();
 
-            // PCI IDs データベース（シングルトン: ファイルキャッシュを共有）
-            services.AddSingleton<PciIdDatabase>(sp =>
-                new PciIdDatabase(
-                    sp.GetRequiredService<ILogger<PciIdDatabase>>(),
-                    sp.GetRequiredService<IHttpClientFactory>().CreateClient(nameof(PciIdDatabase))));
 
             // 脆弱ドライバーブロックリスト（シングルトン: ファイルキャッシュを共有）
             services.AddSingleton<VulnerableDriverBlocklist>(sp =>
@@ -65,7 +46,6 @@ namespace AeroDriver.Core
             services.AddSingleton<IInstallHistoryService, InstallHistoryService>();
             services.AddScoped<IDriverService, DriverService>();
             services.AddScoped<IBackupService, BackupService>();
-            services.AddScoped<IWhqlDatabaseService, WhqlDatabaseService>();
 
             // ドライバー更新ソース（IEnumerable<IDriverUpdateSource> で全取得可能）
             services.AddScoped<IDriverUpdateSource, PnpUtilDriverSource>();

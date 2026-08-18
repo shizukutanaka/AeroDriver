@@ -41,9 +41,7 @@ dotnet run --project src/AeroDriver.UI
 ## 🧩 Architecture
 
 - **DriverService**: driver detection and update orchestration
-- **WhqlDatabaseService**: Windows Update Catalog lookups
 - **BackupService**: real driver file backup/restore via pnputil
-- **PciIdDatabase**: vendor/device ID resolution (pci-ids.ucw.cz mirror)
 - **AeroDriver.Languages**: localization framework (all 10 supported cultures translated)
 - **AeroDriver.UI**: WPF/MVVM GUI (CommunityToolkit.Mvvm) over the shared core services
 
