@@ -42,7 +42,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   で入る(2026-08時点で確認済み)。ただし NuGet はプロキシ遮断されるため、外部パッケージに依存する
   プロジェクトは restore できない。**BCLのみに依存する純粋ロジックは `tools/offline-verify` で
   実コンパイル+実行検証できる**(`cd tools/offline-verify && dotnet run`)。新しい純粋ロジックを
-  足したらここにも追加すること
+  足したらここにも追加すること。**WPF層の手書きC#は `tools/ui-typecheck` で型検査できる**
+  (WPF/CommunityToolkit の最小スタブに対して実コンパイル。XAML とジェネレーター実出力は対象外)
 - **それでも検証できない部分**では静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
   - 波括弧/括弧バランス(python等で機械チェック)
   - リソースキー追加時は**全10言語**の`.resx`に追加し、XML妥当性とキーパリティを機械検証
