@@ -46,7 +46,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   実コンパイル+実行検証できる**(`cd tools/offline-verify && dotnet run`)。新しい純粋ロジックを
   足したらここにも追加すること。**WPF層の手書きC#は `tools/ui-typecheck` で型検査できる**
   (WPF/CommunityToolkit の最小スタブに対して実コンパイル。XAML とジェネレーター実出力は対象外)。
-  **CLI は `tools/cli-typecheck`**(System.CommandLine の最小スタブ。実パース挙動は対象外)
+  **CLI は `tools/cli-typecheck`**(System.CommandLine の最小スタブ。実パース挙動は対象外)。
+  **WMI依存を含む Core 全体は `tools/core-typecheck`**(WMI の最小スタブ。実WMI動作は対象外)
 - **それでも検証できない部分**では静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
   - 波括弧/括弧バランス(python等で機械チェック)
   - リソースキー追加時は**全10言語**の`.resx`に追加し、XML妥当性とキーパリティを機械検証
