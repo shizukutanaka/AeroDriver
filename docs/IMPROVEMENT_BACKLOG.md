@@ -37,7 +37,8 @@
    特にWPF XAML+CommunityToolkit.Mvvmソースジェネレーターはコンパイルエラーリスクが高い
 2. **CI不在**。GitHub Appトークンに`workflows`権限がなく`.github/workflows/build.yml`をpushできない
    (YAML本文は`FEATURE_AUDIT.md` §5に用意済み)
-3. **テーマ/言語が永続化されない**: `ISettingsService`に該当キーがなく、GUIの選択は再起動で消える
+3. ~~**テーマ/言語が永続化されない**~~ **解消**: `ThemeName`/`CultureName` を追加し、
+   GUI の切替時に保存、起動時(ウィンドウ生成前)に復元。永続化は実行検証済み
 4. **MainViewModelのテストが0本**(設計はモック可能なのに未着手)
 5. ~~**キャッシュ実装の三重複**~~ **解消**: 3実装のうち2つ(`PciIdDatabase`/`WhqlDatabaseService`)を
    デッドコードとして削除したため、残るキャッシュ実装は `VulnerableDriverBlocklist` の1つのみ。
@@ -107,9 +108,8 @@
 
 ### P1 — 仕様確定済み [Sonnet]
 
-- [ ] **テーマ/言語の永続化**(短所5): `ISettingsService`/`SettingsData`に`ThemeName`と`CultureName`を
-  追加(JSONソースジェネレーションの`SettingsJsonContext`更新を忘れない)。GUI起動時に復元、
-  変更時に保存。受け入れ条件: `SettingsServiceTests`に新キーの保存/復元テスト追加
+- [x] ~~**テーマ/言語の永続化**(短所3)~~ 完了: `ThemeName`/`CultureName` を追加。
+  `tools/offline-verify` で永続化を実行検証(既存キーが壊れないことも確認)
 
 ### P2 — 品質向上 [Sonnet]
 
