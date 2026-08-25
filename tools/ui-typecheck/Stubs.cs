@@ -65,6 +65,25 @@ namespace System.Windows
     public class ExitEventArgs : EventArgs { }
     public class ResourceDictionary { public IList<ResourceDictionary> MergedDictionaries { get; } = new List<ResourceDictionary>(); public Uri? Source { get; set; } }
     public class Window { public void Show() { } public object? DataContext { get; set; } }
+    // BindingProxy(Freezable による DataContext 中継)の型検査に必要な最小面
+    public class DependencyObject
+    {
+        private readonly Dictionary<DependencyProperty, object?> _values = new();
+        public object? GetValue(DependencyProperty p) => _values.TryGetValue(p, out var v) ? v : null;
+        public void SetValue(DependencyProperty p, object? v) => _values[p] = v;
+    }
+    public class DependencyProperty
+    {
+        public static DependencyProperty Register(string name, Type propertyType, Type ownerType, PropertyMetadata metadata)
+            => new();
+    }
+    public class PropertyMetadata { public PropertyMetadata(object? defaultValue) { } }
+    public class UIPropertyMetadata : PropertyMetadata { public UIPropertyMetadata(object? defaultValue) : base(defaultValue) { } }
+    public abstract class Freezable : DependencyObject
+    {
+        protected abstract Freezable CreateInstanceCore();
+    }
+
     public enum MessageBoxButton { OK }
     public enum MessageBoxImage { Error }
     public static class MessageBox

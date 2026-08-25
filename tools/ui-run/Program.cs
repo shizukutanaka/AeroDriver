@@ -1,6 +1,7 @@
 // MainViewModel を実際にインスタンス化してコマンドを実行し、状態遷移を検証する。
 // offline-verify と同じ Check() 方式。
 using System.Globalization;
+using System.Linq;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using AeroDriver.UI.Services;
@@ -235,6 +236,48 @@ Console.WriteLine("== 言語切替 ==");
         Check($"{label} の PropertyChanged が発火", changed.Contains(label));
 
     Check("Cultures は ILanguageService から", vm.Cultures.Count == 2);
+
+    // XAML から束縛される全ラベルが言語切替で再評価されること。
+    // 以前は列ヘッダーと詳細ペインが XAML に日本語直書きで、切替しても変わらなかった
+    foreach (var label in new[]
+    {
+        "CreateRestorePointLabel", "BackupBeforeInstallLabel", "IncludeBetaLabel", "AutoCheckLabel",
+        "CancelButtonText", "ColumnDeviceNameText", "ColumnVersionText", "ColumnProviderText",
+        "ColumnSourceText", "DetailTitleText", "DetailHintText", "DetailSignatureText",
+        "DetailManufacturerText", "DetailClassText", "DetailStatusText", "DetailPathText",
+        "DetailSizeText", "DetailValidToText", "DetailTrustedChainText",
+    })
+        Check($"{label} の PropertyChanged が発火", changed.Contains(label));
+
+    // ラベルは全てリソースキー経由(ハードコードが混ざっていない)
+    Check("全ラベルがリソース経由",
+        new[] { vm.ColumnDeviceNameText, vm.DetailTitleText, vm.CancelButtonText, vm.DetailSizeText }
+            .All(t => t.StartsWith("[") && t.EndsWith("]")),
+        vm.ColumnDeviceNameText);
+}
+
+Console.WriteLine("== 設定トグル(以前は設定ファイル手編集しか手段が無かった) ==");
+{
+    var (vm, _, _, _, settings, _) = Build();
+    settings.CreateRestorePoint = false;
+    vm.CreateRestorePointEnabled = true;
+    Check("復元ポイント設定を書き込む", settings.CreateRestorePoint);
+    Check("即座に保存する", settings.SaveCount == 1, settings.SaveCount.ToString());
+    Check("読み出しが設定と一致", vm.CreateRestorePointEnabled);
+
+    vm.BackupBeforeInstall = false;
+    Check("バックアップ設定を書き込む", !settings.BackupEnabled);
+    vm.IncludeBetaDrivers = true;
+    Check("ベータ設定を書き込む", settings.IncludeBetaDrivers);
+    vm.AutoCheckOnStartup = false;
+    Check("自動確認設定を書き込む", !settings.AutoUpdateEnabled);
+    Check("変更ごとに保存される", settings.SaveCount == 4, settings.SaveCount.ToString());
+
+    // 保存に失敗しても現在のセッションには反映済み(可用性層はフェイルオープン)
+    var (vm2, _, _, _, settings2, _) = Build();
+    settings2.ThrowOnSave = new IOException("disk full");
+    vm2.CreateRestorePointEnabled = true;
+    Check("保存失敗でも値は反映され例外は伝播しない", settings2.CreateRestorePoint);
 }
 
 Console.WriteLine("== テーマ切替 ==");

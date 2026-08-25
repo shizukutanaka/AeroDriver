@@ -66,9 +66,6 @@
   <data name="Button_Restore" xml:space="preserve">
     <value>Restaurer</value>
   </data>
-  <data name="Button_Exit" xml:space="preserve">
-    <value>Quitter</value>
-  </data>
   <data name="Status_Scanning" xml:space="preserve">
     <value>Recherche des pilotes...</value>
   </data>
@@ -101,5 +98,56 @@
   </data>
   <data name="Settings_CreateRestorePoint" xml:space="preserve">
     <value>Créer un point de restauration système avant les mises à jour</value>
+  </data>
+  <data name="Settings_BackupBeforeInstall" xml:space="preserve">
+    <value>Sauvegarder le pilote actuel avant la mise à jour</value>
+  </data>
+  <data name="Settings_IncludeBeta" xml:space="preserve">
+    <value>Inclure les pilotes bêta (préversions)</value>
+  </data>
+  <data name="Button_Cancel" xml:space="preserve">
+    <value>Annuler</value>
+  </data>
+  <data name="Column_DeviceName" xml:space="preserve">
+    <value>Nom de l'appareil</value>
+  </data>
+  <data name="Column_Version" xml:space="preserve">
+    <value>Version</value>
+  </data>
+  <data name="Column_Provider" xml:space="preserve">
+    <value>Fournisseur</value>
+  </data>
+  <data name="Column_Source" xml:space="preserve">
+    <value>Source</value>
+  </data>
+  <data name="Detail_Title" xml:space="preserve">
+    <value>Détails du pilote</value>
+  </data>
+  <data name="Detail_Hint" xml:space="preserve">
+    <value>Double-cliquez sur un appareil pour afficher ses détails</value>
+  </data>
+  <data name="Detail_Signature" xml:space="preserve">
+    <value>Signature</value>
+  </data>
+  <data name="Detail_Manufacturer" xml:space="preserve">
+    <value>Fabricant</value>
+  </data>
+  <data name="Detail_Class" xml:space="preserve">
+    <value>Classe</value>
+  </data>
+  <data name="Detail_Status" xml:space="preserve">
+    <value>État</value>
+  </data>
+  <data name="Detail_Path" xml:space="preserve">
+    <value>Chemin</value>
+  </data>
+  <data name="Detail_Size" xml:space="preserve">
+    <value>Taille</value>
+  </data>
+  <data name="Detail_ValidTo" xml:space="preserve">
+    <value>Valide jusqu'au</value>
+  </data>
+  <data name="Detail_TrustedChain" xml:space="preserve">
+    <value>Chaîne de confiance</value>
   </data>
 </root>

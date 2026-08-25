@@ -129,7 +129,13 @@ namespace AeroDriver.UiRun
         public string? ThemeName { get; set; }
         public string? CultureName { get; set; }
         public int SaveCount { get; private set; }
-        public void Save() => SaveCount++;
+        /// <summary>設定保存が失敗する環境を再現する。</summary>
+        public Exception? ThrowOnSave { get; set; }
+        public void Save()
+        {
+            SaveCount++;
+            if (ThrowOnSave != null) throw ThrowOnSave;
+        }
         public void ResetToDefaults() { }
     }
 }

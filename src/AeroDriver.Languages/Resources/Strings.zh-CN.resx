@@ -66,9 +66,6 @@
   <data name="Button_Restore" xml:space="preserve">
     <value>还原</value>
   </data>
-  <data name="Button_Exit" xml:space="preserve">
-    <value>退出</value>
-  </data>
   <data name="Status_Scanning" xml:space="preserve">
     <value>正在扫描驱动程序...</value>
   </data>
@@ -101,5 +98,56 @@
   </data>
   <data name="Settings_CreateRestorePoint" xml:space="preserve">
     <value>更新前创建系统还原点</value>
+  </data>
+  <data name="Settings_BackupBeforeInstall" xml:space="preserve">
+    <value>更新前备份当前驱动程序</value>
+  </data>
+  <data name="Settings_IncludeBeta" xml:space="preserve">
+    <value>包含 Beta（预发布）驱动程序</value>
+  </data>
+  <data name="Button_Cancel" xml:space="preserve">
+    <value>取消</value>
+  </data>
+  <data name="Column_DeviceName" xml:space="preserve">
+    <value>设备名称</value>
+  </data>
+  <data name="Column_Version" xml:space="preserve">
+    <value>版本</value>
+  </data>
+  <data name="Column_Provider" xml:space="preserve">
+    <value>提供程序</value>
+  </data>
+  <data name="Column_Source" xml:space="preserve">
+    <value>来源</value>
+  </data>
+  <data name="Detail_Title" xml:space="preserve">
+    <value>驱动程序详细信息</value>
+  </data>
+  <data name="Detail_Hint" xml:space="preserve">
+    <value>双击设备以查看详细信息</value>
+  </data>
+  <data name="Detail_Signature" xml:space="preserve">
+    <value>签名</value>
+  </data>
+  <data name="Detail_Manufacturer" xml:space="preserve">
+    <value>制造商</value>
+  </data>
+  <data name="Detail_Class" xml:space="preserve">
+    <value>类别</value>
+  </data>
+  <data name="Detail_Status" xml:space="preserve">
+    <value>状态</value>
+  </data>
+  <data name="Detail_Path" xml:space="preserve">
+    <value>路径</value>
+  </data>
+  <data name="Detail_Size" xml:space="preserve">
+    <value>大小</value>
+  </data>
+  <data name="Detail_ValidTo" xml:space="preserve">
+    <value>有效期至</value>
+  </data>
+  <data name="Detail_TrustedChain" xml:space="preserve">
+    <value>信任链</value>
   </data>
 </root>
