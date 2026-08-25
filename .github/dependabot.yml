@@ -16,6 +16,12 @@ updates:
       # System.CommandLine は beta4 固定。beta5 は破壊的変更を含み GA 未達のため
       # 自動更新させない(CLAUDE.md「やってはいけない近代化」参照)。
       - dependency-name: "System.CommandLine"
+      # FluentAssertions はメジャー更新を止める。8.x 以降は商用利用が有償
+      # (Xceed のライセンスに移行)であり、自動で上がると CLAUDE.md の絶対規則1
+      # 「課金要素禁止・OSS/無料のみ」を無言で破ることになる。
+      # パッチ/マイナー更新は許可する。
+      - dependency-name: "FluentAssertions"
+        update-types: ["version-update:semver-major"]
 
   # ワークフローを追加したとき自動的に効くよう残しておく。
   - package-ecosystem: "github-actions"
