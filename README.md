@@ -15,8 +15,8 @@ It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 - **Install-order planning**: the update list is ordered chipset/storage/bus → … → GPU so dependencies land before dependents in a batch install
 - **Real file backup/restore**: `pnputil /export-driver` + `/add-driver` — not just metadata
 - **Security-hardened installs**: HTTPS-only downloads, Authenticode signature verification, elevation checks, WQL-injection-safe queries
-- **CLI**: `scan`, `update` (`--install-all` for ordered batch install), `install --device-id <id>`, `backups --device-id <id>`, `rollback --device-id <id> [--version <gen>]`, `details --device-id <id>`, `history` (audit trail of what was installed when)
-- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install-selected / **install-all (in dependency order)** / rollback with cancellable progress, custom-file (.inf/.exe/.msi/.cab) install, a driver detail pane (double-click), live language switching across all 10 cultures, and light/dark theme switching
+- **CLI**: `scan`, `update` (`--install-all` for ordered batch install), `install --device-id <id>`, `backups --device-id <id>`, `rollback --device-id <id> [--version <gen>]`, `details --device-id <id>`, `history` (audit trail of what was installed when), `config` (list/change settings)
+- **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install-selected / **install-all (in dependency order)** / rollback with cancellable progress, custom-file (.inf/.exe/.msi/.cab) install, a driver detail pane (double-click), live language switching across all 10 cultures (including grid headers and the detail pane), light/dark theme switching, and settings toggles (restore point / backup / beta drivers / check on startup)
 - **BYOVD protection**: rejects known-vulnerable drivers by SHA256 against the free LOLDrivers list on every install/restore path
 - **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback
 
@@ -63,8 +63,10 @@ working rules live in [CLAUDE.md](CLAUDE.md).
 tools/verify-all.sh   # runs everything checkable without Windows
 ```
 
-Core is compiled and executed for real (93 assertions), and `MainViewModel` is
-executed too (73 assertions, against hand-written mocks and a real DI container).
+Core is compiled and executed for real (130 assertions), and `MainViewModel` is
+executed too (101 assertions, against hand-written mocks and a real DI container).
+The script also checks that no user-visible string is hardcoded in the XAML and that
+every `{Binding ...}` name resolves to a real ViewModel or model member.
 The remaining WPF and CLI code is type-checked against minimal stubs because their
 packages cannot be restored here. This does **not** replace
 `dotnet build AeroDriver.sln && dotnet test` on Windows — XAML compilation,
