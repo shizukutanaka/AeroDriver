@@ -58,6 +58,18 @@ fi
 
 # 6b. XAML にユーザー可視のハードコード文字列を残さない(10言語対応の宣言を守る)
 # 属性値の日本語を検出する。XMLコメント内は対象外
+printf '\n=== CLI のハードコード文字列 ===\n'
+# Console 出力に翻訳されない散文を残さない。構造化ダンプ(details/history)の
+# フィールド名は WMI プロパティ名に合わせて英語で統一する方針なので日本語だけを見る
+cli_hard=$(grep -nP 'Console\.[^;]*[ぁ-んァ-ヶ一-龠]' ../src/AeroDriver.CLI/Program.cs || true)
+if [ -n "$cli_hard" ]; then
+    echo "$cli_hard" | sed 's|^|  |'
+    echo "  → ILanguageService 経由にするか、構造化ダンプなら英語に統一すること"
+    fail=1
+else
+    echo "  Console 出力にハードコード文字列なし"
+fi
+
 printf '\n=== XAML のハードコード文字列 ===\n'
 hard=$(grep -nP '="[^"]*[ぁ-んァ-ヶ一-龠][^"]*"' ../src/AeroDriver.UI/*.xaml \
        | grep -vP "^\S+:\s*<!--" || true)

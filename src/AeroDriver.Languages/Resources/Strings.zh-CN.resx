@@ -150,4 +150,46 @@
   <data name="Detail_TrustedChain" xml:space="preserve">
     <value>信任链</value>
   </data>
+  <data name="Cli_DeviceIdRequired" xml:space="preserve">
+    <value>必须指定 --device-id</value>
+  </data>
+  <data name="Cli_DeviceNotFound" xml:space="preserve">
+    <value>未找到设备</value>
+  </data>
+  <data name="Cli_NoUpdateForDevice" xml:space="preserve">
+    <value>未找到该设备的更新</value>
+  </data>
+  <data name="Cli_PermissionError" xml:space="preserve">
+    <value>权限错误</value>
+  </data>
+  <data name="Cli_NoHistory" xml:space="preserve">
+    <value>尚无安装历史记录</value>
+  </data>
+  <data name="Cli_HistoryLoadFailed" xml:space="preserve">
+    <value>读取历史记录失败</value>
+  </data>
+  <data name="Cli_NoBackups" xml:space="preserve">
+    <value>没有可用的备份</value>
+  </data>
+  <data name="Cli_BackupsHeader" xml:space="preserve">
+    <value>可恢复的备份(从新到旧)</value>
+  </data>
+  <data name="Cli_RollbackHint" xml:space="preserve">
+    <value>要恢复，请运行: rollback --device-id &lt;id&gt; --version &lt;代&gt;</value>
+  </data>
+  <data name="Cli_BackupsListFailed" xml:space="preserve">
+    <value>获取备份列表失败</value>
+  </data>
+  <data name="Cli_CurrentSettings" xml:space="preserve">
+    <value>当前设置</value>
+  </data>
+  <data name="Cli_ValidKeys" xml:space="preserve">
+    <value>有效的键</value>
+  </data>
+  <data name="Cli_Value" xml:space="preserve">
+    <value>值</value>
+  </data>
+  <data name="Cli_Items" xml:space="preserve">
+    <value>项</value>
+  </data>
 </root>

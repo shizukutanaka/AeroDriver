@@ -18,7 +18,7 @@ It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 - **CLI**: `scan`, `update` (`--install-all` for ordered batch install), `install --device-id <id>`, `backups --device-id <id>`, `rollback --device-id <id> [--version <gen>]`, `details --device-id <id>`, `history` (audit trail of what was installed when), `config` (list/change settings)
 - **GUI** (`AeroDriver.UI`): WPF/MVVM front end sharing the same core services — installed-driver and available-update tabs, scan / check-updates / install-selected / **install-all (in dependency order)** / rollback with cancellable progress, custom-file (.inf/.exe/.msi/.cab) install, a driver detail pane (double-click), live language switching across all 10 cultures (including grid headers and the detail pane), light/dark theme switching, and settings toggles (restore point / backup / beta drivers / check on startup)
 - **BYOVD protection**: rejects known-vulnerable drivers by SHA256 against the free LOLDrivers list on every install/restore path
-- **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback
+- **Localization**: 10 languages (en, ja, zh-CN, ko, fr, es, de, it, pt-BR, ru), auto-detected from the OS UI culture with en-US fallback. Every user-facing string in the GUI and CLI goes through the resource bundle — `tools/verify-all.sh` fails the build if a hardcoded one appears. Structured dumps (`details`, `history`) deliberately keep English field names that mirror the underlying WMI properties
 
 ## 📋 System Requirements
 
