@@ -27,6 +27,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 ## やってはいけない「近代化」(根拠は FEATURE_AUDIT.md §7)
 
 - System.CommandLine は **2.0.0-beta4 固定**(beta5は破壊的変更、GA未達)
+- **FluentAssertions をメジャー更新しない**(8.x 以降は商用利用が有償。絶対規則1違反になる)。
+  `.github/dependabot.yml` で major 更新を ignore 済み
 - `SYSLIB0057` pragma は**維持**(`X509CertificateLoader`はAuthenticode抽出不可)
 - `Win32_PnPSignedDriver` は**継続利用**(レガシーだが非推奨化されていない)
 - `AuthenticodeHelper` の **WinVerifyTrust P/Invoke を X509Chain だけに戻さない**
