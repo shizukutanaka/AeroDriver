@@ -10,7 +10,7 @@
 
 | 長所 | 根拠 |
 |------|------|
-| セキュリティ多層防御 | `WinVerifyTrust`による真正Authenticode検証(`AuthenticodeHelper.cs`)、BYOVDブロックリスト全経路適用(`VulnerableDriverBlocklist.cs`+DriverService/BackupService/PnpUtilDriverSource)、WQLサニタイズ(`WqlSanitizer.cs`)、パストラバーサル対策3件、HTTPS強制、TOCTOU対策(ダウンロード〜実行間のFileShare.Readロック)、`ElevationGuard` |
+| セキュリティ多層防御 | `WinVerifyTrust`による真正Authenticode検証(`AuthenticodeHelper.cs`)、BYOVDブロックリスト全経路適用(`VulnerableDriverBlocklist.cs`+DriverService×2/CAB展開後/BackupService復元)、WQLサニタイズ(`WqlSanitizer.cs`)、パストラバーサル対策3件、HTTPS強制、TOCTOU対策(ダウンロード〜実行間のFileShare.Readロック)、`ElevationGuard` |
 | 引き継ぎ文化 | `docs/FEATURE_AUDIT.md`が実装/修正/未解決を台帳化。「宣言と実装の一致」規律 |
 | テスト容易設計 | protectedコンストラクタでキャッシュパス注入(VulnerableDriverBlocklist/BackupService)、純粋関数化(`DriverInstallOrder`/`VersionHelper`/`WqlSanitizer`)、GUIも`IFileDialogService`/`IThemeService`で抽象化 |
 | 性能配慮 | `FrozenDictionary/Set`、`ArrayPool`、`[LoggerMessage]`、JSONソースジェネレーション、BoundedChannelバックプレッシャー |
@@ -32,13 +32,16 @@
 
 1. **Windows実機での `dotnet build AeroDriver.sln && dotnet test`**(最優先)。
    Linux に .NET SDK 8 は導入でき、**Core の24ファイルは実コンパイル+実行で検証済み**
-   (`tools/offline-verify`、**93アサーション全通過**)。
+   (`tools/offline-verify`、**130アサーション全通過**)。
    **WPF層(`tools/ui-typecheck`)と CLI(`tools/cli-typecheck`)の手書きC#も型検査済み**
    — スタブに対する実コンパイルで、**プロジェクト内の全C#が何らかの形でコンパイラを通った**。
    **WMI依存の `DriverService`/`WdacHelper` も型検査済み**(`tools/core-typecheck`)。
    到達できないのは **実行時の挙動**のみ: XAML のコンパイル(Windows専用)、ソースジェネレーターの
    実出力、実WMIクエリ、System.CommandLine の実パース。
-   **`MainViewModel` は `tools/ui-run` で実行検証済み**(73アサーション全通過)
+   **`MainViewModel` は `tools/ui-run` で実行検証済み**(101アサーション全通過)。
+   さらに `tools/verify-all.sh` が GUI/CLI へのハードコード文字列の混入、XAML 束縛名と
+   ViewModel メンバーの一致、未使用リソースキーを機械検証する(各チェックは意図的に
+   壊して検出できることを確認済み)
 2. **CI 不在**: GitHub App トークンに `workflows` 権限がなく push 不可(YAML は `FEATURE_AUDIT.md` §5)。
    **2026-08-24 に実地検証済み** — 使い捨てブランチへの Contents API 書き込みが
    `403 Resource not accessible by integration` で拒否された。伝聞ではなく実測の不可能
