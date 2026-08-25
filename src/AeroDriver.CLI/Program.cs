@@ -138,19 +138,22 @@ namespace AeroDriver.CLI
         /// </summary>
         private static int RunConfig(IServiceProvider serviceProvider, string[]? assignments)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             using var scope = serviceProvider.CreateScope();
             var settings = scope.ServiceProvider.GetRequiredService<ISettingsService>();
 
             if (assignments == null || assignments.Length == 0)
             {
-                Console.WriteLine("現在の設定:");
+                Console.WriteLine(lang.GetString("Cli_CurrentSettings") + ":");
                 foreach (var e in SettingsKeys.All)
                 {
                     Console.WriteLine($"  {e.Name,-20} {e.Read(settings),-8} {e.Description}");
-                    Console.WriteLine($"  {string.Empty,-20} {string.Empty,-8} 値: {e.ValueSyntax}");
+                    Console.WriteLine($"  {string.Empty,-20} {string.Empty,-8} {lang.GetString("Cli_Value")}: {e.ValueSyntax}");
                 }
                 Console.WriteLine();
-                Console.WriteLine("変更例: aerodriver config --set restore-point=on --set backup-generations=5");
+                Console.WriteLine("aerodriver config --set restore-point=on --set backup-generations=5");
                 return ExitSuccess;
             }
 
@@ -160,7 +163,7 @@ namespace AeroDriver.CLI
                 if (!SettingsKeys.TryApply(settings, a, out var error))
                 {
                     Console.Error.WriteLine(error);
-                    Console.Error.WriteLine("指定できるキー: " +
+                    Console.Error.WriteLine(lang.GetString("Cli_ValidKeys") + ": " +
                         string.Join(", ", SettingsKeys.All.Select(e => e.Name)));
                     return ExitUsageError;
                 }
@@ -178,17 +181,19 @@ namespace AeroDriver.CLI
 
         private static async Task<int> RunScanAsync(IServiceProvider serviceProvider)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
-            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
                 Console.WriteLine(lang.GetString("Status_Scanning"));
 
                 var progress = new Progress<DriverScanProgress>(p =>
-                    Console.Write($"\r{p.Phase}: {p.Current} 件..."));
+                    Console.Write($"\r{p.Phase}: {p.Current} {lang.GetString("Cli_Items")}..."));
 
                 var drivers = await driverService.GetAllDriversAsync(progress);
                 Console.WriteLine();
@@ -218,6 +223,9 @@ namespace AeroDriver.CLI
         /// </summary>
         private static async Task<int> RunHistoryAsync(IServiceProvider serviceProvider, int limit)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var history = scope.ServiceProvider.GetRequiredService<IInstallHistoryService>();
@@ -227,7 +235,7 @@ namespace AeroDriver.CLI
                 var entries = await history.GetHistoryAsync(limit);
                 if (entries.Count == 0)
                 {
-                    Console.WriteLine("インストール履歴はまだありません。");
+                    Console.WriteLine(lang.GetString("Cli_NoHistory"));
                     return ExitSuccess;
                 }
 
@@ -241,19 +249,21 @@ namespace AeroDriver.CLI
                         : $"{e.FromVersion} -> {e.ToVersion}";
 
                     Console.WriteLine($"{when}  {mark}{e.DeviceName,-36} {versions}");
-                    Console.WriteLine($"    結果: {e.Result}  ソース: {e.UpdateSource ?? "-"}  " +
-                                      $"バックアップ: {(e.BackupCreated ? "あり" : "なし")}  " +
-                                      $"復元ポイント: {(e.RestorePointSequence?.ToString() ?? "なし")}");
+                    // 監査証跡の1行は構造化レコードのダンプ。次行の DeviceID: と同様、
+                    // フィールド名は英語で統一する(details コマンドと同じ方針)
+                    Console.WriteLine($"    Result: {e.Result}  Source: {e.UpdateSource ?? "-"}  " +
+                                      $"Backup: {(e.BackupCreated ? "yes" : "no")}  " +
+                                      $"RestorePoint: {(e.RestorePointSequence?.ToString() ?? "-")}");
                     if (!string.IsNullOrEmpty(e.DeviceId))
                         Console.WriteLine($"    DeviceID: {e.DeviceId}");
                 }
 
-                Console.WriteLine($"\n{entries.Count} 件");
+                Console.WriteLine($"\n{entries.Count} {lang.GetString("Cli_Items")}");
                 return ExitSuccess;
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine($"履歴の読み込みに失敗しました: {ex.Message}");
+                Console.Error.WriteLine($"{lang.GetString("Cli_HistoryLoadFailed")}: {ex.Message}");
                 logger.LogError(ex, "インストール履歴の読み込み中にエラーが発生しました");
                 return ExitFailure;
             }
@@ -261,10 +271,12 @@ namespace AeroDriver.CLI
 
         private static async Task<int> RunCheckUpdatesAsync(IServiceProvider serviceProvider)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
-            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
@@ -296,16 +308,18 @@ namespace AeroDriver.CLI
 
         private static async Task<int> RunInstallAsync(IServiceProvider serviceProvider, string? deviceId)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             if (string.IsNullOrEmpty(deviceId))
             {
-                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {lang.GetString("Cli_DeviceIdRequired")}");
                 return ExitUsageError;
             }
 
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
-            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
@@ -315,7 +329,7 @@ namespace AeroDriver.CLI
 
                 if (target == null)
                 {
-                    Console.Error.WriteLine($"DeviceID '{deviceId}' に対する更新が見つかりませんでした。");
+                    Console.Error.WriteLine($"{lang.GetString("Cli_NoUpdateForDevice")}: {deviceId}");
                     return ExitFailure;
                 }
 
@@ -325,7 +339,7 @@ namespace AeroDriver.CLI
             }
             catch (UnauthorizedAccessException ex)
             {
-                Console.Error.WriteLine($"権限エラー: {ex.Message}");
+                Console.Error.WriteLine($"{lang.GetString("Cli_PermissionError")}: {ex.Message}");
                 return ExitFailure;
             }
             catch (Exception ex)
@@ -341,10 +355,12 @@ namespace AeroDriver.CLI
         /// </summary>
         private static async Task<int> RunInstallAllAsync(IServiceProvider serviceProvider)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             using var scope = serviceProvider.CreateScope();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<IDriverService>>();
             var driverService = scope.ServiceProvider.GetRequiredService<IDriverService>();
-            var lang = scope.ServiceProvider.GetRequiredService<ILanguageService>();
 
             try
             {
@@ -396,7 +412,7 @@ namespace AeroDriver.CLI
             }
             catch (UnauthorizedAccessException ex)
             {
-                Console.Error.WriteLine($"権限エラー: {ex.Message}");
+                Console.Error.WriteLine($"{lang.GetString("Cli_PermissionError")}: {ex.Message}");
                 return ExitFailure;
             }
             catch (Exception ex)
@@ -445,9 +461,12 @@ namespace AeroDriver.CLI
         /// </summary>
         private static async Task<int> RunListBackupsAsync(IServiceProvider serviceProvider, string? deviceId)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             if (string.IsNullOrEmpty(deviceId))
             {
-                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {lang.GetString("Cli_DeviceIdRequired")}");
                 return ExitUsageError;
             }
 
@@ -460,11 +479,11 @@ namespace AeroDriver.CLI
                 var backups = await driverService.GetAvailableBackupsAsync(deviceId);
                 if (backups.Count == 0)
                 {
-                    Console.WriteLine($"バックアップがありません: {deviceId}");
+                    Console.WriteLine($"{lang.GetString("Cli_NoBackups")}: {deviceId}");
                     return ExitSuccess;
                 }
 
-                Console.WriteLine($"復元可能なバックアップ ({backups.Count} 件、新しい順):");
+                Console.WriteLine($"{lang.GetString("Cli_BackupsHeader")}: {backups.Count} {lang.GetString("Cli_Items")}");
                 for (int i = 0; i < backups.Count; i++)
                 {
                     // 世代名は backup_yyyyMMddHHmmss の日時部分。読みやすく整形して併記する
@@ -479,18 +498,18 @@ namespace AeroDriver.CLI
                     Console.WriteLine($"  {v}   {readable}{latestTag}");
                 }
 
-                Console.WriteLine($"\n復元するには: rollback --device-id {deviceId} --version <世代>");
+                Console.WriteLine($"\n{lang.GetString("Cli_RollbackHint")}");
                 return ExitSuccess;
             }
             catch (ArgumentException ex)
             {
-                Console.Error.WriteLine($"エラー: {ex.Message}");
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {ex.Message}");
                 return ExitUsageError;
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "バックアップ一覧の取得中にエラーが発生しました: {DeviceID}", deviceId);
-                Console.Error.WriteLine($"バックアップ一覧の取得に失敗しました: {ex.Message}");
+                Console.Error.WriteLine($"{lang.GetString("Cli_BackupsListFailed")}: {ex.Message}");
                 return ExitFailure;
             }
         }
@@ -498,9 +517,12 @@ namespace AeroDriver.CLI
         private static async Task<int> RunRollbackAsync(
             IServiceProvider serviceProvider, string? deviceId, string? backupVersion = null)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             if (string.IsNullOrEmpty(deviceId))
             {
-                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {lang.GetString("Cli_DeviceIdRequired")}");
                 return ExitUsageError;
             }
 
@@ -519,7 +541,7 @@ namespace AeroDriver.CLI
             }
             catch (UnauthorizedAccessException ex)
             {
-                Console.Error.WriteLine($"権限エラー: {ex.Message}");
+                Console.Error.WriteLine($"{lang.GetString("Cli_PermissionError")}: {ex.Message}");
                 return ExitFailure;
             }
             catch (Exception ex)
@@ -531,9 +553,12 @@ namespace AeroDriver.CLI
 
         private static async Task<int> RunDetailsAsync(IServiceProvider serviceProvider, string? deviceId)
         {
+            // ILanguageService は Singleton 登録。引数検証はスコープ生成より前に
+            // 行うため、ルートプロバイダーから解決する
+            var lang = serviceProvider.GetRequiredService<ILanguageService>();
             if (string.IsNullOrEmpty(deviceId))
             {
-                Console.Error.WriteLine("エラー: --device-id を指定してください。");
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {lang.GetString("Cli_DeviceIdRequired")}");
                 return ExitUsageError;
             }
 
@@ -546,7 +571,7 @@ namespace AeroDriver.CLI
                 var detail = await driverService.GetDriverDetailsAsync(deviceId);
                 if (detail == null)
                 {
-                    Console.Error.WriteLine($"DeviceID '{deviceId}' が見つかりませんでした。");
+                    Console.Error.WriteLine($"{lang.GetString("Cli_DeviceNotFound")}: {deviceId}");
                     return ExitFailure;
                 }
 
@@ -554,7 +579,7 @@ namespace AeroDriver.CLI
                 Console.WriteLine($"DriverVersion: {detail.DriverVersion}");
                 Console.WriteLine($"Manufacturer:  {detail.Manufacturer}");
                 Console.WriteLine($"DeviceClass:   {detail.DeviceClass}{(detail.IsGraphicsDriver ? " [GPU]" : "")}");
-                Console.WriteLine($"WHQL:          {(detail.IsWHQLCertified ? "はい" : "いいえ")}");
+                Console.WriteLine($"WHQL:          {(detail.IsWHQLCertified ? "Yes" : "No")}");
                 Console.WriteLine($"Status:        {detail.Status} (StatusInfo={detail.StatusInfo})");
 
                 if (!string.IsNullOrEmpty(detail.Description))
@@ -570,17 +595,17 @@ namespace AeroDriver.CLI
 
                 if (detail.CertificateInfo is { } cert)
                 {
-                    Console.WriteLine("\n--- Authenticode署名 ---");
+                    Console.WriteLine("\n--- Authenticode signature ---");
                     Console.WriteLine($"Subject:       {cert.Subject}");
                     Console.WriteLine($"Issuer:        {cert.Issuer}");
                     Console.WriteLine($"ValidFrom:     {cert.ValidFrom}");
                     Console.WriteLine($"ValidTo:       {cert.ValidTo}");
-                    Console.WriteLine($"信頼チェーン:  {(cert.IsTrustedChain ? "検証成功" : "検証失敗")}");
+                    Console.WriteLine($"TrustedChain:  {(cert.IsTrustedChain ? "Verified" : "Not verified")}");
                 }
 
                 if (detail.Properties.Count > 0)
                 {
-                    Console.WriteLine("\n--- 生のWMIプロパティ ---");
+                    Console.WriteLine("\n--- Raw WMI properties ---");
                     foreach (var (key, value) in detail.Properties.OrderBy(p => p.Key))
                         Console.WriteLine($"{key,-32} {value}");
                 }

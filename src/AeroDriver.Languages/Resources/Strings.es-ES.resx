@@ -150,4 +150,46 @@
   <data name="Detail_TrustedChain" xml:space="preserve">
     <value>Cadena de confianza</value>
   </data>
+  <data name="Cli_DeviceIdRequired" xml:space="preserve">
+    <value>Se requiere --device-id</value>
+  </data>
+  <data name="Cli_DeviceNotFound" xml:space="preserve">
+    <value>Dispositivo no encontrado</value>
+  </data>
+  <data name="Cli_NoUpdateForDevice" xml:space="preserve">
+    <value>No se encontraron actualizaciones para este dispositivo</value>
+  </data>
+  <data name="Cli_PermissionError" xml:space="preserve">
+    <value>Error de permisos</value>
+  </data>
+  <data name="Cli_NoHistory" xml:space="preserve">
+    <value>Aún no hay historial de instalación</value>
+  </data>
+  <data name="Cli_HistoryLoadFailed" xml:space="preserve">
+    <value>No se pudo leer el historial</value>
+  </data>
+  <data name="Cli_NoBackups" xml:space="preserve">
+    <value>No hay copias de seguridad disponibles</value>
+  </data>
+  <data name="Cli_BackupsHeader" xml:space="preserve">
+    <value>Copias de seguridad restaurables (más recientes primero)</value>
+  </data>
+  <data name="Cli_RollbackHint" xml:space="preserve">
+    <value>Para restaurar, ejecute: rollback --device-id &lt;id&gt; --version &lt;generación&gt;</value>
+  </data>
+  <data name="Cli_BackupsListFailed" xml:space="preserve">
+    <value>No se pudo obtener la lista de copias de seguridad</value>
+  </data>
+  <data name="Cli_CurrentSettings" xml:space="preserve">
+    <value>Configuración actual</value>
+  </data>
+  <data name="Cli_ValidKeys" xml:space="preserve">
+    <value>Claves válidas</value>
+  </data>
+  <data name="Cli_Value" xml:space="preserve">
+    <value>Valor</value>
+  </data>
+  <data name="Cli_Items" xml:space="preserve">
+    <value>elemento(s)</value>
+  </data>
 </root>

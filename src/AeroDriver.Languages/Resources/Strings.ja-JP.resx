@@ -205,4 +205,46 @@
   <data name="Detail_TrustedChain" xml:space="preserve">
     <value>信頼チェーン</value>
   </data>
+  <data name="Cli_DeviceIdRequired" xml:space="preserve">
+    <value>--device-id を指定してください</value>
+  </data>
+  <data name="Cli_DeviceNotFound" xml:space="preserve">
+    <value>デバイスが見つかりません</value>
+  </data>
+  <data name="Cli_NoUpdateForDevice" xml:space="preserve">
+    <value>このデバイスに対する更新は見つかりません</value>
+  </data>
+  <data name="Cli_PermissionError" xml:space="preserve">
+    <value>権限エラー</value>
+  </data>
+  <data name="Cli_NoHistory" xml:space="preserve">
+    <value>インストール履歴はまだありません</value>
+  </data>
+  <data name="Cli_HistoryLoadFailed" xml:space="preserve">
+    <value>履歴の読み込みに失敗しました</value>
+  </data>
+  <data name="Cli_NoBackups" xml:space="preserve">
+    <value>バックアップがありません</value>
+  </data>
+  <data name="Cli_BackupsHeader" xml:space="preserve">
+    <value>復元可能なバックアップ(新しい順)</value>
+  </data>
+  <data name="Cli_RollbackHint" xml:space="preserve">
+    <value>復元するには rollback --device-id &lt;id&gt; --version &lt;世代&gt; を実行します</value>
+  </data>
+  <data name="Cli_BackupsListFailed" xml:space="preserve">
+    <value>バックアップ一覧の取得に失敗しました</value>
+  </data>
+  <data name="Cli_CurrentSettings" xml:space="preserve">
+    <value>現在の設定</value>
+  </data>
+  <data name="Cli_ValidKeys" xml:space="preserve">
+    <value>指定できるキー</value>
+  </data>
+  <data name="Cli_Value" xml:space="preserve">
+    <value>値</value>
+  </data>
+  <data name="Cli_Items" xml:space="preserve">
+    <value>件</value>
+  </data>
 </root>
