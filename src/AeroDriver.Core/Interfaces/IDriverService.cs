@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Tasks;
 using AeroDriver.Core.Events;
@@ -19,8 +18,11 @@ namespace AeroDriver.Core.Interfaces
             CancellationToken cancellationToken = default);
 
         /// <summary>インストール済みドライバーをストリーミングで列挙します（消費者がペースを制御）</summary>
+        // [EnumeratorCancellation] は async イテレーターの**実装側**に付ける属性で、
+        // インターフェース宣言に付けても効果が無い(CS8424)。実装は
+        // DriverService.StreamAllDriversAsync に付与済み。
         IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
-            [EnumeratorCancellation] CancellationToken cancellationToken = default);
+            CancellationToken cancellationToken = default);
 
         /// <summary>全データソースに更新を問い合わせます</summary>
         Task<List<DriverInfo>> CheckForUpdatesAsync(

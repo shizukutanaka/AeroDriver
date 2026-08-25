@@ -81,6 +81,10 @@ else
     echo "  ユーザー可視文字列は全てリソース経由"
 fi
 
+# 6c. AeroDriver.sln の健全性(Windows 実機でだけ発覚する事故を前倒しで潰す)
+printf '\n=== AeroDriver.sln の健全性 ===\n'
+python3 check-sln.py || fail=1
+
 # 7. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
 printf '\n=== XML 妥当性 ===\n'
 bad=0
