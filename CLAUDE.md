@@ -32,7 +32,10 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 - `AuthenticodeHelper` の **WinVerifyTrust P/Invoke を X509Chain だけに戻さない**
   (X509Chainは署名がファイルの現バイト列をカバーしているか検証できない)
 - BYOVDブロックリスト照合(`VulnerableDriverBlocklist`)を全インストール/復元経路
-  (DriverService×2・BackupService復元)から外さない。
+  (DriverService×2・DriverService の CAB 展開後・BackupService復元)から外さない。
+  **コンテナ(.cab)は展開後の中身を照合すること**。LOLDrivers が公開しているのは
+  ドライバーバイナリ(.sys)の SHA256 であってコンテナのハッシュではないため、
+  入り口のファイルだけ見ていると CAB で包むだけですり抜けられる。
   経路を増やすときは必ずここも通すこと(`PnpUtilDriverSource` はかつて4本目の経路だったが、
   消費者ゼロの死にコードだったため削除し、同クラスは列挙専用にした)
 
