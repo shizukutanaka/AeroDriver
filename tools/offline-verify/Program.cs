@@ -1,3 +1,4 @@
+using System.Linq;
 using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Models;
 
@@ -320,6 +321,48 @@ Console.WriteLine("== BackupService generation retention (keeps NEWEST, not olde
 
     try { System.IO.Directory.Delete(root, true); } catch { }
 }
+
+Console.WriteLine("== SettingsKeys (設定を UI から到達可能にする表) ==");
+{
+    Check("全キーが一意", SettingsKeys.All.Select(e => e.Name).Distinct().Count() == SettingsKeys.All.Count);
+    Check("キーは小文字ケバブ", SettingsKeys.All.All(e => e.Name == e.Name.ToLowerInvariant() && !e.Name.Contains(' ')));
+    Check("説明と値書式が空でない", SettingsKeys.All.All(e => e.Description.Length > 0 && e.ValueSyntax.Length > 0));
+
+    foreach (var t in new[] { "true", "on", "yes", "y", "1", "TRUE", " On " })
+        Check($"真として解釈: '{t}'", SettingsKeys.TryParseBool(t, out var b) && b);
+    foreach (var f in new[] { "false", "off", "no", "n", "0", "FALSE" })
+        Check($"偽として解釈: '{f}'", SettingsKeys.TryParseBool(f, out var b) && !b);
+    foreach (var bad in new[] { "", "  ", "maybe", "2", null })
+        Check($"拒否: '{bad ?? "(null)"}'", !SettingsKeys.TryParseBool(bad, out _));
+
+    Check("key=value を分解", SettingsKeys.TryParseAssignment("backup=on", out var k1, out var v1) && k1 == "backup" && v1 == "on");
+    Check("前後の空白を落とす", SettingsKeys.TryParseAssignment(" backup = on ", out var k2, out var v2) && k2 == "backup" && v2 == "on");
+    Check("値に = を含められる", SettingsKeys.TryParseAssignment("backup=a=b", out _, out var v3) && v3 == "a=b");
+    Check("= 無しは拒否", !SettingsKeys.TryParseAssignment("backup", out _, out _));
+    Check("キー空は拒否", !SettingsKeys.TryParseAssignment("=on", out _, out _));
+
+    var stCfg = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sk_{Guid.NewGuid():N}.json");
+    var st = new AeroDriver.Core.Services.SettingsService(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance, stCfg);
+    st.CreateRestorePoint = false;
+    Check("restore-point を書ける", SettingsKeys.TryApply(st, "restore-point=on", out _) && st.CreateRestorePoint);
+    Check("読み出しが書き込みと一致", SettingsKeys.Find("restore-point")!.Read(st) == "true");
+    Check("大文字キーでも引ける", SettingsKeys.Find("Restore-Point") != null);
+    Check("未知キーは拒否", !SettingsKeys.TryApply(st, "nope=on", out var e1) && e1.Contains("nope"));
+
+    st.MaxBackupGenerations = 5;
+    Check("世代数を書ける", SettingsKeys.TryApply(st, "backup-generations=3", out _) && st.MaxBackupGenerations == 3);
+    Check("0世代は拒否", !SettingsKeys.TryApply(st, "backup-generations=0", out _));
+    Check("負数は拒否", !SettingsKeys.TryApply(st, "backup-generations=-1", out _));
+    Check("非数値は拒否", !SettingsKeys.TryApply(st, "backup-generations=many", out _));
+    Check("拒否されたら値は変わらない", st.MaxBackupGenerations == 3, st.MaxBackupGenerations.ToString());
+    Check("不正な真偽値は拒否", !SettingsKeys.TryApply(st, "backup=maybe", out var e2) && e2.Contains("backup"));
+
+    // ISettingsService の「ユーザー設定」全件が表に載っているか
+    // (ThemeName/CultureName は GUI が直接書くため対象外)
+    Check("ユーザー設定5件すべてが到達可能", SettingsKeys.All.Count == 5, SettingsKeys.All.Count.ToString());
+}
+
 Console.WriteLine($"\n==== {pass} passed, {fail} failed ====");
 return fail == 0 ? 0 : 1;
 

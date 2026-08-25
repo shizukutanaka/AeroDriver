@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AeroDriver.Core;
+using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using AeroDriver.Languages.Services;
@@ -99,6 +100,23 @@ namespace AeroDriver.CLI
                 Environment.ExitCode = await RunHistoryAsync(serviceProvider, limit),
                 historyLimitOption);
 
+            // config: 設定は Core が尊重しているのに、これまでどの UI からも変更できず
+            // 設定ファイルを手編集するしかなかった。到達手段をここで用意する。
+            // --set は繰り返し指定する（--set a=b --set c=d）。1トークンに複数値を
+            // 許す AllowMultipleArgumentsPerToken は使わない: key=value が空白を含みうるため
+            var configSetOption = new Option<string[]>("--set",
+                "設定を変更します（key=value。複数指定するときは --set を繰り返す）");
+            var configCommand = new Command("config",
+                "設定を一覧表示します。--set key=value で変更します")
+            { configSetOption };
+            configCommand.SetHandler((string[] assignments) =>
+                {
+                    Environment.ExitCode = RunConfig(serviceProvider, assignments);
+                    return Task.CompletedTask;
+                },
+                configSetOption);
+
+            rootCommand.AddCommand(configCommand);
             rootCommand.AddCommand(scanCommand);
             rootCommand.AddCommand(updateCommand);
             rootCommand.AddCommand(installCommand);
@@ -111,6 +129,51 @@ namespace AeroDriver.CLI
             // InvokeAsync はパースエラー等で非0を返す。ハンドラー内の失敗は Environment.ExitCode に
             // 設定済みのため、両者のうち「失敗を示す方」を最終終了コードとして採用する
             return parseResult != 0 ? parseResult : Environment.ExitCode;
+        }
+
+        /// <summary>
+        /// 設定の一覧表示と変更。<c>--set</c> が無ければ現在値を表示するだけ。
+        /// 変更は1つでも失敗したら**何も保存せず**使用法エラーで終了する
+        /// (一部だけ適用されて設定が中途半端になる方が分かりにくいため)。
+        /// </summary>
+        private static int RunConfig(IServiceProvider serviceProvider, string[]? assignments)
+        {
+            using var scope = serviceProvider.CreateScope();
+            var settings = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+
+            if (assignments == null || assignments.Length == 0)
+            {
+                Console.WriteLine("現在の設定:");
+                foreach (var e in SettingsKeys.All)
+                {
+                    Console.WriteLine($"  {e.Name,-20} {e.Read(settings),-8} {e.Description}");
+                    Console.WriteLine($"  {string.Empty,-20} {string.Empty,-8} 値: {e.ValueSyntax}");
+                }
+                Console.WriteLine();
+                Console.WriteLine("変更例: aerodriver config --set restore-point=on --set backup-generations=5");
+                return ExitSuccess;
+            }
+
+            // まず全件を検証してから保存する。1件でも不正なら設定ファイルは書き換えない。
+            foreach (var a in assignments)
+            {
+                if (!SettingsKeys.TryApply(settings, a, out var error))
+                {
+                    Console.Error.WriteLine(error);
+                    Console.Error.WriteLine("指定できるキー: " +
+                        string.Join(", ", SettingsKeys.All.Select(e => e.Name)));
+                    return ExitUsageError;
+                }
+            }
+
+            settings.Save();
+            foreach (var a in assignments)
+            {
+                SettingsKeys.TryParseAssignment(a, out var key, out _);
+                var entry = SettingsKeys.Find(key)!;
+                Console.WriteLine($"{entry.Name} = {entry.Read(settings)}");
+            }
+            return ExitSuccess;
         }
 
         private static async Task<int> RunScanAsync(IServiceProvider serviceProvider)

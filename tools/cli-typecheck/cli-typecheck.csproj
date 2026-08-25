@@ -14,6 +14,7 @@
     <Compile Include="../../src/AeroDriver.Core/Interfaces/IDriverService.cs" />
     <Compile Include="../../src/AeroDriver.Core/Interfaces/ISettingsService.cs" />
     <Compile Include="../../src/AeroDriver.Core/Interfaces/IInstallHistoryService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/SettingsKeys.cs" />
     <Compile Include="../../src/AeroDriver.Core/Events/DriverUpdateEvents.cs" />
     <Compile Include="../../src/AeroDriver.CLI/Program.cs" />
   </ItemGroup>
