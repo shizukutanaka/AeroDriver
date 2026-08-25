@@ -240,7 +240,7 @@ namespace AeroDriver.UI.ViewModels
                 {
                     StatusMessage = $"{_lang.GetString("Status_Complete")}: {success} / {total}" +
                                     (failed > 0 ? $" ({_lang.GetString("Status_Error")}: {failed})" : string.Empty) +
-                                    (rebootRequired > 0 ? $" — {rebootRequired} 件は再起動が必要です" : string.Empty);
+                                    (rebootRequired > 0 ? $" — {rebootRequired}: {_lang.GetString("Install_RebootRequired")}" : string.Empty);
                 }
             }).ConfigureAwait(true);
 

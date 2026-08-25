@@ -63,11 +63,13 @@ working rules live in [CLAUDE.md](CLAUDE.md).
 tools/verify-all.sh   # runs everything checkable without Windows
 ```
 
-Core is compiled and executed for real (93 assertions); the WPF and CLI layers are
-type-checked against minimal stubs because their packages cannot be restored here.
-This does **not** replace `dotnet build AeroDriver.sln && dotnet test` on Windows —
-XAML compilation, source-generator output, WMI behaviour and command-line parsing
-still need a real build. Each tool's README states its own limits.
+Core is compiled and executed for real (93 assertions), and `MainViewModel` is
+executed too (73 assertions, against hand-written mocks and a real DI container).
+The remaining WPF and CLI code is type-checked against minimal stubs because their
+packages cannot be restored here. This does **not** replace
+`dotnet build AeroDriver.sln && dotnet test` on Windows — XAML compilation,
+source-generator output, WMI behaviour and command-line parsing still need a real
+build. Each tool's README states its own limits.
 
 ## 🛠️ Development
 

@@ -14,7 +14,10 @@ run() {
 # 1. 純粋ロジックの実コンパイル+実行(アサーション)
 run "offline-verify: Core の実コンパイル+実行" offline-verify dotnet run -v q --nologo
 
-# 2/3. スタブに対する型検査(出力は成否のみで十分)
+# 2. ViewModel の実コンパイル+実行(コマンドを実ハンドラーに配線して振る舞いを検証)
+run "ui-run: MainViewModel の実行検証" ui-run dotnet run -v q --nologo
+
+# 3/4/5. スタブに対する型検査(出力は成否のみで十分)
 for t in core-typecheck ui-typecheck cli-typecheck; do
     printf '\n=== %s: 型検査 ===\n' "$t"
     if out=$(cd "$t" && dotnet build -v q --nologo 2>&1); then
@@ -25,7 +28,26 @@ for t in core-typecheck ui-typecheck cli-typecheck; do
     fi
 done
 
-# 4. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
+# 6. XAML の束縛名 ⇔ ViewModel メンバーの一致
+printf '\n=== XAML 束縛 ⇔ ViewModel ===\n'
+vm=../src/AeroDriver.UI/ViewModels/MainViewModel.cs
+bind=0
+# {Binding XxxCommand} ⇔ [RelayCommand] メソッド (ScanAsync -> ScanCommand, Cancel -> CancelCommand)
+for c in $(grep -ohP '\{Binding \K[A-Za-z]+(?=Command\})' ../src/AeroDriver.UI/*.xaml | sort -u); do
+    grep -qE "private (async Task|void) ${c}(Async)?\(" "$vm" || { echo "  ${c}Command: 対応する [RelayCommand] メソッドが無い"; bind=1; fail=1; }
+done
+# {Binding Xxx} ⇔ ViewModel のプロパティ / [ObservableProperty] フィールド (_xxx)、
+# または ItemsSource の要素型(DriverInfo / DriverDetailInfo / CertificateInfo)のプロパティ
+models=../src/AeroDriver.Core/Models/DriverInfo.cs
+for b in $(grep -ohP '\{Binding \K[A-Za-z]+(?=[},])' ../src/AeroDriver.UI/*.xaml | grep -v 'Command$' | sort -u); do
+    low=$(echo "${b:0:1}" | tr 'A-Z' 'a-z')${b:1}
+    grep -qE "(public [^ ]+ $b|private [^ ]+ _$low;|private [^ ]+ _$low =)" "$vm" && continue
+    grep -qE "public [^ ]+ $b" "$models" && continue
+    echo "  $b: ViewModel にも Models にも対応メンバーが無い"; bind=1; fail=1
+done
+[ $bind -eq 0 ] && echo "  全束縛が ViewModel と一致"
+
+# 7. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
 printf '\n=== XML 妥当性 ===\n'
 bad=0
 while IFS= read -r f; do
@@ -33,7 +55,7 @@ while IFS= read -r f; do
 done < <(find .. \( -name "*.props" -o -name "*.csproj" -o -name "*.resx" -o -name "*.config" -o -name "*.xaml" \) ! -path "*/obj/*" ! -path "*/bin/*")
 [ $bad -eq 0 ] && echo "  全件妥当"
 
-# 5. リソースキーのパリティ(1言語でも欠けると実行時に "[キー名]" が出る)
+# 8. リソースキーのパリティ(1言語でも欠けると実行時に "[キー名]" が出る)
 printf '\n=== リソースキーのパリティ(10言語) ===\n'
 miss=0
 for k in $(grep -ohP 'GetString\("\K[^"]+' ../src/AeroDriver.UI/ViewModels/MainViewModel.cs ../src/AeroDriver.CLI/Program.cs | sort -u); do

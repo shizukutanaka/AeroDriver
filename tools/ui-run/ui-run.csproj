@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <Compile Include="../../src/AeroDriver.Core/Models/DriverInfo.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Models/DriverInstallResult.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Models/DriverScanProgress.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/IDriverService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Interfaces/ISettingsService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Events/DriverUpdateEvents.cs" />
+    <Compile Include="../../src/AeroDriver.UI/Services/IFileDialogService.cs" />
+    <Compile Include="../../src/AeroDriver.UI/Services/IThemeService.cs" />
+    <Compile Include="../../src/AeroDriver.UI/ViewModels/MainViewModel.cs" />
+  </ItemGroup>
+</Project>

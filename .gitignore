@@ -181,3 +181,8 @@ msbuild.wrn
 
 # Local History for Visual Studio Code
 .history/
+
+# 検証ハーネスの nuget.config は必須(NuGet ソースを <clear /> して
+# 外部フェッチを止めている)。無いと新規クローンで restore が
+# プロキシに 403 され tools/verify-all.sh が動かない。上の *.config より後に置くこと
+!tools/*/nuget.config

@@ -171,8 +171,13 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 ## 5. 未解決事項(人間の判断待ち)
 
 ### CIワークフロー未反映
-`.github/workflows/build.yml`を作成したが、このセッションのGitHub Appトークンには
-`workflows`権限がなくpushできなかった(複数セッションで再確認済み。過去に一度は
+`.github/workflows/build.yml`を作成したが、GitHub Appトークンには
+`workflows`権限がなくpushできない。**2026-08-24 に本セッションのトークンでも実地検証済み**:
+使い捨てブランチへの Contents API 経由の書き込みが
+`403 Resource not accessible by integration` で拒否された(検証に使った
+`claude/ci-permission-probe` ブランチは main と同一コミットを指すだけの空きがら。
+ブランチ削除も git プロキシに遮断されるため残っているが無害)。
+(複数セッションで再確認済み。過去に一度は
 コミットされたがpush時にリジェクトされ、README のBuild Statusバッジだけが
 ワークフロー不在のまま残り続けて「常にno status」で表示される状態になっていたため、
 バッジ自体をREADMEから削除して整合を取った)。以下の内容を手動で追加する必要がある:
@@ -242,8 +247,22 @@ jobs:
   一覧から除去、キャンセル対応。新リソースキー`Button_UpdateAll`を全10言語に追加(計19キー)。
   CLI側は`update --install-all`で同等機能を提供
 
-未対応(将来拡張): 特になし(ロードマップのGUI項目は全て実装)。net8.0-windowsのため
-この環境ではビルド未検証(静的検証のみ)。
+未対応(将来拡張): 特になし(ロードマップのGUI項目は全て実装)。
+
+**検証状況(2026-08-24 更新)**: net8.0-windows かつ NuGet 遮断のため `AeroDriver.UI` 自体は
+この環境でビルドできないが、手書きC#は2段階で検証済み:
+- `tools/ui-typecheck`: `MainViewModel` / `App.xaml.cs` / `MainWindow.xaml.cs` を
+  WPF・CommunityToolkit の最小スタブに対して**実コンパイル**(型検査)
+- `tools/ui-run`: `MainViewModel` を**実際に実行**。ジェネレーター再現側のコマンドを
+  実 private ハンドラーと実 CanExecute 述語へ配線し、手書きモックと本物の
+  `Microsoft.Extensions.DependencyInjection` で走らせる。**73アサーション全通過**。
+  これにより「一括インストールが `AdminRequired` で1件目中断し2件目を呼ばない」など、
+  従来一度も実行されていなかったロジックが実測で確認された
+- `tools/verify-all.sh`: 上記に加え XAML の `{Binding ...}` 名と ViewModel/Models の
+  メンバー名の一致を機械チェック
+
+**依然として未検証**: XAML のコンパイル、ソースジェネレーターの実出力、実WMI/実pnputil。
+Windows実機での `dotnet build AeroDriver.sln && dotnet test` は引き続き必要。
 
 ---
 
