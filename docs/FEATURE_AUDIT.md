@@ -301,7 +301,22 @@ jobs:
 (CLI 側は `config --set key=value` を新設)。
 
 **依然として未検証**: XAML のコンパイル、ソースジェネレーターの実出力、実WMI/実pnputil。
-Windows実機での `dotnet build AeroDriver.sln && dotnet test` は引き続き必要。
+Windows実機での `dotnet build AeroDriver.sln && dotnet test` は引き続き必要
+(**`tools/verify-windows.ps1` を実行すれば一括で回せる**)。
+
+### `dotnet build AeroDriver.sln` が Windows でも即死する状態だった(2026-08-25 修正)
+
+P0 の「Windows実機でビルド」を実際に走らせて境界を測ったところ、**NuGet 以前の問題**が見つかった:
+
+- `AeroDriver.sln` の `NestedProjects` で**全プロジェクトが自分自身を親**として登録されていた。
+  親チェーンを辿る MSBuild の `GetUniqueProjectName()` が無限再帰し、
+  **スタックオーバーフローでプロセスごと落ちる**。コンパイル以前の段階で死ぬため、
+  Windows 実機に持って行っても同じ結果になっていた
+- プロジェクト GUID 2件が16進として不正(`...-DEFG-...` / `...-EFGH-...`)
+
+修正後、`dotnet build AeroDriver.sln` は解析を通過し、**残る失敗は `NU1301`(NuGet への
+接続がプロキシに 403 される)のみ**になった。つまりこの環境の限界は「NuGet 到達性」だけで、
+ソリューション構造の問題はもう無い。`tools/check-sln.py` が再発を検出する。
 
 ---
 
