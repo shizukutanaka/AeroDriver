@@ -79,6 +79,7 @@
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
 | K | 署名検証の失敗理由が全て「署名が無効」で、オフライン時に誤診断 | `DescribeVerificationFailure` で原因を区別(**フェイルクローズは維持**) |
+| AB | **`AeroDriver.Core` が `CimSession` を使うのに `Microsoft.Management.Infrastructure` の PackageReference が無かった**。BCL ではなく NuGet パッケージなので `DriverService`/`WdacHelper` が CS0246 でコンパイルできない。レガシー `System.Management` から移行した際に旧パッケージを外して新パッケージを足し忘れていた(csproj のコメントは「移行済み」と書いてあった)。あわせて未使用パッケージ2件(`Microsoft.Extensions.Localization` / `Microsoft.Xaml.Behaviors.Wpf`) | 不足を追加し未使用を削除。`tools/check-packages.py` を新設し、ソースが使う名前空間と PackageReference の過不足を機械検証(ProjectReference 経由の推移的解決も考慮) |
 | AA | **`dotnet build AeroDriver.sln` が Windows でも即死する状態だった**。`NestedProjects` で全プロジェクトが自分自身を親として登録されており、親チェーンを辿る MSBuild の `GetUniqueProjectName()` が無限再帰して**スタックオーバーフロー**。加えて GUID 2件が16進として不正。P0 の「Windows実機でビルド」はコンパイル以前に死んでいた | 自己参照ネストを削除し GUID を修正。修正後は解析を通過し、残る失敗は `NU1301`(NuGet が 403)のみ。`tools/check-sln.py` を新設して verify-all.sh から検出 |
 | Z | **BYOVD照合が `.cab` の中身に届いていなかった**。照合はコンテナ自体のハッシュに対して行われていたが、LOLDrivers が公開するのはドライバーバイナリ(`.sys`)の SHA256 であってコンテナのハッシュではない。**CAB で包むだけで照合をすり抜けられた**(`.cab` は README が明記する対応形式) | `InstallFromCabAsync` の展開後、pnputil 呼び出し前に展開ディレクトリ配下の全ファイルを照合し、1つでも一致すれば `KnownVulnerableDriver` を返す。`.exe`/`.msi` の内部ドライバーは静的に展開できないため意図的な限界として FEATURE_AUDIT に明記 |
 | Y | CLI も同様に、`Console` 出力の27箇所が日本語直書きだった(GetString 経由は19箇所のみ)。GUI と同じく「10言語対応」が非日本語ユーザーには成立していなかった | 散文14キーを全10言語に追加。`details`/`history` の構造化ダンプは WMI プロパティ名に合わせて**英語で統一**(localize すべきものと識別子を分ける)。`verify-all.sh` に CLI 版のハードコード検出も追加 |
@@ -98,8 +99,9 @@
 - [ ] **Windows実機で `tools/verify-windows.ps1` を実行**(restore/build/test に加え、
   System.CommandLine の実パースと実WMIのスモークまで1コマンドで回る)。
   受け入れ条件: `verify-windows: N passed, 0 failed`。
-  **前提だった `.sln` の致命的欠陥は解消済み**(自己参照ネストによる MSBuild の
-  スタックオーバーフローと不正GUID。解決済み表 AA 参照)。残る障壁は NuGet 到達性のみ
+  **前提だった2つの致命的欠陥は解消済み**: `.sln` の自己参照ネストによる MSBuild の
+  スタックオーバーフローと不正GUID(表 AA)、および WMI パッケージ参照の欠落(表 AB)。
+  どちらも Windows と無関係の理由でビルドを殺していた。残る障壁は NuGet 到達性のみ
 - [ ] **CI YAMLの手動push**: `FEATURE_AUDIT.md` §5のYAMLを`workflows`権限のあるアカウントで
   `.github/workflows/build.yml`に追加。受け入れ条件: mainでActionsが緑
 

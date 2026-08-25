@@ -85,6 +85,10 @@ fi
 printf '\n=== AeroDriver.sln の健全性 ===\n'
 python3 check-sln.py || fail=1
 
+# 6d. PackageReference の過不足(NuGet が restore できないため実ビルドでは検出できない)
+printf '\n=== PackageReference の過不足 ===\n'
+python3 check-packages.py || fail=1
+
 # 7. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
 printf '\n=== XML 妥当性 ===\n'
 bad=0

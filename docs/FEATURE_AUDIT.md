@@ -314,6 +314,14 @@ P0 の「Windows実機でビルド」を実際に走らせて境界を測った�
   Windows 実機に持って行っても同じ結果になっていた
 - プロジェクト GUID 2件が16進として不正(`...-DEFG-...` / `...-EFGH-...`)
 
+同じ探索で **`AeroDriver.Core` の WMI パッケージ参照の欠落**も見つかった:
+`CimSession` を使っているのに `Microsoft.Management.Infrastructure` の `PackageReference` が
+無く(BCL ではなく NuGet パッケージ)、`DriverService` / `WdacHelper` が CS0246 で
+コンパイルできない状態だった。レガシー `System.Management` から移行した際に旧パッケージを
+外して新パッケージを足し忘れており、csproj のコメントは「移行済み」と書いてあった。
+未使用パッケージ2件(`Microsoft.Extensions.Localization` / `Microsoft.Xaml.Behaviors.Wpf`)も削除。
+`tools/check-packages.py` が過不足を機械検証する。
+
 修正後、`dotnet build AeroDriver.sln` は解析を通過し、**残る失敗は `NU1301`(NuGet への
 接続がプロキシに 403 される)のみ**になった。つまりこの環境の限界は「NuGet 到達性」だけで、
 ソリューション構造の問題はもう無い。`tools/check-sln.py` が再発を検出する。

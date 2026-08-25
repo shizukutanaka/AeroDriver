@@ -1,0 +1,116 @@
+#!/usr/bin/env python3
+"""各 csproj の PackageReference と、実際にソースが使う名前空間の対応を検査する。
+
+この環境では NuGet が遮断されていて restore できないため、参照の過不足は
+**Windows 実機に行って初めて発覚する**。実際に2種類の事故が起きていた:
+
+  1. `Microsoft.Management.Infrastructure`(CimSession)を使っているのに
+     PackageReference が無く、DriverService / WdacHelper が CS0246 で
+     コンパイルできない状態だった(レガシー System.Management から移行した際に
+     旧パッケージを外して新パッケージを足し忘れていた)
+  2. 使っていないパッケージ(Microsoft.Extensions.Localization /
+     Microsoft.Xaml.Behaviors.Wpf)が残っていた
+
+名前空間 -> パッケージの対応表は「BCL に無く NuGet が必要なもの」だけを持つ。
+ProjectReference 経由で推移的に入るものは対象外(親を辿って許容する)。
+"""
+import os, re, sys, xml.etree.ElementTree as ET
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# 名前空間の接頭辞 -> それを提供する NuGet パッケージ
+NS_TO_PACKAGE = {
+    'Microsoft.Management.Infrastructure': 'Microsoft.Management.Infrastructure',
+    'System.CommandLine':                  'System.CommandLine',
+    'CommunityToolkit.Mvvm':               'CommunityToolkit.Mvvm',
+    'Microsoft.Extensions.DependencyInjection': 'Microsoft.Extensions.DependencyInjection',
+    'Microsoft.Extensions.Logging':        'Microsoft.Extensions.Logging',
+    'Microsoft.Extensions.Localization':   'Microsoft.Extensions.Localization',
+}
+# ソースの using では現れないが、実行時/ビルド時に必要なもの(誤検出させない)
+ALWAYS_OK = {
+    'Microsoft.Extensions.Logging.Abstractions',   # Logging に含意される
+    'Microsoft.Extensions.Logging.Console',        # プロバイダー登録は拡張メソッド経由
+    'Microsoft.Extensions.Http',                   # AddHttpClient / IHttpClientFactory
+                                                   # (using には現れず拡張メソッド経由で使う)
+    'Microsoft.Extensions.Http.Resilience',        # AddStandardResilienceHandler
+    'Microsoft.NET.Test.Sdk', 'xunit', 'xunit.runner.visualstudio',
+    'FluentAssertions', 'NSubstitute',
+}
+
+def packages(csproj):
+    return {e.get('Include') for e in ET.parse(csproj).getroot().iter('PackageReference')}
+
+def project_refs(csproj):
+    out = []
+    for e in ET.parse(csproj).getroot().iter('ProjectReference'):
+        out.append(os.path.normpath(os.path.join(
+            os.path.dirname(csproj), e.get('Include').replace('\\', os.sep))))
+    return out
+
+def used_namespaces(csproj):
+    d = os.path.dirname(csproj)
+    ns = set()
+    for dirpath, dirs, files in os.walk(d):
+        dirs[:] = [x for x in dirs if x not in ('obj', 'bin')]
+        for f in files:
+            if not f.endswith('.cs'):
+                continue
+            for line in open(os.path.join(dirpath, f), encoding='utf-8', errors='replace'):
+                m = re.match(r'\s*using\s+(?:static\s+)?([A-Za-z0-9_.]+)\s*;', line)
+                if m:
+                    ns.add(m.group(1))
+    return ns
+
+def available(csproj, seen=None):
+    """自分と、ProjectReference を辿った先の PackageReference の合計。"""
+    seen = seen if seen is not None else set()
+    if csproj in seen:
+        return set()
+    seen.add(csproj)
+    acc = packages(csproj)
+    for ref in project_refs(csproj):
+        if os.path.isfile(ref):
+            acc |= available(ref, seen)
+    return acc
+
+errors = []
+projects = []
+for base in ('src', 'tests'):
+    d = os.path.join(ROOT, base)
+    for dirpath, _dirs, files in os.walk(d):
+        projects += [os.path.join(dirpath, f) for f in files if f.endswith('.csproj')]
+
+for csproj in sorted(projects):
+    name = os.path.basename(csproj)
+    declared = packages(csproj)
+    reachable = available(csproj)
+    ns = used_namespaces(csproj)
+
+    # 不足: 使っている名前空間に対応するパッケージが(推移的にも)無い
+    needed = set()
+    for n in ns:
+        for prefix, pkg in NS_TO_PACKAGE.items():
+            if n == prefix or n.startswith(prefix + '.'):
+                needed.add(pkg)
+    for pkg in sorted(needed - reachable):
+        errors.append(f'{name}: {pkg} を使っているが PackageReference が無い')
+
+    # 過剰: 宣言しているのに使っていない
+    for pkg in sorted(declared - ALWAYS_OK):
+        prefixes = [p for p, q in NS_TO_PACKAGE.items() if q == pkg]
+        if not prefixes:
+            continue
+        if not any(n == p or n.startswith(p + '.') for n in ns for p in prefixes):
+            errors.append(f'{name}: {pkg} を宣言しているが使っていない')
+
+    # バージョン指定漏れ
+    for e in ET.parse(csproj).getroot().iter('PackageReference'):
+        if not e.get('Version') and not e.get('VersionOverride'):
+            errors.append(f'{name}: {e.get("Include")} に Version が無い')
+
+if errors:
+    for e in errors:
+        print(f'  {e}')
+    sys.exit(1)
+print(f'  {len(projects)} プロジェクト。パッケージ参照に過不足なし')
