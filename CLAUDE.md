@@ -60,6 +60,9 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   **テストコードは `tools/tests-typecheck`**(xunit/FluentAssertions/NSubstitute の最小スタブ。
   テストが Core の現在の API と整合しているかを検査する。実行は対象外)。
   **WMI依存を含む Core 全体は `tools/core-typecheck`**(WMI の最小スタブ。実WMI動作は対象外)。
+  **ローカライズ基盤は `tools/lang-run` で実行検証できる**(resx コンパイル → サテライト生成 →
+  解決とフォールバック。`AeroDriver.Languages` は Core の NuGet が必要でこの環境では
+  プロジェクトとしてビルドできないため、resx と `LanguageService` だけを同条件で切り出す)。
   **DI コンテナは `tools/di-run` で実行検証できる**(`ConfigureServices` を実際に呼び、
   `ValidateOnBuild`/`ValidateScopes` 付きでコンテナを構築してサービスを解決する。
   解決不能サービスと captive dependency は実行時にしか出ないため型検査では見つからない)。

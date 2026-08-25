@@ -183,6 +183,23 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 署名の強制により、`pnputil` は未署名ドライバーのドライバーストア追加を拒否する。
 加えて WHQL 状態を UI に提示し、BYOVD 照合は CAB 展開後の中身に対して行っている。
 
+### `AeroDriver.Languages` がコンパイルできない状態だった(2026-08-25 修正)
+
+`LanguageService.cs` の `using AeroDriver.Languages.Resources;` が、**コード上に存在しない
+名前空間**を参照していた。SDK スタイルのプロジェクトでは `.resx` から強く型付けされた
+リソースクラスは自動生成されないため、この名前空間はどこにも無い。結果 CS0234 で
+コンパイル不能。しかも `ResourceManager` はベース名を**文字列**で受けるので、
+この `using` は最初から未使用だった。
+
+10言語対応の中核プロジェクトが**ビルドできない**状態で、`dotnet build AeroDriver.sln` は
+Windows でもここで落ちていた(`.sln` の破損と WMI パッケージ参照の欠落に続く3件目の
+「Windows と無関係にビルドを殺していた欠陥」)。
+
+`tools/lang-run` を作って初めて発覚した。`AeroDriver.Languages` は Core を
+`ProjectReference` しており Core の NuGet が restore できないため、プロジェクトとしては
+この環境でビルドできない。resx と `LanguageService.cs` だけを同条件で切り出すことで
+実際に動かせるようになった。
+
 ### 配布(publish)に関する制約
 
 10言語対応は publish の設定ひとつで無言のうちに壊れる。以下は**変更してはいけない**:
