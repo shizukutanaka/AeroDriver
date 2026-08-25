@@ -17,6 +17,9 @@ run "offline-verify: Core の実コンパイル+実行" offline-verify dotnet ru
 # 2. ViewModel の実コンパイル+実行(コマンドを実ハンドラーに配線して振る舞いを検証)
 run "ui-run: MainViewModel の実行検証" ui-run dotnet run -v q --nologo
 
+# 2b. DI コンテナの実行検証(解決不能サービス・captive dependency は実行時にしか出ない)
+run "di-run: DI コンテナの実行検証" di-run dotnet run -v q --nologo
+
 # 3-6. スタブに対する型検査(テストコードもここで Core の API と突き合わせる)(出力は成否のみで十分)
 for t in core-typecheck ui-typecheck cli-typecheck tests-typecheck; do
     printf '\n=== %s: 型検査 ===\n' "$t"
