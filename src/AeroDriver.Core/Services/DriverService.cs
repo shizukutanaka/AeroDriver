@@ -925,6 +925,17 @@ namespace AeroDriver.Core.Services
                 }
             }
 
+            // .inf / .cab に AuthenticodeHelper.VerifyTrustStatus を適用しないのは意図的。
+            // ドライバーパッケージの署名は .inf 本体ではなく同梱の .cat(カタログ)に載っており、
+            // ファイル単体に対する WinVerifyTrust では検証できない(カタログ検証には
+            // WINTRUST_CATALOG_INFO とドライバー用のアクション GUID が必要)。
+            // ここで EXE/MSI と同じ検査を「統一」のために足すと、正当な INF パッケージを
+            // 全て SignatureInvalid で弾くことになる。
+            // この経路の署名強制は Windows 自身が担う: 64bit の Windows 10/11 では
+            // カーネルモードコード署名の強制により、pnputil は未署名ドライバーの
+            // ドライバーストア追加を拒否する。加えて WHQL 状態を UI に提示し、
+            // BYOVD 照合は CAB 展開後の中身に対して行っている。
+            //
             // cab はドライバーパッケージ（.inf 等）を格納したキャビネットで pnputil に直接渡せないため、
             // expand.exe で展開してから中の .inf をインストールする
             if (ext == "cab")
