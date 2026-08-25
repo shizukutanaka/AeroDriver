@@ -228,7 +228,17 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 `.github/workflows/build.yml`を作成したが、GitHub Appトークンには
 `workflows`権限がなくpushできない。**2026-08-24 に本セッションのトークンでも実地検証済み**:
 使い捨てブランチへの Contents API 経由の書き込みが
-`403 Resource not accessible by integration` で拒否された(検証に使った
+`403 Resource not accessible by integration` で拒否された。
+**2026-08-25 に3つ目の独立した経路(素の `git push`)でも検証済み** —
+MCP 経由の API だけでなく git そのものでも拒否され、今度は 403 ではなく明示的な理由が返った:
+
+```
+! [remote rejected] refusing to allow a GitHub App to create or update
+  workflow `.github/workflows/probe.yml` without `workflows` permission
+```
+
+`.github/` 配下でもワークフロー**以外**のファイル(`dependabot.yml` 等)は書き込める。
+制限はワークフローファイルに限定されている(検証に使った
 `claude/ci-permission-probe` ブランチは main と同一コミットを指すだけの空きがら。
 ブランチ削除も git プロキシに遮断されるため残っているが無害)。
 (複数セッションで再確認済み。過去に一度は
