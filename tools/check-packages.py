@@ -18,14 +18,21 @@ import os, re, sys, xml.etree.ElementTree as ET
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-# 名前空間の接頭辞 -> それを提供する NuGet パッケージ
+# 名前空間の接頭辞 -> それを満たしうる NuGet パッケージ(いずれか1つあればよい)。
+# 例: ILogger<T> は Microsoft.Extensions.Logging 名前空間だが、型を提供しているのは
+#     Microsoft.Extensions.Logging.Abstractions パッケージ。ロガーを「使うだけ」の
+#     ライブラリは Abstractions だけを参照するのが正しい。
 NS_TO_PACKAGE = {
-    'Microsoft.Management.Infrastructure': 'Microsoft.Management.Infrastructure',
-    'System.CommandLine':                  'System.CommandLine',
-    'CommunityToolkit.Mvvm':               'CommunityToolkit.Mvvm',
-    'Microsoft.Extensions.DependencyInjection': 'Microsoft.Extensions.DependencyInjection',
-    'Microsoft.Extensions.Logging':        'Microsoft.Extensions.Logging',
-    'Microsoft.Extensions.Localization':   'Microsoft.Extensions.Localization',
+    'Microsoft.Management.Infrastructure': {'Microsoft.Management.Infrastructure'},
+    'System.CommandLine':                  {'System.CommandLine'},
+    'CommunityToolkit.Mvvm':               {'CommunityToolkit.Mvvm'},
+    'Microsoft.Extensions.DependencyInjection': {
+        'Microsoft.Extensions.DependencyInjection',
+        'Microsoft.Extensions.DependencyInjection.Abstractions'},
+    'Microsoft.Extensions.Logging': {
+        'Microsoft.Extensions.Logging',
+        'Microsoft.Extensions.Logging.Abstractions'},
+    'Microsoft.Extensions.Localization': {'Microsoft.Extensions.Localization'},
 }
 # ソースの using では現れないが、実行時/ビルド時に必要なもの(誤検出させない)
 ALWAYS_OK = {
@@ -88,21 +95,36 @@ for csproj in sorted(projects):
     ns = used_namespaces(csproj)
 
     # 不足: 使っている名前空間に対応するパッケージが(推移的にも)無い
-    needed = set()
-    for n in ns:
-        for prefix, pkg in NS_TO_PACKAGE.items():
-            if n == prefix or n.startswith(prefix + '.'):
-                needed.add(pkg)
-    for pkg in sorted(needed - reachable):
-        errors.append(f'{name}: {pkg} を使っているが PackageReference が無い')
+    for prefix, candidates in NS_TO_PACKAGE.items():
+        used = any(n == prefix or n.startswith(prefix + '.') for n in ns)
+        if used and not (candidates & reachable):
+            errors.append(f'{name}: {prefix} を使っているが '
+                          f'{" / ".join(sorted(candidates))} のいずれも参照していない')
 
     # 過剰: 宣言しているのに使っていない
     for pkg in sorted(declared - ALWAYS_OK):
-        prefixes = [p for p, q in NS_TO_PACKAGE.items() if q == pkg]
+        prefixes = [p for p, q in NS_TO_PACKAGE.items() if pkg in q]
         if not prefixes:
             continue
         if not any(n == p or n.startswith(p + '.') for n in ns for p in prefixes):
             errors.append(f'{name}: {pkg} を宣言しているが使っていない')
+
+    # 使っていない ProjectReference(実体のない結合)
+    # 参照先のルート名前空間の型を1つも使っていなければ、その参照は宣言だけの嘘。
+    # 依存グラフを読む人を惑わせるうえ、ビルド順にも無駄な制約を作る。
+    for ref in project_refs(csproj):
+        if not os.path.isfile(ref):
+            continue
+        ref_ns = os.path.splitext(os.path.basename(ref))[0]   # 例: AeroDriver.Core
+        src = ''
+        d = os.path.dirname(csproj)
+        for dirpath, dirs, files in os.walk(d):
+            dirs[:] = [x for x in dirs if x not in ('obj', 'bin')]
+            for f in files:
+                if f.endswith('.cs'):
+                    src += open(os.path.join(dirpath, f), encoding='utf-8', errors='replace').read()
+        if ref_ns not in src:
+            errors.append(f'{name}: {ref_ns} への ProjectReference が使われていない')
 
     # バージョン指定漏れ
     for e in ET.parse(csproj).getroot().iter('PackageReference'):

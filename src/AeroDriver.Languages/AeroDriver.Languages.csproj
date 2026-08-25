@@ -16,7 +16,11 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AeroDriver.Core\AeroDriver.Core.csproj" />
+    <!-- ILogger<T> のみ使用。以前は AeroDriver.Core への ProjectReference 経由で
+         推移的に入っていたが、Languages は Core の型を1つも使っておらず、
+         「リソース束がドライバーエンジンに依存する」という実体のない結合だった。
+         直接依存として宣言し直す。 -->
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
 
 </Project>
