@@ -292,8 +292,11 @@ namespace AeroDriver.Core.Services
                 // 辞書順だと "9.5.1" が "10.2.0" より大きいと判定されてしまう
                 updates = updates
                     .GroupBy(u => u.HardwareID, StringComparer.OrdinalIgnoreCase)
+                    // DriverVersion は string? なのでキーも string?。VersionHelper.Compare は
+                    // null/空文字を明示的に扱えるため、Comparer<string?> で宣言を実装に合わせる
+                    // (Comparer<string> だと CS8620 が出ていた)
                     .Select(g => g.OrderByDescending(u => u.DriverVersion,
-                                     Comparer<string>.Create(VersionHelper.Compare)).First())
+                                     Comparer<string?>.Create(VersionHelper.Compare)).First())
                     .ToList();
 
                 // インストール推奨順に並べ替える（チップセット/ストレージ → … → GPU の順）。

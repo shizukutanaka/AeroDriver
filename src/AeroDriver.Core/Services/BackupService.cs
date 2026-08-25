@@ -158,7 +158,9 @@ namespace AeroDriver.Core.Services
             {
                 var deviceDir = GetDeviceDirectory(driver.DeviceID);
 
-                string backupDir;
+                // FirstOrDefault() は string? を返す。直後に null 判定して早期 return するため
+                // 実挙動は正しかったが、宣言が string で CS8600 が出ていた(宣言を実装に合わせる)
+                string? backupDir;
                 if (string.IsNullOrEmpty(backupVersion))
                 {
                     backupDir = Directory.GetDirectories(deviceDir, "backup_*")
