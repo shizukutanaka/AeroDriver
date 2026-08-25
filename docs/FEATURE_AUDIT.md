@@ -195,6 +195,21 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 
 `tools/check-packages.py` が上記3点を機械検証する。
 
+### DI コンテナの検証状況
+
+`ServiceCollectionExtensions.ConfigureServices()` は**一度も実行されていなかった**
+(`ServiceCollectionExtensionsTests.cs` は xunit のためこの環境では走らない)。
+DI の解決失敗と captive dependency は型検査では絶対に見つからず、実行時に
+`InvalidOperationException` で落ちる種類の欠陥。
+
+`tools/di-run` で `ValidateOnBuild` + `ValidateScopes` 付きにコンテナを構築し、
+主要サービスの解決とライフタイムを実行検証している(16アサーション)。結果は健全で、
+captive dependency は存在しなかった。登録を1つ消す / `ISettingsService` を Scoped に変える
+の両方で失敗を検出できることを確認済み。
+
+対象外: 実 WMI、実 HTTP、レジリエンスポリシー(`AddStandardResilienceHandler` は
+no-op スタブ)、`App.xaml.cs` の UI 層 DI。
+
 ### テストコードの検証状況
 
 `tests/AeroDriver.Core.Tests`(2,186行)は xunit が restore できないため**一度も

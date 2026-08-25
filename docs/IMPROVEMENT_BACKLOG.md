@@ -39,9 +39,13 @@
    到達できないのは **実行時の挙動**のみ: XAML のコンパイル(Windows専用)、ソースジェネレーターの
    実出力、実WMIクエリ、System.CommandLine の実パース。
    **`MainViewModel` は `tools/ui-run` で実行検証済み**(101アサーション全通過)。
+   **DI コンテナは `tools/di-run` で実行検証済み**(16アサーション。captive dependency なし)。
+   **コンバーターも `tools/ui-run` で実行検証済み**。
+   これでこの環境で実行可能なコードはすべて実行された — 残るのは実 WMI / 実 WPF /
+   実 System.CommandLine を必要とする部分だけ。
    さらに `tools/verify-all.sh` が GUI/CLI へのハードコード文字列の混入、XAML 束縛名と
-   ViewModel メンバーの一致、未使用リソースキーを機械検証する(各チェックは意図的に
-   壊して検出できることを確認済み)
+   ViewModel メンバーの一致、未使用リソースキー、`.sln` の健全性、`PackageReference` の
+   過不足、配布設定を機械検証する(各チェックは意図的に壊して検出できることを確認済み)
 2. **CI 不在**: GitHub App トークンに `workflows` 権限がなく push 不可(YAML は `FEATURE_AUDIT.md` §5)。
    **2026-08-24 に実地検証済み** — 使い捨てブランチへの Contents API 書き込みが
    `403 Resource not accessible by integration` で拒否された。伝聞ではなく実測の不可能

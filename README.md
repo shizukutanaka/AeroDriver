@@ -84,8 +84,10 @@ tools/verify-all.sh              # everything checkable without Windows
 pwsh -File tools/verify-windows.ps1   # the rest, on real Windows
 ```
 
-Core is compiled and executed for real (130 assertions), and `MainViewModel` is
-executed too (101 assertions, against hand-written mocks and a real DI container).
+Core is compiled and executed for real (130 assertions), `MainViewModel` and the value
+converters are executed too (111 assertions, against hand-written mocks and a real DI
+container), and the DI container itself is built and resolved with `ValidateOnBuild` and
+`ValidateScopes` (16 assertions) — captive dependencies only ever surface at runtime.
 The script also checks that no user-visible string is hardcoded in the XAML and that
 every `{Binding ...}` name resolves to a real ViewModel or model member.
 The remaining WPF and CLI code — and the whole xunit test suite — is type-checked

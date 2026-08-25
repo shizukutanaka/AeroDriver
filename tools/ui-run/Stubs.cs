@@ -65,3 +65,18 @@ namespace AeroDriver.Languages.Services
         IReadOnlyList<CultureInfo> SupportedCultures { get; }
     }
 }
+
+// 詳細ペインの表示切替に使うコンバーターを実行するための最小 WPF 面。
+namespace System.Windows
+{
+    public enum Visibility { Visible, Hidden, Collapsed }
+}
+
+namespace System.Windows.Data
+{
+    public interface IValueConverter
+    {
+        object Convert(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture);
+        object ConvertBack(object? value, Type targetType, object? parameter, System.Globalization.CultureInfo culture);
+    }
+}

@@ -1,9 +1,11 @@
 // MainViewModel を実際にインスタンス化してコマンドを実行し、状態遷移を検証する。
 // offline-verify と同じ Check() 方式。
 using System.Globalization;
+using System.Windows;
 using System.Linq;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
+using AeroDriver.UI.Converters;
 using AeroDriver.UI.Services;
 using AeroDriver.UI.ViewModels;
 using AeroDriver.UiRun;
@@ -295,6 +297,45 @@ Console.WriteLine("== Cancel ==");
     Check("非実行中は Cancel 不可", !vm.CancelCommand.CanExecute(null));
     vm.CancelCommand.Execute(null); // _cts == null でも例外にならないこと
     Check("実行中でない Cancel は無害", true);
+}
+
+Console.WriteLine("== 詳細ペインのコンバーター ==");
+{
+    // XAML の Visibility 束縛に使われているが一度も実行されていなかった。
+    // 2つは対になっており、同じ入力に対して必ず逆の結果を返さなければならない
+    // (両方 Collapsed になるとペインが空白のまま何も出ない)
+    var nullToVis = new NullToVisibilityConverter();
+    var notNullToVis = new NotNullToVisibilityConverter();
+    var ci = CultureInfo.InvariantCulture;
+    var detail = new DriverDetailInfo { DeviceName = "GPU" };
+
+    Check("null -> プレースホルダーを表示",
+        (Visibility)nullToVis.Convert(null, typeof(Visibility), null, ci) == Visibility.Visible);
+    Check("非null -> プレースホルダーを隠す",
+        (Visibility)nullToVis.Convert(detail, typeof(Visibility), null, ci) == Visibility.Collapsed);
+    Check("null -> 内容を隠す",
+        (Visibility)notNullToVis.Convert(null, typeof(Visibility), null, ci) == Visibility.Collapsed);
+    Check("非null -> 内容を表示",
+        (Visibility)notNullToVis.Convert(detail, typeof(Visibility), null, ci) == Visibility.Visible);
+
+    foreach (object? v in new object?[] { null, detail, "", 0 })
+        Check($"2つのコンバーターが逆の結果を返す ({v?.GetType().Name ?? "null"})",
+            (Visibility)nullToVis.Convert(v, typeof(Visibility), null, ci)
+            != (Visibility)notNullToVis.Convert(v, typeof(Visibility), null, ci));
+
+    // 片方向束縛なので ConvertBack は呼ばれてはならない。黙って既定値を返すと
+    // 「なぜか表示が壊れる」形の不具合になるため、明示的に例外にしてある
+    Check("ConvertBack は NotSupportedException",
+        Throws(() => nullToVis.ConvertBack(Visibility.Visible, typeof(object), null, ci)));
+    Check("ConvertBack は NotSupportedException (NotNull 版)",
+        Throws(() => notNullToVis.ConvertBack(Visibility.Visible, typeof(object), null, ci)));
+
+    static bool Throws(Action a)
+    {
+        try { a(); return false; }
+        catch (NotSupportedException) { return true; }
+        catch { return false; }
+    }
 }
 
 Console.WriteLine();
