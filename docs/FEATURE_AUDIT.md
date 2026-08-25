@@ -183,6 +183,18 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 署名の強制により、`pnputil` は未署名ドライバーのドライバーストア追加を拒否する。
 加えて WHQL 状態を UI に提示し、BYOVD 照合は CAB 展開後の中身に対して行っている。
 
+### 配布(publish)に関する制約
+
+10言語対応は publish の設定ひとつで無言のうちに壊れる。以下は**変更してはいけない**:
+
+- `InvariantGlobalization` は `false`(true にすると ICU が落ち `CultureInfo("ja-JP")` 等が解決不能)
+- `SatelliteResourceLanguages` は**指定しない**(絞るとサテライトが落ちて全ラベルが `[キー名]` になる)
+- `Strings.resx`(中立リソース、en-US の内容)を消さない。サテライトが落ちても
+  英語で動くための保険。以前は全10言語が culture 付きで中立リソースが存在せず、
+  `GetString()` の `"[キー名]"` フォールバックのせいで**例外も出さずに UI が全滅する**状態だった
+
+`tools/check-packages.py` が上記3点を機械検証する。
+
 ### テストコードの検証状況
 
 `tests/AeroDriver.Core.Tests`(2,186行)は xunit が restore できないため**一度も
