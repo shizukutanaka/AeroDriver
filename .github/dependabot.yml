@@ -1,10 +1,24 @@
+# Dependabot 設定。
+# 注意: 以前ここに `automerge:` というキーが書かれていたが、これは Dependabot の
+# スキーマに存在しない。不明なキーがあると設定ファイル全体が無効として扱われ、
+# 更新 PR が一切作られない(エラーもリポジトリの Dependabot 画面にしか出ない)。
+# 自動マージは Dependabot 設定ではなくリポジトリ側の auto-merge 機能で行う。
 version: 2
 updates:
+  # 実際の依存はすべて NuGet。以前は github-actions だけを監視していたが、
+  # このリポジトリにはワークフローが1つも無いため何も監視していなかった。
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    ignore:
+      # System.CommandLine は beta4 固定。beta5 は破壊的変更を含み GA 未達のため
+      # 自動更新させない(CLAUDE.md「やってはいけない近代化」参照)。
+      - dependency-name: "System.CommandLine"
+
+  # ワークフローを追加したとき自動的に効くよう残しておく。
   - package-ecosystem: "github-actions"
     directory: "/"
-    allow:
-      - dependency-type: "direct"
-    automerge:
-      - dependency-type: "direct"
     schedule:
       interval: "weekly"
