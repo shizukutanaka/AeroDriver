@@ -68,8 +68,10 @@ Core is compiled and executed for real (130 assertions), and `MainViewModel` is
 executed too (101 assertions, against hand-written mocks and a real DI container).
 The script also checks that no user-visible string is hardcoded in the XAML and that
 every `{Binding ...}` name resolves to a real ViewModel or model member.
-The remaining WPF and CLI code is type-checked against minimal stubs because their
-packages cannot be restored here. This does **not** replace
+The remaining WPF and CLI code — and the whole xunit test suite — is type-checked
+against minimal stubs because their packages cannot be restored here. The script also
+validates the solution file and every `PackageReference`, two things that previously
+broke the Windows build for reasons unrelated to Windows. This does **not** replace
 `dotnet build AeroDriver.sln && dotnet test` on Windows — XAML compilation,
 source-generator output, WMI behaviour and command-line parsing still need a real
 build. Each tool's README states its own limits.

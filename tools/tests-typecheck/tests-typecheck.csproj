@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Library</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <NoWarn>$(NoWarn);CA1416;CS8600;CS8602;CS8604;CS8620;CS8625</NoWarn>
+  </PropertyGroup>
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <!-- Core 全体(WMI スタブは core-typecheck と共有) -->
+    <Compile Include="../core-typecheck/Stubs.cs" />
+    <Compile Include="../../src/AeroDriver.Core/**/*.cs" Exclude="../../src/AeroDriver.Core/obj/**/*.cs;../../src/AeroDriver.Core/bin/**/*.cs" />
+    <!-- テストコード本体 -->
+    <Compile Include="../../tests/AeroDriver.Core.Tests/**/*.cs" Exclude="../../tests/AeroDriver.Core.Tests/obj/**/*.cs;../../tests/AeroDriver.Core.Tests/bin/**/*.cs" />
+  </ItemGroup>
+</Project>

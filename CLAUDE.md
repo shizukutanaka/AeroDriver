@@ -55,6 +55,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   足したらここにも追加すること。**WPF層の手書きC#は `tools/ui-typecheck` で型検査できる**
   (WPF/CommunityToolkit の最小スタブに対して実コンパイル。XAML とジェネレーター実出力は対象外)。
   **CLI は `tools/cli-typecheck`**(System.CommandLine の最小スタブ。実パース挙動は対象外)。
+  **テストコードは `tools/tests-typecheck`**(xunit/FluentAssertions/NSubstitute の最小スタブ。
+  テストが Core の現在の API と整合しているかを検査する。実行は対象外)。
   **WMI依存を含む Core 全体は `tools/core-typecheck`**(WMI の最小スタブ。実WMI動作は対象外)。
   **`MainViewModel` は `tools/ui-run` で実行検証できる**(ジェネレーター再現側のコマンドを
   実 private ハンドラーへ配線し、手書きモック+本物の DI コンテナで実際に走らせる。73アサーション。
