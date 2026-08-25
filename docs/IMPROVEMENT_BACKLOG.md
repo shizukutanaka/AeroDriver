@@ -37,10 +37,11 @@
    — スタブに対する実コンパイルで、**プロジェクト内の全C#が何らかの形でコンパイラを通った**。
    **WMI依存の `DriverService`/`WdacHelper` も型検査済み**(`tools/core-typecheck`)。
    到達できないのは **実行時の挙動**のみ: XAML のコンパイル(Windows専用)、ソースジェネレーターの
-   実出力、実WMIクエリ、System.CommandLine の実パース、および xunit が restore できないためのテスト実行
-2. **CI 不在**: GitHub App トークンに `workflows` 権限がなく push 不可(YAML は `FEATURE_AUDIT.md` §5)
-3. **MainViewModel のユニットテスト**: xunit/NSubstitute が restore できないため作成不可。
-   設計はモック可能なままなので、NuGet が使える環境で着手できる
+   実出力、実WMIクエリ、System.CommandLine の実パース。
+   **`MainViewModel` は `tools/ui-run` で実行検証済み**(73アサーション全通過)
+2. **CI 不在**: GitHub App トークンに `workflows` 権限がなく push 不可(YAML は `FEATURE_AUDIT.md` §5)。
+   **2026-08-24 に実地検証済み** — 使い捨てブランチへの Contents API 書き込みが
+   `403 Resource not accessible by integration` で拒否された。伝聞ではなく実測の不可能
 
 #### (b) 意図的な設計判断(欠陥ではない)
 
@@ -75,6 +76,7 @@
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
 | K | 署名検証の失敗理由が全て「署名が無効」で、オフライン時に誤診断 | `DescribeVerificationFailure` で原因を区別(**フェイルクローズは維持**) |
+| U | `MainViewModel.InstallAllUpdatesAsync` の一括完了メッセージだけ**日本語がハードコード**されていた(`{n} 件は再起動が必要です`)。単体インストール経路は `Install_RebootRequired` キー経由で、同じ事象が経路によって翻訳されたりされなかったりしていた | `ILanguageService.GetString("Install_RebootRequired")` に統一。`tools/ui-run` の実行検証で発見 |
 
 ---
 
@@ -109,9 +111,12 @@
 
 ### P2 — 品質向上 [Sonnet]
 
-- [ ] **MainViewModelのユニットテスト**(短所7): `AeroDriver.UI.Tests`プロジェクト新設
-  (注意: 過去に幽霊参照事故あり。slnへの追加を確実に)。`IFileDialogService`/`IThemeService`/
-  `IServiceScopeFactory`をNSubstituteでモックし、Scan/InstallAll/言語切替の状態遷移を検証
+- [x] ~~**MainViewModelのユニットテスト**(短所7)~~ 完了: 手段は xunit ではなく `tools/ui-run`。
+  NuGet が遮断されているため xunit/NSubstitute は restore できないが、**xunit は手段であって目的ではない**。
+  ジェネレーター再現側のコマンドを実 private ハンドラーへ配線し、手書きモックと**本物の DI コンテナ**で
+  ViewModel を実際に走らせる方式に切り替えて 73 アサーションを実行検証(Scan/InstallAll/AdminRequired 早期中断/
+  言語・テーマ切替/CanExecute/失敗メッセージのリソースキー経由)。NuGet が使える環境で xunit 版を
+  作る場合も、検証項目は `tools/ui-run/Program.cs` をそのまま移植できる
 - [x] ~~**USB VID/PID対応**(短所10)~~ 完了(36d710c): `HardwareIdParser` を新設。
   現在の利用者は `WindowsUpdateAgentSource`(`WhqlDatabaseService` は後にデッドコードとして削除)
 - [x] ~~**JSON統一**(短所8)~~ 完了: Newtonsoft 参照を全削除(その後 `WhqlDatabaseService` 自体を

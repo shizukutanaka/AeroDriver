@@ -54,10 +54,19 @@ NuGet に到達できなくてもロギング依存のサービスまで検証�
 一方 `".."` は除去対象の文字を含まないため素通りし、正規化後のルート配下チェックで弾かれる。
 **両方の経路があるので、「例外が出るか」だけを見るテストは誤判定する**。
 
-**カバーしないもの**: WMI(`Microsoft.Management.Infrastructure`)に依存する `DriverService` と
-`WdacHelper`、外部パッケージ依存(`System.CommandLine` の CLI、
-`CommunityToolkit.Mvvm` の WPF、xunit のテストプロジェクト)。
+**このハーネスがカバーしないもの**(姉妹ハーネスがそれぞれ引き受けている):
+
+| 対象 | 担当 | 種別 |
+|---|---|---|
+| WMI 依存を含む Core 全体 | `tools/core-typecheck` | 型検査(WMI スタブ) |
+| WPF の手書き C# | `tools/ui-typecheck` | 型検査(WPF/Toolkit スタブ) |
+| `MainViewModel` の振る舞い | `tools/ui-run` | **実行**(モック + 本物の DI) |
+| CLI | `tools/cli-typecheck` | 型検査(System.CommandLine スタブ) |
+
+いずれのハーネスでも検証**できない**もの: XAML コンパイル、ソースジェネレーターの実出力、
+実 WMI / 実 pnputil / 実 WUA の動作、System.CommandLine の実パース挙動。
 これらは引き続き Windows 実機での `dotnet build AeroDriver.sln && dotnet test` が必要。
+`tools/verify-all.sh` が上記すべてを一括で回す。
 
 ## 純粋ロジックを追加したら
 

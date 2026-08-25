@@ -7,20 +7,25 @@
 
 ---
 
-## タスクA: MainViewModelのユニットテスト(短所7) — [P2 Sonnet]
+## タスクA: MainViewModelのユニットテスト(短所7) — **完了(`tools/ui-run`)**
 
-**手順**:
+この環境では NuGet が遮断されており xunit/NSubstitute を restore できないため、
+**xunit ではなく `tools/ui-run` で同じ検証を実行済み**(73アサーション全通過)。
+ジェネレーター再現側(`Generated.cs`)のコマンドを実 private ハンドラーと実 CanExecute 述語へ
+配線し、手書きモック(`Mocks.cs`)と**本物の `Microsoft.Extensions.DependencyInjection`** で
+ViewModel を実際に走らせる方式。`tools/verify-all.sh` から自動実行される。
+
+**NuGet が使える環境で xunit 版を作る場合**(任意。優先度は低い):
+
 1. `tests/AeroDriver.UI.Tests/AeroDriver.UI.Tests.csproj` を新設(`net8.0-windows`、
    `AeroDriver.UI` を参照、xunit/NSubstitute/FluentAssertions は既存テストプロジェクトの版に合わせる)。
 2. **`AeroDriver.sln` への追加を確実に**(過去に「幽霊プロジェクト参照」でビルドが壊れた事故あり。
    FEATURE_AUDIT.md §4参照)。GUIDと構成マッピングを既存プロジェクトと同形式で追記。
-3. `IServiceScopeFactory`/`ILanguageService`/`IFileDialogService`/`IThemeService`/`ILogger<MainViewModel>` を
-   NSubstituteでモックし、`IDriverService` もモックしてスコープから返す。
-4. 検証する状態遷移: `ScanCommand` 実行で `InstalledDrivers` が満たされる / `IsBusy` が実行中true→完了false /
-   `InstallAllUpdatesAsync` が成功項目を除去 / 言語切替でラベルプロパティの `PropertyChanged` が発火。
+3. 検証項目は `tools/ui-run/Program.cs` をそのまま移植できる。モックも `tools/ui-run/Mocks.cs` が
+   NSubstitute の代わりにそのまま使える(手書きなので依存ゼロ)。
 
 **ハマりどころ**: `System.Progress<T>` はテスト環境に SynchronizationContext が無いとThreadPoolで
-コールバックする。テストでは進捗の同期検証を避け、最終状態を検証する。
+コールバックする。テストでは進捗の同期検証を避け、最終状態を検証する(`ui-run` もそうしている)。
 
 ---
 
