@@ -195,6 +195,33 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 
 `tools/check-packages.py` が上記3点を機械検証する。
 
+### verify-windows.ps1 の検証状況
+
+`tools/verify-windows.ps1` は長らく**構文検査すらされていなかった**(この環境に pwsh が
+無いと判断していたため)。しかし **PowerShell の公式配布経路は GitHub Releases** であり、
+GitHub は到達可能だった:
+
+```
+https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz
+```
+
+同リリースの `hashes.sha256` と SHA256 が一致することを確認したうえで導入し、公式パーサー
+(`System.Management.Automation.Language.Parser::ParseFile`)で構文検査、さらに Linux 上で
+実行して挙動を確認した。その結果**実際の欠陥が3件**見つかった:
+
+1. Windows でないとき中断せず restore/build まで進み、本当の原因(Windows で動かしていない)が
+   55行のノイズに埋もれていた → 即座に中断して終了
+2. restore 失敗後も build/test を実行して同じ原因の失敗を積み上げていた
+   → 前段が失敗したら SKIP する
+3. `Check` の戻り値が出力ストリームに漏れて `True`/`False` が混ざっていた
+   → `$null =` で受ける
+
+`tools/verify-all.sh` に構文検査とガード動作の確認を組み込み済み(pwsh が無い環境では
+スキップし、その旨を表示する)。構文エラーの注入・ガードの除去の両方で検出できることを
+確認している。
+
+**それでも Windows 側の経路(restore/build/test/スモーク)は未実行**である点は変わらない。
+
 ### DI コンテナの検証状況
 
 `ServiceCollectionExtensions.ConfigureServices()` は**一度も実行されていなかった**
