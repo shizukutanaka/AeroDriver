@@ -76,6 +76,9 @@
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
 | K | 署名検証の失敗理由が全て「署名が無効」で、オフライン時に誤診断 | `DescribeVerificationFailure` で原因を区別(**フェイルクローズは維持**) |
+| X | GUI が「10言語対応・ライブ言語切替」と謳っていたが、`MainWindow.xaml` に**日本語が20箇所直書き**されていた(列ヘッダー・キャンセル・詳細ペインのラベル全部)。非日本語環境では UI が半分しか翻訳されていなかった | リソースキー15個を全10言語に追加。列ヘッダーは `BindingProxy`(Freezable)経由で束縛。`verify-all.sh` に「XAML にハードコード文字列を残さない」チェックを追加して再発を防止 |
+| W | 設定5件(復元ポイント/バックアップ/世代数/起動時確認/ベータ)を Core は尊重していたのに、**GUI にも CLI にも変更手段が無く**設定ファイルを手編集するしかなかった | `SettingsKeys` に定義を集約し、CLI `config --set key=value` と GUI ツールバーのトグルから到達可能にした |
+| V | `PnpUtilDriverSource.AddDriverAsync`/`DeleteDriverAsync` が消費者ゼロの死にコード。かつ `BackupService` の復元成否判定が pnputil の**ロケール依存な出力文字列**を必要条件にしており、英語/日本語以外の Windows では成功しても失敗と報告していた | 死にコードを削除して列挙専用に。成否は終了コードのみを根拠にする |
 | U | `MainViewModel.InstallAllUpdatesAsync` の一括完了メッセージだけ**日本語がハードコード**されていた(`{n} 件は再起動が必要です`)。単体インストール経路は `Install_RebootRequired` キー経由で、同じ事象が経路によって翻訳されたりされなかったりしていた | `ILanguageService.GetString("Install_RebootRequired")` に統一。`tools/ui-run` の実行検証で発見 |
 
 ---

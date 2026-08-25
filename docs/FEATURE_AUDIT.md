@@ -261,6 +261,14 @@ jobs:
 - `tools/verify-all.sh`: 上記に加え XAML の `{Binding ...}` 名と ViewModel/Models の
   メンバー名の一致を機械チェック
 
+**2026-08-25 追加**: GUI に日本語が20箇所直書きされていた問題(列ヘッダー・キャンセル
+ボタン・詳細ペインのラベル全部)を解消し、リソースキー15個を全10言語に追加。DataGrid の
+列ヘッダーはビジュアルツリー外で DataContext を継承しないため、`Helpers/BindingProxy.cs`
+(Freezable を `Window.Resources` に置く定番手法)を経由して束縛している。
+あわせて設定トグル4つ(復元ポイント/バックアップ/ベータ/起動時確認)をツールバーに追加。
+設定は Core が以前から尊重していたが GUI/CLI のどちらからも変更できなかった
+(CLI 側は `config --set key=value` を新設)。
+
 **依然として未検証**: XAML のコンパイル、ソースジェネレーターの実出力、実WMI/実pnputil。
 Windows実機での `dotnet build AeroDriver.sln && dotnet test` は引き続き必要。
 

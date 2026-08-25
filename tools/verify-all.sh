@@ -45,7 +45,29 @@ for b in $(grep -ohP '\{Binding \K[A-Za-z]+(?=[},])' ../src/AeroDriver.UI/*.xaml
     grep -qE "public [^ ]+ $b" "$models" && continue
     echo "  $b: ViewModel にも Models にも対応メンバーが無い"; bind=1; fail=1
 done
+# BindingProxy 経由 {Binding Data.Xxx, Source={StaticResource Proxy}} ⇔ ViewModel のプロパティ
+for b in $(grep -ohP '\{Binding Data\.\K[A-Za-z]+' ../src/AeroDriver.UI/*.xaml | sort -u); do
+    grep -qE "public [^ ]+ $b" "$vm" || { echo "  Data.$b: ViewModel に対応プロパティが無い"; bind=1; fail=1; }
+done
+# Proxy を使うなら Window.Resources に BindingProxy が居ること
+if grep -q 'StaticResource Proxy' ../src/AeroDriver.UI/MainWindow.xaml \
+   && ! grep -q 'BindingProxy x:Key="Proxy"' ../src/AeroDriver.UI/MainWindow.xaml; then
+    echo "  StaticResource Proxy を参照しているが BindingProxy が定義されていない"; bind=1; fail=1
+fi
 [ $bind -eq 0 ] && echo "  全束縛が ViewModel と一致"
+
+# 6b. XAML にユーザー可視のハードコード文字列を残さない(10言語対応の宣言を守る)
+# 属性値の日本語を検出する。XMLコメント内は対象外
+printf '\n=== XAML のハードコード文字列 ===\n'
+hard=$(grep -nP '="[^"]*[ぁ-んァ-ヶ一-龠][^"]*"' ../src/AeroDriver.UI/*.xaml \
+       | grep -vP "^\S+:\s*<!--" || true)
+if [ -n "$hard" ]; then
+    echo "$hard" | sed 's|^|  |'
+    echo "  → ILanguageService 経由のラベルに置き換えること"
+    fail=1
+else
+    echo "  ユーザー可視文字列は全てリソース経由"
+fi
 
 # 7. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
 printf '\n=== XML 妥当性 ===\n'

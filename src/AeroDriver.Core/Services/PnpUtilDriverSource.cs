@@ -14,23 +14,23 @@ namespace AeroDriver.Core.Services
     /// <summary>
     /// pnputil.exe (Windows 標準ユーティリティ) を使ってドライバーストアを列挙します。
     /// WMI と異なりドライバーストアに存在する全パッケージを取得できます。
-    /// 無料・Windows 標準・管理者権限不要（列挙のみ）。
+    /// 無料・Windows 標準・管理者権限不要。
+    /// <para>
+    /// <b>列挙専用</b>です。ドライバーストアへの追加/削除は
+    /// <see cref="DriverService"/> と <see cref="BackupService"/> が終了コードで
+    /// 成否を判定する実装を持っており、そちらに一本化しています。
+    /// </para>
     /// </summary>
     [SupportedOSPlatform("windows")]
     public class PnpUtilDriverSource : IDriverUpdateSource
     {
         private readonly ILogger<PnpUtilDriverSource> _logger;
-        // null 許容: 未登録(テスト等)なら照合はスキップされる
-        private readonly VulnerableDriverBlocklist? _vulnerableDriverBlocklist;
 
         public string SourceName => "pnputil";
 
-        public PnpUtilDriverSource(
-            ILogger<PnpUtilDriverSource> logger,
-            VulnerableDriverBlocklist? vulnerableDriverBlocklist = null)
+        public PnpUtilDriverSource(ILogger<PnpUtilDriverSource> logger)
         {
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-            _vulnerableDriverBlocklist = vulnerableDriverBlocklist;
         }
 
         public async Task<IReadOnlyList<DriverInfo>> SearchUpdatesAsync(CancellationToken cancellationToken = default)
@@ -59,57 +59,6 @@ namespace AeroDriver.Core.Services
         {
             var output = await RunPnpUtilAsync(["/enum-drivers", "/all"], cancellationToken);
             return ParseEnumOutput(output);
-        }
-
-        /// <summary>
-        /// pnputil /add-driver でINFパッケージを追加します（管理者権限が必要）
-        /// </summary>
-        public async Task<bool> AddDriverAsync(string infPath, CancellationToken cancellationToken = default)
-        {
-            // DriverService.InstallDriverUpdateWithResultAsync/InstallCustomDriverAsync と同じ
-            // 既知の脆弱ドライバー(BYOVD)照合。この経路からもドライバーストアへの追加が
-            // 可能なため、単一のチョークポイントに頼らずここでも適用する
-            if (_vulnerableDriverBlocklist != null)
-            {
-                try
-                {
-                    if (await _vulnerableDriverBlocklist.IsKnownVulnerableAsync(infPath, cancellationToken).ConfigureAwait(false))
-                    {
-                        _logger.LogWarning(
-                            "既知の脆弱ドライバー(BYOVD悪用実績あり)のため追加を拒否しました: {Path}", infPath);
-                        return false;
-                    }
-                }
-                catch (OperationCanceledException)
-                {
-                    throw;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "脆弱ドライバー照合中にエラーが発生しました(照合をスキップします): {Path}", infPath);
-                }
-            }
-
-            // ArgumentList: 文字列結合ではなく引数トークンを個別指定 → インジェクション不可
-            var output = await RunPnpUtilAsync(["/add-driver", infPath, "/install"], cancellationToken)
-                .ConfigureAwait(false);
-            bool success = output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
-                           output.Contains("正常", StringComparison.OrdinalIgnoreCase);
-            _logger.LogInformation("pnputil /add-driver {Path}: {Result}", infPath, success ? "成功" : "失敗");
-            return success;
-        }
-
-        /// <summary>
-        /// pnputil /delete-driver でドライバーパッケージを削除します（管理者権限が必要）
-        /// </summary>
-        public async Task<bool> DeleteDriverAsync(string oemInfName, CancellationToken cancellationToken = default)
-        {
-            var output = await RunPnpUtilAsync(["/delete-driver", oemInfName, "/force"], cancellationToken)
-                .ConfigureAwait(false);
-            bool success = output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
-                           output.Contains("正常", StringComparison.OrdinalIgnoreCase);
-            _logger.LogInformation("pnputil /delete-driver {Inf}: {Result}", oemInfName, success ? "成功" : "失敗");
-            return success;
         }
 
         private async Task<string> RunPnpUtilAsync(string[] args, CancellationToken ct)

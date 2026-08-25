@@ -25,6 +25,7 @@
     <!-- ILogger のみに依存するサービス/ヘルパー（WMI・COM 非依存のもの） -->
     <Compile Include="../../src/AeroDriver.Core/Interfaces/IInstallHistoryService.cs" />
     <Compile Include="../../src/AeroDriver.Core/Interfaces/ISettingsService.cs" />
+    <Compile Include="../../src/AeroDriver.Core/Helpers/SettingsKeys.cs" />
     <Compile Include="../../src/AeroDriver.Core/Services/InstallHistoryService.cs" />
     <Compile Include="../../src/AeroDriver.Core/Services/SettingsService.cs" />
     <Compile Include="../../src/AeroDriver.Core/Services/VulnerableDriverBlocklist.cs" />

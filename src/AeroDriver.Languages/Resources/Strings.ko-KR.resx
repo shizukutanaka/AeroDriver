@@ -66,9 +66,6 @@
   <data name="Button_Restore" xml:space="preserve">
     <value>복원</value>
   </data>
-  <data name="Button_Exit" xml:space="preserve">
-    <value>종료</value>
-  </data>
   <data name="Status_Scanning" xml:space="preserve">
     <value>드라이버 검사 중...</value>
   </data>
@@ -101,5 +98,56 @@
   </data>
   <data name="Settings_CreateRestorePoint" xml:space="preserve">
     <value>업데이트 전에 시스템 복원 지점 만들기</value>
+  </data>
+  <data name="Settings_BackupBeforeInstall" xml:space="preserve">
+    <value>업데이트 전에 현재 드라이버를 백업합니다</value>
+  </data>
+  <data name="Settings_IncludeBeta" xml:space="preserve">
+    <value>베타(사전 릴리스) 드라이버 포함</value>
+  </data>
+  <data name="Button_Cancel" xml:space="preserve">
+    <value>취소</value>
+  </data>
+  <data name="Column_DeviceName" xml:space="preserve">
+    <value>장치 이름</value>
+  </data>
+  <data name="Column_Version" xml:space="preserve">
+    <value>버전</value>
+  </data>
+  <data name="Column_Provider" xml:space="preserve">
+    <value>공급자</value>
+  </data>
+  <data name="Column_Source" xml:space="preserve">
+    <value>소스</value>
+  </data>
+  <data name="Detail_Title" xml:space="preserve">
+    <value>드라이버 세부 정보</value>
+  </data>
+  <data name="Detail_Hint" xml:space="preserve">
+    <value>장치를 두 번 클릭하면 세부 정보가 표시됩니다</value>
+  </data>
+  <data name="Detail_Signature" xml:space="preserve">
+    <value>서명</value>
+  </data>
+  <data name="Detail_Manufacturer" xml:space="preserve">
+    <value>제조업체</value>
+  </data>
+  <data name="Detail_Class" xml:space="preserve">
+    <value>클래스</value>
+  </data>
+  <data name="Detail_Status" xml:space="preserve">
+    <value>상태</value>
+  </data>
+  <data name="Detail_Path" xml:space="preserve">
+    <value>경로</value>
+  </data>
+  <data name="Detail_Size" xml:space="preserve">
+    <value>크기</value>
+  </data>
+  <data name="Detail_ValidTo" xml:space="preserve">
+    <value>유효 기간</value>
+  </data>
+  <data name="Detail_TrustedChain" xml:space="preserve">
+    <value>신뢰 체인</value>
   </data>
 </root>

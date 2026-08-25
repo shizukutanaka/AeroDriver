@@ -52,6 +52,73 @@ namespace AeroDriver.UI.ViewModels
         public string UpdatesTabHeader => _lang.GetString("Driver_Status_UpdateAvailable");
         public string LanguageLabel => _lang.GetString("Settings_Language");
         public string ThemeLabel => _lang.GetString("Settings_Theme");
+        public string CreateRestorePointLabel => _lang.GetString("Settings_CreateRestorePoint");
+        public string BackupBeforeInstallLabel => _lang.GetString("Settings_BackupBeforeInstall");
+        public string IncludeBetaLabel => _lang.GetString("Settings_IncludeBeta");
+        public string AutoCheckLabel => _lang.GetString("Settings_CheckForUpdates");
+
+        // DataGrid の列ヘッダーと詳細ペインのラベル。以前は XAML に日本語が直書きされており、
+        // 非日本語環境では UI が半分しか翻訳されていなかった。BindingProxy 経由で束縛する。
+        public string CancelButtonText => _lang.GetString("Button_Cancel");
+        public string ColumnDeviceNameText => _lang.GetString("Column_DeviceName");
+        public string ColumnVersionText => _lang.GetString("Column_Version");
+        public string ColumnProviderText => _lang.GetString("Column_Provider");
+        public string ColumnSourceText => _lang.GetString("Column_Source");
+        public string DetailTitleText => _lang.GetString("Detail_Title");
+        public string DetailHintText => _lang.GetString("Detail_Hint");
+        public string DetailSignatureText => _lang.GetString("Detail_Signature");
+        public string DetailManufacturerText => _lang.GetString("Detail_Manufacturer");
+        public string DetailClassText => _lang.GetString("Detail_Class");
+        public string DetailStatusText => _lang.GetString("Detail_Status");
+        public string DetailPathText => _lang.GetString("Detail_Path");
+        public string DetailSizeText => _lang.GetString("Detail_Size");
+        public string DetailValidToText => _lang.GetString("Detail_ValidTo");
+        public string DetailTrustedChainText => _lang.GetString("Detail_TrustedChain");
+
+        // 設定トグル。Core は以前からこれらを尊重していたが、GUI/CLI のどこからも
+        // 変更できず設定ファイルを手編集するしかなかった。ここで到達可能にする。
+        // 変更は即座に保存する（明示的な「保存」ボタンを持たない設計）。保存に失敗しても
+        // 実行中のセッションには値が反映されているため処理は継続する（可用性層はフェイルオープン）。
+        public bool CreateRestorePointEnabled
+        {
+            get => _settings.CreateRestorePoint;
+            set { _settings.CreateRestorePoint = value; SaveSettings(); OnPropertyChanged(nameof(CreateRestorePointEnabled)); }
+        }
+
+        public bool BackupBeforeInstall
+        {
+            get => _settings.BackupEnabled;
+            set { _settings.BackupEnabled = value; SaveSettings(); OnPropertyChanged(nameof(BackupBeforeInstall)); }
+        }
+
+        public bool IncludeBetaDrivers
+        {
+            get => _settings.IncludeBetaDrivers;
+            set { _settings.IncludeBetaDrivers = value; SaveSettings(); OnPropertyChanged(nameof(IncludeBetaDrivers)); }
+        }
+
+        public bool AutoCheckOnStartup
+        {
+            get => _settings.AutoUpdateEnabled;
+            set { _settings.AutoUpdateEnabled = value; SaveSettings(); OnPropertyChanged(nameof(AutoCheckOnStartup)); }
+        }
+
+        private void SaveSettings()
+        {
+            try
+            {
+                _settings.Save();
+            }
+            catch (System.OperationCanceledException)
+            {
+                throw;
+            }
+            catch (System.Exception ex)
+            {
+                // 設定が保存できなくても現在のセッションには反映済み。機能全体を止めない
+                _logger.LogWarning(ex, "設定の保存に失敗しました");
+            }
+        }
 
         [ObservableProperty]
         [NotifyCanExecuteChangedFor(nameof(ScanCommand))]
@@ -132,6 +199,25 @@ namespace AeroDriver.UI.ViewModels
             OnPropertyChanged(nameof(UpdatesTabHeader));
             OnPropertyChanged(nameof(LanguageLabel));
             OnPropertyChanged(nameof(ThemeLabel));
+            OnPropertyChanged(nameof(CreateRestorePointLabel));
+            OnPropertyChanged(nameof(BackupBeforeInstallLabel));
+            OnPropertyChanged(nameof(IncludeBetaLabel));
+            OnPropertyChanged(nameof(AutoCheckLabel));
+            OnPropertyChanged(nameof(CancelButtonText));
+            OnPropertyChanged(nameof(ColumnDeviceNameText));
+            OnPropertyChanged(nameof(ColumnVersionText));
+            OnPropertyChanged(nameof(ColumnProviderText));
+            OnPropertyChanged(nameof(ColumnSourceText));
+            OnPropertyChanged(nameof(DetailTitleText));
+            OnPropertyChanged(nameof(DetailHintText));
+            OnPropertyChanged(nameof(DetailSignatureText));
+            OnPropertyChanged(nameof(DetailManufacturerText));
+            OnPropertyChanged(nameof(DetailClassText));
+            OnPropertyChanged(nameof(DetailStatusText));
+            OnPropertyChanged(nameof(DetailPathText));
+            OnPropertyChanged(nameof(DetailSizeText));
+            OnPropertyChanged(nameof(DetailValidToText));
+            OnPropertyChanged(nameof(DetailTrustedChainText));
         }
 
         // 選択が変わったら以前の詳細表示はクリアする（明示的に「詳細」を押すまで空）

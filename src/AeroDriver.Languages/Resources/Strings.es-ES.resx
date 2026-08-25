@@ -66,9 +66,6 @@
   <data name="Button_Restore" xml:space="preserve">
     <value>Restaurar</value>
   </data>
-  <data name="Button_Exit" xml:space="preserve">
-    <value>Salir</value>
-  </data>
   <data name="Status_Scanning" xml:space="preserve">
     <value>Buscando controladores...</value>
   </data>
@@ -101,5 +98,56 @@
   </data>
   <data name="Settings_CreateRestorePoint" xml:space="preserve">
     <value>Crear un punto de restauración del sistema antes de actualizar</value>
+  </data>
+  <data name="Settings_BackupBeforeInstall" xml:space="preserve">
+    <value>Hacer copia de seguridad del controlador actual antes de actualizar</value>
+  </data>
+  <data name="Settings_IncludeBeta" xml:space="preserve">
+    <value>Incluir controladores beta (versión preliminar)</value>
+  </data>
+  <data name="Button_Cancel" xml:space="preserve">
+    <value>Cancelar</value>
+  </data>
+  <data name="Column_DeviceName" xml:space="preserve">
+    <value>Nombre del dispositivo</value>
+  </data>
+  <data name="Column_Version" xml:space="preserve">
+    <value>Versión</value>
+  </data>
+  <data name="Column_Provider" xml:space="preserve">
+    <value>Proveedor</value>
+  </data>
+  <data name="Column_Source" xml:space="preserve">
+    <value>Origen</value>
+  </data>
+  <data name="Detail_Title" xml:space="preserve">
+    <value>Detalles del controlador</value>
+  </data>
+  <data name="Detail_Hint" xml:space="preserve">
+    <value>Haga doble clic en un dispositivo para ver sus detalles</value>
+  </data>
+  <data name="Detail_Signature" xml:space="preserve">
+    <value>Firma</value>
+  </data>
+  <data name="Detail_Manufacturer" xml:space="preserve">
+    <value>Fabricante</value>
+  </data>
+  <data name="Detail_Class" xml:space="preserve">
+    <value>Clase</value>
+  </data>
+  <data name="Detail_Status" xml:space="preserve">
+    <value>Estado</value>
+  </data>
+  <data name="Detail_Path" xml:space="preserve">
+    <value>Ruta</value>
+  </data>
+  <data name="Detail_Size" xml:space="preserve">
+    <value>Tamaño</value>
+  </data>
+  <data name="Detail_ValidTo" xml:space="preserve">
+    <value>Válido hasta</value>
+  </data>
+  <data name="Detail_TrustedChain" xml:space="preserve">
+    <value>Cadena de confianza</value>
   </data>
 </root>
