@@ -168,6 +168,21 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 
 ---
 
+### Authenticode 検証を適用する経路(と、適用しない理由)
+
+`AuthenticodeHelper.VerifyTrustStatus` によるフェイルクローズ検証は **`.exe` / `.msi` のみ**に
+適用する。`.inf` / `.cab` には**意図的に適用していない**:
+
+ドライバーパッケージの署名は `.inf` 本体ではなく同梱の `.cat`(カタログ)に載っており、
+ファイル単体に対する `WinVerifyTrust` では検証できない(カタログ検証には
+`WINTRUST_CATALOG_INFO` とドライバー用のアクション GUID が必要)。
+「統一」のためにここへ同じ検査を足すと、**正当な INF パッケージを全て `SignatureInvalid` で
+弾く**ことになる。CLAUDE.md 規則7が言う「一方に合わせて統一しない」の実例。
+
+この経路の署名強制は Windows 自身が担う: 64bit の Windows 10/11 ではカーネルモードコード
+署名の強制により、`pnputil` は未署名ドライバーのドライバーストア追加を拒否する。
+加えて WHQL 状態を UI に提示し、BYOVD 照合は CAB 展開後の中身に対して行っている。
+
 ### BYOVD照合が届く範囲(既知の限界)
 
 照合は以下で行う: ダウンロード直後の実体ファイル、カスタムインストールの指定ファイル、

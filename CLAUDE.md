@@ -31,6 +31,9 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 - `Win32_PnPSignedDriver` は**継続利用**(レガシーだが非推奨化されていない)
 - `AuthenticodeHelper` の **WinVerifyTrust P/Invoke を X509Chain だけに戻さない**
   (X509Chainは署名がファイルの現バイト列をカバーしているか検証できない)
+- **`.inf`/`.cab` に `VerifyTrustStatus` を「統一」のために足さない**。ドライバーの署名は
+  同梱の `.cat` に載っており単体ファイル検証では通らないため、足すと正当な INF を全て弾く。
+  この経路の署名強制は Windows のカーネルモードコード署名が担う(FEATURE_AUDIT §4 参照)
 - BYOVDブロックリスト照合(`VulnerableDriverBlocklist`)を全インストール/復元経路
   (DriverService×2・DriverService の CAB 展開後・BackupService復元)から外さない。
   **コンテナ(.cab)は展開後の中身を照合すること**。LOLDrivers が公開しているのは
