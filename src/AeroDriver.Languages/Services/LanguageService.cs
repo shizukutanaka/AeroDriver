@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Resources;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using AeroDriver.Languages.Resources;
 
 namespace AeroDriver.Languages.Services
 {
