@@ -58,6 +58,9 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   **テストコードは `tools/tests-typecheck`**(xunit/FluentAssertions/NSubstitute の最小スタブ。
   テストが Core の現在の API と整合しているかを検査する。実行は対象外)。
   **WMI依存を含む Core 全体は `tools/core-typecheck`**(WMI の最小スタブ。実WMI動作は対象外)。
+  **DI コンテナは `tools/di-run` で実行検証できる**(`ConfigureServices` を実際に呼び、
+  `ValidateOnBuild`/`ValidateScopes` 付きでコンテナを構築してサービスを解決する。
+  解決不能サービスと captive dependency は実行時にしか出ないため型検査では見つからない)。
   **`MainViewModel` は `tools/ui-run` で実行検証できる**(ジェネレーター再現側のコマンドを
   実 private ハンドラーへ配線し、手書きモック+本物の DI コンテナで実際に走らせる。73アサーション。
   XAML・ジェネレーター実出力・実WMIは対象外)
@@ -69,7 +72,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
     の構造化ダンプのフィールド名は WMI プロパティ名に合わせて英語**という区別を守ること)
   - XAMLの`{Binding XxxCommand}`名 ⇔ ViewModelの`[RelayCommand]`メソッド名の一致
     (`tools/verify-all.sh` で自動化済み。プロパティ束縛も ViewModel/Models と照合する)
-  - DIライフタイム(Singleton→Scopedのcaptive dependencyを作らない)
+  - ~~DIライフタイム(Singleton→Scopedのcaptive dependencyを作らない)~~
+    → `tools/di-run` で自動化済み(`ValidateScopes` が検出する)
 - **重要**: WMI依存(`DriverService`/`WdacHelper`)・XAMLコンパイル・ソースジェネレーターの
   実出力・System.CommandLine の実パース挙動は依然未検証。Windows実機で
   `dotnet build AeroDriver.sln && dotnet test` を通すことが最優先タスク
