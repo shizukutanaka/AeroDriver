@@ -81,7 +81,7 @@ working rules live in [CLAUDE.md](CLAUDE.md).
 
 ```bash
 tools/verify-all.sh              # everything checkable without Windows
-pwsh -File tools/verify-windows.ps1   # the rest, on real Windows
+pwsh -File tools/verify-windows.ps1   # the rest, on real Windows (syntax-checked here)
 ```
 
 Core is compiled and executed for real (130 assertions), `MainViewModel` and the value

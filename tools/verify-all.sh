@@ -92,6 +92,40 @@ python3 check-sln.py || fail=1
 printf '\n=== PackageReference の過不足 ===\n'
 python3 check-packages.py || fail=1
 
+# 6e. verify-windows.ps1 の構文検査(pwsh があるときだけ)
+# この環境では Windows 実機検証は走らせられないが、**スクリプト自体の構文**は
+# PowerShell の公式パーサーで検査できる。pwsh は公式 GitHub Releases から入る:
+#   curl -sSL -o /tmp/pwsh.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz
+#   (同リリースの hashes.sha256 で SHA256 を照合すること)
+#   mkdir -p /opt/pwsh && tar -xzf /tmp/pwsh.tar.gz -C /opt/pwsh && chmod +x /opt/pwsh/pwsh
+printf '\n=== verify-windows.ps1 の構文 ===\n'
+PWSH=$(command -v pwsh || echo /opt/pwsh/pwsh)
+if [ -x "$PWSH" ]; then
+    if out=$("$PWSH" -NoProfile -Command '
+        $e=$null; $t=$null
+        [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path verify-windows.ps1), [ref]$t, [ref]$e) | Out-Null
+        if ($e) { $e | ForEach-Object { "  {0}:{1} {2}" -f $_.Extent.StartLineNumber, $_.Extent.StartColumnNumber, $_.Message }; exit 1 }
+        "  構文エラーなし ({0} トークン)" -f $t.Count' 2>&1); then
+        echo "$out"
+        # Windows 以外では即座に中断して終了コード1を返すこと(そこだけは実行検証できる)
+        # ガードが壊れていると restore/build に進んで数分かかるため timeout で切る
+        timeout 30 "$PWSH" -NoProfile -File verify-windows.ps1 >/dev/null 2>&1
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            echo "  非Windowsで成功してしまった(ガードが効いていない)"; fail=1
+        elif [ $rc -eq 124 ]; then
+            echo "  非Windowsで即座に中断しなかった(ガードが効いていない)"; fail=1
+        else
+            echo "  非Windowsでは中断する(ガード動作を確認)"
+        fi
+    else
+        echo "$out"; fail=1
+    fi
+else
+    echo "  pwsh が無いためスキップ(構文未検証)"
+fi
+
 # 7. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
 printf '\n=== XML 妥当性 ===\n'
 bad=0
