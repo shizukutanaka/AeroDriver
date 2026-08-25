@@ -76,6 +76,7 @@
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
 | K | 署名検証の失敗理由が全て「署名が無効」で、オフライン時に誤診断 | `DescribeVerificationFailure` で原因を区別(**フェイルクローズは維持**) |
+| Z | **BYOVD照合が `.cab` の中身に届いていなかった**。照合はコンテナ自体のハッシュに対して行われていたが、LOLDrivers が公開するのはドライバーバイナリ(`.sys`)の SHA256 であってコンテナのハッシュではない。**CAB で包むだけで照合をすり抜けられた**(`.cab` は README が明記する対応形式) | `InstallFromCabAsync` の展開後、pnputil 呼び出し前に展開ディレクトリ配下の全ファイルを照合し、1つでも一致すれば `KnownVulnerableDriver` を返す。`.exe`/`.msi` の内部ドライバーは静的に展開できないため意図的な限界として FEATURE_AUDIT に明記 |
 | Y | CLI も同様に、`Console` 出力の27箇所が日本語直書きだった(GetString 経由は19箇所のみ)。GUI と同じく「10言語対応」が非日本語ユーザーには成立していなかった | 散文14キーを全10言語に追加。`details`/`history` の構造化ダンプは WMI プロパティ名に合わせて**英語で統一**(localize すべきものと識別子を分ける)。`verify-all.sh` に CLI 版のハードコード検出も追加 |
 | X | GUI が「10言語対応・ライブ言語切替」と謳っていたが、`MainWindow.xaml` に**日本語が20箇所直書き**されていた(列ヘッダー・キャンセル・詳細ペインのラベル全部)。非日本語環境では UI が半分しか翻訳されていなかった | リソースキー15個を全10言語に追加。列ヘッダーは `BindingProxy`(Freezable)経由で束縛。`verify-all.sh` に「XAML にハードコード文字列を残さない」チェックを追加して再発を防止 |
 | W | 設定5件(復元ポイント/バックアップ/世代数/起動時確認/ベータ)を Core は尊重していたのに、**GUI にも CLI にも変更手段が無く**設定ファイルを手編集するしかなかった | `SettingsKeys` に定義を集約し、CLI `config --set key=value` と GUI ツールバーのトグルから到達可能にした |

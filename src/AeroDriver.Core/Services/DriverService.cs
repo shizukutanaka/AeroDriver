@@ -874,6 +874,36 @@ namespace AeroDriver.Core.Services
             }
         }
 
+        /// <summary>
+        /// 展開ディレクトリ配下の全ファイルを既知の脆弱ドライバーと照合する。
+        /// 1つでも一致すればtrue。ブロックリスト未登録や照合失敗はfalse(フェイルオープン)—
+        /// <see cref="IsBlockedAsVulnerableAsync"/> と同じ方針。
+        /// </summary>
+        private async Task<bool> IsAnyExtractedFileBlockedAsync(string extractDir, CancellationToken ct)
+        {
+            if (_vulnerableDriverBlocklist == null) return false;
+
+            try
+            {
+                foreach (var file in Directory.EnumerateFiles(extractDir, "*", SearchOption.AllDirectories))
+                {
+                    ct.ThrowIfCancellationRequested();
+                    if (await IsBlockedAsVulnerableAsync(file, ct).ConfigureAwait(false))
+                        return true;
+                }
+                return false;
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "展開ファイルの脆弱ドライバー照合中にエラーが発生しました(照合をスキップします): {Dir}", extractDir);
+                return false;
+            }
+        }
+
         private async Task<DriverInstallResult> InstallFromFileAsync(string filePath, string? installerType, CancellationToken ct)
         {
             var ext = (installerType ?? Path.GetExtension(filePath)).ToLowerInvariant().TrimStart('.');
@@ -1016,6 +1046,13 @@ namespace AeroDriver.Core.Services
                     _logger.LogWarning("展開したCAB内に.infが見つかりませんでした: {Path}", cabPath);
                     return DriverInstallResult.InstallerFailed;
                 }
+
+                // BYOVD照合は展開後の中身に対して行う。呼び出し元は .cab ファイル自体を
+                // 照合しているが、LOLDrivers が公開しているのはドライバーバイナリ(.sys)の
+                // SHA256 であってコンテナのハッシュではない。CAB で包むだけで照合を
+                // すり抜けられてしまうため、実際にドライバーストアへ入る中身を必ず見る。
+                if (await IsAnyExtractedFileBlockedAsync(extractDir, ct).ConfigureAwait(false))
+                    return DriverInstallResult.KnownVulnerableDriver;
 
                 var psi = new System.Diagnostics.ProcessStartInfo("pnputil.exe")
                 {
