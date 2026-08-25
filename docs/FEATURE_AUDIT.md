@@ -72,7 +72,7 @@
 ### 多言語基盤
 - `src/AeroDriver.Languages/Services/LanguageService.cs`: リソースベースの文字列取得+カルチャフォールバック
 - CLIに接続済み(`AeroDriver.CLI.csproj`が`AeroDriver.Languages`を参照)
-- 全10言語×29キーを翻訳済み(インストール失敗理由の `Install_*` 10キーを含む)。GUI から即時切替可能で、選択は永続化される
+- 全10言語×60キーを翻訳済み(インストール失敗理由の `Install_*` 10キーを含む)。GUI から即時切替可能で、選択は永続化される
 
 ### パフォーマンス最適化
 - `DriverService`: `ArrayPool<byte>`によるダウンロードバッファ再利用(LOHフラグメント防止)
@@ -121,7 +121,7 @@
 
 ~~`src/AeroDriver.Languages/Resources/` 配下の8言語の`.resx`が空~~ → **解消済み**。
 de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と同じキーの
-翻訳を追加し、`LanguageService.SupportedCultures`を10言語に復元した(現在は29キー)。
+翻訳を追加し、`LanguageService.SupportedCultures`を10言語に復元した(現在は60キー)。
 (補足: 空だった8ファイルはresheaderのアセンブリ名まで`...`と壊れていたため全面書き直した)
 
 ### セキュリティ系ヘルパーのテストカバレッジ状況
@@ -244,7 +244,7 @@ jobs:
   テーマ選択ComboBox→`SelectedTheme`→`ThemeService.Apply`
 - 一括インストール: 「すべて更新」ボタン(`InstallAllUpdatesCommand`)が`AvailableUpdates`
   (`DriverInstallOrder`で並んだ推奨順)を逐次インストール。進捗を`n/total`で表示、成功項目は
-  一覧から除去、キャンセル対応。新リソースキー`Button_UpdateAll`を全10言語に追加(計19キー)。
+  一覧から除去、キャンセル対応。新リソースキー`Button_UpdateAll`を全10言語に追加。
   CLI側は`update --install-all`で同等機能を提供
 
 未対応(将来拡張): 特になし(ロードマップのGUI項目は全て実装)。

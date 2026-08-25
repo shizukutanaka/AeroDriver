@@ -2,7 +2,7 @@
 
 Windows用ドライバー管理ツール。`AeroDriver.Core`(net8.0、WMI/pnputil/WUA COM) の上に
 CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成。10言語対応
-(`AeroDriver.Languages`、29キー×10 resx)。
+(`AeroDriver.Languages`、60キー×10 resx)。
 
 **最初に読むもの**: `docs/FEATURE_AUDIT.md`(実装済み/修正済み/未解決の引き継ぎ台帳)と
 `docs/IMPROVEMENT_BACKLOG.md`(長所/短所/優先度付き改善タスク。推奨モデルラベル付き)。
@@ -56,6 +56,9 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 - **それでも検証できない部分**では静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
   - 波括弧/括弧バランス(python等で機械チェック)
   - リソースキー追加時は**全10言語**の`.resx`に追加し、XML妥当性とキーパリティを機械検証
+    (`tools/verify-all.sh` が自動化済み。未使用キーの検出、GUI/CLI へのハードコード
+    文字列の混入検出も同時に行う。**ユーザーが読む散文はリソース経由、`details`/`history`
+    の構造化ダンプのフィールド名は WMI プロパティ名に合わせて英語**という区別を守ること)
   - XAMLの`{Binding XxxCommand}`名 ⇔ ViewModelの`[RelayCommand]`メソッド名の一致
     (`tools/verify-all.sh` で自動化済み。プロパティ束縛も ViewModel/Models と照合する)
   - DIライフタイム(Singleton→Scopedのcaptive dependencyを作らない)

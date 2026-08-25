@@ -98,5 +98,17 @@ for k in $(grep -ohP 'GetString\("\K[^"]+' ../src/AeroDriver.UI/ViewModels/MainV
 done
 [ $miss -eq 0 ] && echo "  使用中の全キーが 10/10"
 
+# 9. 未使用リソースキー(翻訳コストだけ払って誰も表示しないキーを溜めない)
+printf '\n=== 未使用リソースキー ===\n'
+orphan=0
+for k in $(python3 -c "
+import xml.etree.ElementTree as ET
+for d in ET.parse('../src/AeroDriver.Languages/Resources/Strings.en-US.resx').getroot().findall('data'):
+    print(d.get('name'))
+"); do
+    grep -rq "\"$k\"" ../src --include=*.cs || { echo "  未使用: $k"; orphan=1; fail=1; }
+done
+[ $orphan -eq 0 ] && echo "  全キーに使用箇所あり"
+
 printf '\n%s\n' "$([ $fail -eq 0 ] && echo '=== すべて成功 ===' || echo '=== 失敗あり ===')"
 exit $fail

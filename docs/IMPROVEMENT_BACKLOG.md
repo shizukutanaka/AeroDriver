@@ -15,7 +15,7 @@
 | テスト容易設計 | protectedコンストラクタでキャッシュパス注入(VulnerableDriverBlocklist/BackupService)、純粋関数化(`DriverInstallOrder`/`VersionHelper`/`WqlSanitizer`)、GUIも`IFileDialogService`/`IThemeService`で抽象化 |
 | 性能配慮 | `FrozenDictionary/Set`、`ArrayPool`、`[LoggerMessage]`、JSONソースジェネレーション、BoundedChannelバックプレッシャー |
 | ロジック共有 | CLI/GUIが同一Coreサービスを消費(例: 一括インストール順序は`CheckForUpdatesAsync`1箇所で決まり両UIに反映) |
-| ローカライズ | 10言語×19キー、パリティ機械検証済み。GUIは言語即時切替対応 |
+| ローカライズ | 10言語×60キー。パリティ・未使用キー・ハードコード混入を機械検証済み。GUIは言語即時切替対応 |
 
 ---
 
