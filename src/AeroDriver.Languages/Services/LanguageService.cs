@@ -49,7 +49,8 @@ namespace AeroDriver.Languages.Services
         private CultureInfo _currentCulture;
         private bool _disposed = false;
 
-        // Resources/ 配下の全10言語に19キーの翻訳が入力済みであることを確認済み。
+        // Resources/ 配下の全10言語に同一キーの翻訳が入力済みであることを確認済み。
+        // キー数は tools/verify-all.sh がパリティを機械検証している。
         // 新しい言語やキーを追加する場合は、全言語の .resx に <data> を追加してから
         // このリストに載せること（空の言語を載せると GetString() が "[キー名]" という
         // プレースホルダーをユーザーに見せてしまう）。
