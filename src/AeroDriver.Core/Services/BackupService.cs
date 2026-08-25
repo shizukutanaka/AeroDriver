@@ -313,12 +313,18 @@ namespace AeroDriver.Core.Services
             }
 
             if (outcome != InstallerOutcome.Success)
+            {
+                // 失敗時のみ pnputil の出力を残す（原因調査の手がかり）
+                _logger.LogError(
+                    "ドライバー復元失敗 (終了コード {ExitCode}): {Output}", process.ExitCode, output.Trim());
                 return false;
+            }
 
-            // 終了コード0のときのみ出力文字列も確認する（補助的な確認）。
-            // ロケール依存のため、これ単独を成否の根拠にはしない
-            return output.Contains("successfully", StringComparison.OrdinalIgnoreCase) ||
-                   output.Contains("正常", StringComparison.OrdinalIgnoreCase);
+            // 成否の根拠は終了コードのみ。pnputil の出力メッセージは**ロケール依存**で、
+            // 英語/日本語以外の Windows では成功時も "successfully"/"正常" を含まない。
+            // かつてこれを必要条件にしていたため、他言語環境では復元に成功していても
+            // 失敗と報告されていた（成功を失敗に変えることしかできない検査だった）。
+            return true;
         }
 
         public async Task CleanupOldBackupsAsync(int maxGenerations)

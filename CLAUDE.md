@@ -32,7 +32,9 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 - `AuthenticodeHelper` の **WinVerifyTrust P/Invoke を X509Chain だけに戻さない**
   (X509Chainは署名がファイルの現バイト列をカバーしているか検証できない)
 - BYOVDブロックリスト照合(`VulnerableDriverBlocklist`)を全インストール/復元経路
-  (DriverService×2・BackupService復元・PnpUtilDriverSource)から外さない
+  (DriverService×2・BackupService復元)から外さない。
+  経路を増やすときは必ずここも通すこと(`PnpUtilDriverSource` はかつて4本目の経路だったが、
+  消費者ゼロの死にコードだったため削除し、同クラスは列挙専用にした)
 
 ## 検証手順
 
