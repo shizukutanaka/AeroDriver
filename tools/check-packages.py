@@ -109,8 +109,39 @@ for csproj in sorted(projects):
         if not e.get('Version') and not e.get('VersionOverride'):
             errors.append(f'{name}: {e.get("Include")} に Version が無い')
 
+# --- 配布(publish)でローカライズが死なないための設定 ---
+# 10言語対応は publish の設定ひとつで無言のうちに壊れる。
+#   * InvariantGlobalization=true -> ICU が落ち CultureInfo が解決できない
+#   * SatelliteResourceLanguages を絞る -> サテライトアセンブリが落ち、
+#     GetString() が全て "[キー名]" を返す
+# 出荷される実行可能プロジェクト(OutputType が Exe/WinExe)にのみ課す。
+for csproj in sorted(projects):
+    root = ET.parse(csproj).getroot()
+    name = os.path.basename(csproj)
+    out = [e.text for e in root.iter('OutputType')]
+    if not any(o in ('Exe', 'WinExe') for o in out if o):
+        continue
+    props = {e.tag: (e.text or '').strip() for pg in root.iter('PropertyGroup') for e in pg}
+    if props.get('InvariantGlobalization', '').lower() != 'false':
+        errors.append(f'{name}: InvariantGlobalization を false と明示すること'
+                      ' (true だと ICU が落ちて10言語対応が成果物で死ぬ)')
+    if 'SatelliteResourceLanguages' in props:
+        errors.append(f'{name}: SatelliteResourceLanguages を指定してはいけない'
+                      ' (絞るとサテライトが落ち GetString が "[キー名]" を返す)')
+
+# 中立リソースが存在すること(サテライトが落ちても英語で動く保険)
+langdir = os.path.join(ROOT, 'src', 'AeroDriver.Languages', 'Resources')
+if os.path.isdir(langdir):
+    if not os.path.isfile(os.path.join(langdir, 'Strings.resx')):
+        errors.append('AeroDriver.Languages: 中立リソース Strings.resx が無い'
+                      ' (全てサテライトになり publish で落ちると UI が全滅する)')
+    lang_csproj = os.path.join(ROOT, 'src', 'AeroDriver.Languages', 'AeroDriver.Languages.csproj')
+    text = open(lang_csproj, encoding='utf-8').read()
+    if '<NeutralLanguage>' not in text:
+        errors.append('AeroDriver.Languages: NeutralLanguage が未設定')
+
 if errors:
     for e in errors:
         print(f'  {e}')
     sys.exit(1)
-print(f'  {len(projects)} プロジェクト。パッケージ参照に過不足なし')
+print(f'  {len(projects)} プロジェクト。パッケージ参照・配布設定・中立リソースとも健全')

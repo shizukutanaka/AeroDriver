@@ -4,6 +4,12 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- 配布(dotnet publish)の既定。README の Installation はこの設定を前提にしている。
+         InvariantGlobalization を true にすると ICU が落ち、CultureInfo("ja-JP") 等が
+         解決できなくなって10言語対応が成果物で死ぬ。SatelliteResourceLanguages を
+         絞るのも同様にサテライトアセンブリを落とすため指定しない(既定=全言語)。 -->
+    <InvariantGlobalization>false</InvariantGlobalization>
+    <SelfContained>false</SelfContained>
     <RootNamespace>AeroDriver.CLI</RootNamespace>
     <LangVersion>11.0</LangVersion>
   </PropertyGroup>

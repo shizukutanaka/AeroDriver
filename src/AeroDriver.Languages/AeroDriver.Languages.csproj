@@ -5,21 +5,18 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>AeroDriver.Languages</RootNamespace>
+    <!-- 中立(フォールバック)リソースの言語。Strings.resx が en-US の内容を持ち、
+         メインアセンブリに埋め込まれる。以前は全10言語が Strings.<culture>.resx で
+         サテライトアセンブリになっており中立リソースが存在しなかったため、
+         publish でサテライトが落ちると GetString() が全て "[キー名]" を返し
+         UI が無言で死ぬ状態だった。 -->
+    <NeutralLanguage>en-US</NeutralLanguage>
     <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
     <EmbeddedResourceUseDependentUponConvention>true</EmbeddedResourceUseDependentUponConvention>
   </PropertyGroup>
 
   <ItemGroup>
-  </ItemGroup>
-
-  <ItemGroup>
     <ProjectReference Include="..\AeroDriver.Core\AeroDriver.Core.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <None Update="Fonts\*">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 
 </Project>

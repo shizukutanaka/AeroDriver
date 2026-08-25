@@ -101,7 +101,7 @@ done < <(find .. \( -name "*.props" -o -name "*.csproj" -o -name "*.resx" -o -na
 printf '\n=== リソースキーのパリティ(10言語) ===\n'
 miss=0
 for k in $(grep -ohP 'GetString\("\K[^"]+' ../src/AeroDriver.UI/ViewModels/MainViewModel.cs ../src/AeroDriver.CLI/Program.cs | sort -u); do
-    n=$(grep -l "name=\"$k\"" ../src/AeroDriver.Languages/Resources/Strings.*.resx 2>/dev/null | wc -l)
+    n=$(grep -l "name=\"$k\"" ../src/AeroDriver.Languages/Resources/Strings.resx ../src/AeroDriver.Languages/Resources/Strings.*-*.resx 2>/dev/null | wc -l)
     [ "$n" -eq 10 ] || { echo "  $k: $n/10"; miss=1; fail=1; }
 done
 [ $miss -eq 0 ] && echo "  使用中の全キーが 10/10"
@@ -111,7 +111,7 @@ printf '\n=== 未使用リソースキー ===\n'
 orphan=0
 for k in $(python3 -c "
 import xml.etree.ElementTree as ET
-for d in ET.parse('../src/AeroDriver.Languages/Resources/Strings.en-US.resx').getroot().findall('data'):
+for d in ET.parse('../src/AeroDriver.Languages/Resources/Strings.resx').getroot().findall('data'):
     print(d.get('name'))
 "); do
     grep -rq "\"$k\"" ../src --include=*.cs || { echo "  未使用: $k"; orphan=1; fail=1; }

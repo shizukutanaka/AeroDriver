@@ -27,14 +27,34 @@ It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 
 ## 🚀 Installation
 
-### Command Line
-```bash
-dotnet build
-dotnet run --project src/AeroDriver.CLI -- scan
+AeroDriver is distributed as source. Build it on Windows with the .NET 8 SDK:
+
+```powershell
+git clone https://github.com/shizukutanaka/AeroDriver.git
+cd AeroDriver
+dotnet publish src/AeroDriver.CLI -c Release -r win-x64 -o dist\cli
+dotnet publish src/AeroDriver.UI  -c Release -r win-x64 -o dist\gui
 ```
 
-### GUI
+Then run `dist\cli\AeroDriver.CLI.exe scan` or `dist\gui\AeroDriver.UI.exe`.
+Both publish framework-dependent, so the [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0)
+must be installed. Add `--self-contained true` if you would rather not require it.
+
+> **Do not** pass `-p:InvariantGlobalization=true` or narrow `SatelliteResourceLanguages`.
+> Either one silently kills localization in the published output — every label becomes
+> `[Button_Scan]`. `tools/verify-all.sh` fails the build if these are set in the project files.
+
+### Elevation
+
+Scanning, `details`, `backups`, `history` and `config` run unelevated. Installing, rolling
+back and backing up modify the driver store and need an elevated prompt — the app does
+**not** ship a `requireAdministrator` manifest, so read-only use never triggers UAC.
+Unelevated write attempts return `AdminRequired` rather than failing obscurely.
+
+### Development
+
 ```bash
+dotnet run --project src/AeroDriver.CLI -- scan
 dotnet run --project src/AeroDriver.UI
 ```
 
