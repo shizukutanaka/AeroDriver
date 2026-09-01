@@ -178,6 +178,35 @@ Console.WriteLine("== DescribeResult: 全失敗理由がリソースキー経由
     }
 }
 
+Console.WriteLine("== WHQL 警告(README が謳う『WHQL未認定なら警告する』) ==");
+{
+    // 以前は _logger にしか出しておらず、コンソールを持たない WinExe の GUI では
+    // ユーザーが一生見られなかった。結果メッセージに載ることを実行で確かめる
+    async Task<string> InstallAndDescribe(bool whql, DriverInstallResult r)
+    {
+        var (v, d, _, _, _, _) = Build();
+        d.Updates = new List<DriverInfo>
+        {
+            new() { DeviceID = "A", DeviceName = "GPU", DriverVersion = "1.0", IsWHQLCertified = whql },
+        };
+        await v.CheckUpdatesCommand.ExecuteAsync(null);
+        v.SelectedUpdate = v.AvailableUpdates[0];
+        d.InstallResults.Enqueue(r);
+        await v.InstallSelectedCommand.ExecuteAsync(null);
+        return v.StatusMessage;
+    }
+
+    var warn = "[Warning_NotWhqlCertified]";
+    Check("非WHQL + 成功 → 警告が出る",
+        (await InstallAndDescribe(false, DriverInstallResult.Success)).Contains(warn));
+    Check("非WHQL + 再起動要求 → 警告が出る",
+        (await InstallAndDescribe(false, DriverInstallResult.SuccessRebootRequired)).Contains(warn));
+    Check("非WHQL + 失敗 → 警告が出る",
+        (await InstallAndDescribe(false, DriverInstallResult.InstallerFailed)).Contains(warn));
+    Check("WHQL認定済み → 警告は出ない",
+        !(await InstallAndDescribe(true, DriverInstallResult.Success)).Contains(warn));
+}
+
 Console.WriteLine("== Backup / Rollback / Details ==");
 {
     var (vm, drv, _, _, _, _) = Build();

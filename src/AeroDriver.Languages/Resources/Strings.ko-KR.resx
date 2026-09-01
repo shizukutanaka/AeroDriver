@@ -207,4 +207,7 @@
   <data name="FileDialog_FilterAll" xml:space="preserve">
     <value>모든 파일</value>
   </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>WHQL 인증을 받지 않았습니다</value>
+  </data>
 </root>

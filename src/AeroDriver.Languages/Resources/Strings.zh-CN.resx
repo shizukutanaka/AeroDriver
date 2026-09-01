@@ -207,4 +207,7 @@
   <data name="FileDialog_FilterAll" xml:space="preserve">
     <value>所有文件</value>
   </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>未通过 WHQL 认证</value>
+  </data>
 </root>

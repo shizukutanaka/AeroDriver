@@ -458,15 +458,22 @@ namespace AeroDriver.UI.ViewModels
         {
             var name = target.DeviceName ?? string.Empty;
 
+            // WHQL非認定は結果の成否と独立した警告。README が「WHQL未認定なら警告する」と
+            // 謳っているのに、以前はログにしか出しておらず、コンソールを持たない
+            // WinExe の GUI ではユーザーが一生見られなかった
+            var whql = target.IsWHQLCertified
+                ? string.Empty
+                : $" — {_lang.GetString("Warning_NotWhqlCertified")}";
+
             if (result == DriverInstallResult.Success)
-                return $"{_lang.GetString("Status_Complete")}: {name} {target.DriverVersion}";
+                return $"{_lang.GetString("Status_Complete")}: {name} {target.DriverVersion}{whql}";
 
             if (result == DriverInstallResult.SuccessRebootRequired)
                 return $"{_lang.GetString("Status_Complete")}: {name} {target.DriverVersion}"
-                     + $" — {_lang.GetString("Install_RebootRequired")}";
+                     + $" — {_lang.GetString("Install_RebootRequired")}{whql}";
 
             var reason = _lang.GetString(ResultResourceKey(result));
-            return string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}";
+            return (string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}") + whql;
         }
 
         /// <summary>失敗理由に対応するリソースキー。</summary>

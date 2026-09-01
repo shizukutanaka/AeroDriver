@@ -207,4 +207,7 @@
   <data name="FileDialog_FilterAll" xml:space="preserve">
     <value>Tous les fichiers</value>
   </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>Non certifié WHQL</value>
+  </data>
 </root>
