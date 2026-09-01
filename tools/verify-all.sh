@@ -118,7 +118,13 @@ python3 check-packages.py || fail=1
 #   curl -sSL -o /tmp/pwsh.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz
 #   (同リリースの hashes.sha256 で SHA256 を照合すること)
 #   mkdir -p /opt/pwsh && tar -xzf /tmp/pwsh.tar.gz -C /opt/pwsh && chmod +x /opt/pwsh/pwsh
-printf '\n=== verify-windows.ps1 の構文 ===\n'
+printf '\n=== verify-windows.ps1 の静的検査 ===\n'
+# pwsh の有無に依らず必ず走る。実際に使っている構文に絞った自前の検査で、
+# 括弧・引用符の均衡、Check の戻り値規約、-When 変数の定義順、
+# コマンドレット名の綴り、Start-Process の後始末を見る
+python3 check-ps1.py || fail=1
+
+printf '\n=== verify-windows.ps1 の構文(pwsh がある場合) ===\n'
 PWSH=$(command -v pwsh || echo /opt/pwsh/pwsh)
 if [ -x "$PWSH" ]; then
     if out=$("$PWSH" -NoProfile -Command '
