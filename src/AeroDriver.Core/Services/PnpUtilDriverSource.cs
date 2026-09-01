@@ -37,12 +37,12 @@ namespace AeroDriver.Core.Services
         {
             // pnputil はインストール済みドライバーのみ列挙するため
             // 「更新」はドライバーストア内の全エントリとして返す
-            return await GetInstalledDriversAsync(cancellationToken);
+            return await GetInstalledDriversAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<DriverInfo?> FindDriverAsync(string hardwareId, CancellationToken cancellationToken = default)
         {
-            var all = await GetInstalledDriversAsync(cancellationToken);
+            var all = await GetInstalledDriversAsync(cancellationToken).ConfigureAwait(false);
             foreach (var d in all)
             {
                 if (string.Equals(d.HardwareID, hardwareId, StringComparison.OrdinalIgnoreCase))
@@ -57,7 +57,7 @@ namespace AeroDriver.Core.Services
         public async Task<IReadOnlyList<DriverInfo>> GetInstalledDriversAsync(
             CancellationToken cancellationToken = default)
         {
-            var output = await RunPnpUtilAsync(["/enum-drivers", "/all"], cancellationToken);
+            var output = await RunPnpUtilAsync(["/enum-drivers", "/all"], cancellationToken).ConfigureAwait(false);
             return ParseEnumOutput(output);
         }
 
@@ -78,12 +78,12 @@ namespace AeroDriver.Core.Services
                 using var process = Process.Start(psi)
                     ?? throw new InvalidOperationException("pnputil.exe の起動に失敗しました");
 
-                var output = await process.StandardOutput.ReadToEndAsync(ct);
-                await process.WaitForExitAsync(ct);
+                var output = await process.StandardOutput.ReadToEndAsync(ct).ConfigureAwait(false);
+                await process.WaitForExitAsync(ct).ConfigureAwait(false);
 
                 if (process.ExitCode != 0)
                 {
-                    var err = await process.StandardError.ReadToEndAsync(ct);
+                    var err = await process.StandardError.ReadToEndAsync(ct).ConfigureAwait(false);
                     _logger.LogWarning("pnputil 終了コード {Code}: {Error}", process.ExitCode, err);
                 }
 
