@@ -10,9 +10,27 @@ cd "$(dirname "$0")"
 export LC_ALL=C.UTF-8
 fail=0
 
+# 実行ハーネス用。dotnet run は暗黙にビルドするが**インクリメンタル**なので、
+# 一度ビルドが通ると以降 CS 警告が再出力されない(実際に LanguageService の
+# CS8600 がそれで隠れていた)。明示的に --no-incremental でビルドし、
+# 警告を失敗として扱ってから --no-build で実行する
 run() {
     printf '\n=== %s ===\n' "$1"
-    if (cd "$2" && shift 2 && "$@" 2>&1 | tail -n "${TAIL:-6}"); then :; else fail=1; fi
+    local dir="$2"; shift 2
+    local out
+    if out=$(cd "$dir" && dotnet build -v q --nologo --no-incremental 2>&1); then
+        local warn
+        if warn=$(echo "$out" | grep -oP "warning CS\d+.*" | sed 's| \[/.*||' | sort -u); [ -n "$warn" ]; then
+            echo "$warn" | sed 's|^|  |'
+            echo "  → CS 警告は宣言と実装の不一致を示す(規則6)。潰すこと"
+            fail=1
+        fi
+    else
+        echo "$out" | grep -E "error" | sed 's|.*/src/|src/|' | sed 's| \[/.*||' | sort -u | head -10
+        fail=1
+        return
+    fi
+    if (cd "$dir" && "$@" --no-build 2>&1 | tail -n "${TAIL:-6}"); then :; else fail=1; fi
 }
 
 # 1. 純粋ロジックの実コンパイル+実行(アサーション)
@@ -28,9 +46,16 @@ run "lang-run: ローカライズ基盤の実行検証" lang-run dotnet run -v q
 run "di-run: DI コンテナの実行検証" di-run dotnet run -v q --nologo
 
 # 3-6. スタブに対する型検査(テストコードもここで Core の API と突き合わせる)(出力は成否のみで十分)
+# --no-incremental: インクリメンタルビルドだと再コンパイルが起きず**警告が再出力されない**。
+# 「警告ゼロ」を主張するなら毎回コンパイルさせないと嘘になる(実際に一度見落とした)
 for t in core-typecheck ui-typecheck cli-typecheck tests-typecheck; do
     printf '\n=== %s: 型検査 ===\n' "$t"
-    if out=$(cd "$t" && dotnet build -v q --nologo 2>&1); then
+    if out=$(cd "$t" && dotnet build -v q --nologo --no-incremental 2>&1); then
+        if warn=$(echo "$out" | grep -oP "warning CS\d+.*" | sed 's| \[/.*||' | sort -u); [ -n "$warn" ]; then
+            echo "$warn" | sed 's|^|  |'
+            echo "  → CS 警告は宣言と実装の不一致を示す(規則6)。潰すこと"
+            fail=1
+        fi
         echo "  Build succeeded"
     else
         echo "$out" | grep -E "error" | sed 's|.*/src/|src/|' | sed 's| \[/.*||' | sort -u | head -10
