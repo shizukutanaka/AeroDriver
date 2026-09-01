@@ -83,7 +83,7 @@ namespace AeroDriver.Core.Services
 
                 await File.WriteAllTextAsync(
                     Path.Combine(backupDir, "backup_info.json"),
-                    JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true }));
+                    JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
 
                 _logger.LogInformation("バックアップを作成しました: {BackupDir} (ファイル含む: {HasFiles})",
                     backupDir, exported);
@@ -91,7 +91,7 @@ namespace AeroDriver.Core.Services
                 // ISettingsService.MaxBackupGenerations 未実装時は BackupService が
                 // 常に固定3世代でクリーンアップしており、ユーザーが設定を変更しても
                 // 一切反映されないバグだった。実際の設定値を参照するよう修正。
-                await CleanupOldBackupsAsync(deviceDir, _settings.MaxBackupGenerations);
+                await CleanupOldBackupsAsync(deviceDir, _settings.MaxBackupGenerations).ConfigureAwait(false);
                 return true;
             }
             catch (Exception ex)
@@ -196,7 +196,7 @@ namespace AeroDriver.Core.Services
                 var infoFile = Path.Combine(backupDir, "backup_info.json");
                 if (File.Exists(infoFile))
                 {
-                    var info = await File.ReadAllTextAsync(infoFile);
+                    var info = await File.ReadAllTextAsync(infoFile).ConfigureAwait(false);
                     _logger.LogInformation("バックアップから復元中: {Info}", info);
                 }
 
@@ -335,7 +335,7 @@ namespace AeroDriver.Core.Services
                 throw new ArgumentOutOfRangeException(nameof(maxGenerations), "世代数は1以上を指定してください");
 
             foreach (var deviceDir in Directory.GetDirectories(_backupRoot))
-                await CleanupOldBackupsAsync(deviceDir, maxGenerations);
+                await CleanupOldBackupsAsync(deviceDir, maxGenerations).ConfigureAwait(false);
         }
 
         public bool HasBackup(DriverInfo driver)

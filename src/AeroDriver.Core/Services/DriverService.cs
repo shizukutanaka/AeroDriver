@@ -79,14 +79,14 @@ namespace AeroDriver.Core.Services
             }
 
             // SemaphoreSlim(1,1) で async-safe 排他 — lock() は await をまたげない
-            await _cacheLock.WaitAsync(cancellationToken);
+            await _cacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 // ダブルチェック: 待機中に別スレッドがキャッシュを更新した可能性
                 if (progress == null && _cachedDrivers != null && DateTime.UtcNow < _cacheExpiry)
                     return new List<DriverInfo>(_cachedDrivers);
 
-                return await ScanDriversAsync(progress, cancellationToken);
+                return await ScanDriversAsync(progress, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -223,7 +223,7 @@ namespace AeroDriver.Core.Services
                 var scanProgress = progress == null ? null : new Progress<DriverScanProgress>(p =>
                     progress.Report(p with { Phase = $"ドライバー検出: {p.Phase}" }));
 
-                var installed = await GetAllDriversAsync(scanProgress, cancellationToken);
+                var installed = await GetAllDriversAsync(scanProgress, cancellationToken).ConfigureAwait(false);
 
                 // HardwareID でインデックス化（照合用）
                 var installedByHwId = installed
@@ -243,7 +243,7 @@ namespace AeroDriver.Core.Services
                 int sourcesDone = 0;
                 var sourceTasks = _updateSources.Select(async s =>
                 {
-                    var result = await QuerySourceAsync(s, cancellationToken);
+                    var result = await QuerySourceAsync(s, cancellationToken).ConfigureAwait(false);
                     var done = Interlocked.Increment(ref sourcesDone);
                     progress?.Report(new DriverScanProgress
                     {
@@ -255,7 +255,7 @@ namespace AeroDriver.Core.Services
                     return result;
                 });
 
-                var allCandidates = (await Task.WhenAll(sourceTasks))
+                var allCandidates = (await Task.WhenAll(sourceTasks).ConfigureAwait(false))
                     .SelectMany(x => x)
                     .ToList();
 
@@ -325,7 +325,7 @@ namespace AeroDriver.Core.Services
         {
             try
             {
-                var results = await source.SearchUpdatesAsync(ct);
+                var results = await source.SearchUpdatesAsync(ct).ConfigureAwait(false);
                 _logger.LogInformation("  [{Source}] {Count} 件", source.SourceName, results.Count);
                 return results;
             }
@@ -392,7 +392,7 @@ namespace AeroDriver.Core.Services
 
                 bool backupCreated = false;
                 if (_settingsService.BackupEnabled)
-                    backupCreated = await _backupService.BackupDriverAsync(driverUpdate);
+                    backupCreated = await _backupService.BackupDriverAsync(driverUpdate).ConfigureAwait(false);
 
                 if (string.IsNullOrEmpty(driverUpdate.DownloadUrl))
                 {
@@ -418,7 +418,7 @@ namespace AeroDriver.Core.Services
                     HttpResponseMessage response;
                     try
                     {
-                        response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken);
+                        response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken).ConfigureAwait(false);
                         response.EnsureSuccessStatusCode();
                     }
                     catch (HttpRequestException ex)
@@ -451,10 +451,10 @@ namespace AeroDriver.Core.Services
                         {
                             using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
                                 bufferSize: 81920, useAsync: true);
-                            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                             long total = 0;
                             int read;
-                            while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                            while ((read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                             {
                                 total += read;
                                 // 実バイト数での上限チェック（Content-Length を偽ったり省略しても防げる）
@@ -467,7 +467,7 @@ namespace AeroDriver.Core.Services
                                         driverUpdate, false, "ダウンロードサイズが上限を超えています"));
                                     return DriverInstallResult.DownloadFailed;
                                 }
-                                await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                                await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                             }
                         }
                         finally
@@ -505,7 +505,7 @@ namespace AeroDriver.Core.Services
                     DriverInstallResult installResult;
                     try
                     {
-                        installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
+                        installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken).ConfigureAwait(false);
                     }
                     finally
                     {
@@ -644,7 +644,7 @@ namespace AeroDriver.Core.Services
                     return false;
                 }
 
-                bool result = await _backupService.RestoreDriverAsync(driver, backupVersion);
+                bool result = await _backupService.RestoreDriverAsync(driver, backupVersion).ConfigureAwait(false);
 
                 if (result)
                     _logger.LogInformation("ロールバック完了: {DeviceID}", deviceId);
@@ -768,7 +768,7 @@ namespace AeroDriver.Core.Services
                     }
 
                     return null;
-                }, cancellationToken);
+                }, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -855,7 +855,7 @@ namespace AeroDriver.Core.Services
                         return false;
 
                     string ext = Path.GetExtension(driverPath).ToLowerInvariant();
-                    var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
+                    var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken).ConfigureAwait(false);
                     return installResult.IsSuccess();
                 }
             }
@@ -1014,7 +1014,7 @@ namespace AeroDriver.Core.Services
             using var process = System.Diagnostics.Process.Start(psi);
             if (process == null) return DriverInstallResult.InstallerFailed;
 
-            await process.WaitForExitAsync(ct);
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
             return MapExitCode(process.ExitCode, filePath);
         }
 
@@ -1071,7 +1071,7 @@ namespace AeroDriver.Core.Services
                 using (var expandProcess = System.Diagnostics.Process.Start(expandPsi))
                 {
                     if (expandProcess == null) return DriverInstallResult.InstallerFailed;
-                    await expandProcess.WaitForExitAsync(ct);
+                    await expandProcess.WaitForExitAsync(ct).ConfigureAwait(false);
                     if (expandProcess.ExitCode != 0)
                     {
                         _logger.LogWarning("CABの展開に失敗しました (ExitCode={ExitCode}): {Path}", expandProcess.ExitCode, cabPath);
@@ -1105,7 +1105,7 @@ namespace AeroDriver.Core.Services
                 using var process = System.Diagnostics.Process.Start(psi);
                 if (process == null) return DriverInstallResult.InstallerFailed;
 
-                await process.WaitForExitAsync(ct);
+                await process.WaitForExitAsync(ct).ConfigureAwait(false);
                 return MapExitCode(process.ExitCode, infPath);
             }
             finally

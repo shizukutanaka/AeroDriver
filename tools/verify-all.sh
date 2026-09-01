@@ -164,6 +164,12 @@ done
 [ $miss -eq 0 ] && echo "  使用中の全キーが 10/10"
 
 # 9. 未使用リソースキー(翻訳コストだけ払って誰も表示しないキーを溜めない)
+printf '\n=== ConfigureAwait(CLAUDE.md 規則4) ===\n'
+python3 check-configureawait.py || fail=1
+
+printf '\n=== プロセス引数の組み立て(CLAUDE.md 規則5) ===\n'
+python3 check-processargs.py || fail=1
+
 printf '\n=== 検証→実行の同一性(TOCTOU) ===\n'
 python3 check-toctou.py || fail=1
 
