@@ -118,7 +118,15 @@ namespace AeroDriver.Core.Services
                 lock (_lock) snapshot = _data;
                 // Source Generation: リフレクション不要 → AOT互換・起動時間短縮
                 var json = JsonSerializer.Serialize(snapshot, SettingsJsonContext.Default.SettingsData);
-                File.WriteAllText(_settingsPath, json);
+
+                // 一時ファイルに書いてから置換する(InstallHistoryService の切り詰めと同じ方針)。
+                // File.WriteAllText は「切り詰めてから書く」ので、書き込み途中で電源断や
+                // プロセス終了が起きると**空/途中までの JSON**が残る。Load() はそれを
+                // 読めずに既定値へ落ちるため、ユーザーの設定が黙って全損する。
+                // File.Move(overwrite: true) は同一ボリューム上ではアトミックに置換される
+                var tempPath = _settingsPath + ".tmp";
+                File.WriteAllText(tempPath, json);
+                File.Move(tempPath, _settingsPath, overwrite: true);
                 _logger.LogInformation("設定を保存しました: {Path}", _settingsPath);
             }
             catch (Exception ex)

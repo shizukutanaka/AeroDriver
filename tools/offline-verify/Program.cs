@@ -389,6 +389,44 @@ Console.WriteLine("== InstallHistoryService の切り詰め(上限5MiB。安全�
     }
 }
 
+Console.WriteLine("== SettingsService の保存がアトミックであること ==");
+{
+    // File.WriteAllText は切り詰めてから書くため、途中で落ちると設定が全損する。
+    // 履歴の切り詰めと同じ temp+Move に統一したことを実際に確かめる
+    var cfg = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"atomic_{Guid.NewGuid():N}.json");
+    var log = Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance;
+    try
+    {
+        var svc = new AeroDriver.Core.Services.SettingsService(log, cfg);
+        svc.MaxBackupGenerations = 7;
+        svc.ThemeName = "Dark";
+        svc.Save();
+
+        Check("保存後に設定ファイルが存在する", System.IO.File.Exists(cfg));
+        Check("一時ファイルを残していない", !System.IO.File.Exists(cfg + ".tmp"));
+
+        var body = await System.IO.File.ReadAllTextAsync(cfg);
+        Check("中身が完全な JSON(切り詰められていない)",
+            body.TrimStart().StartsWith("{") && body.TrimEnd().EndsWith("}"), body);
+
+        var reloaded = new AeroDriver.Core.Services.SettingsService(log, cfg);
+        Check("保存内容が読み戻せる", reloaded.MaxBackupGenerations == 7 && reloaded.ThemeName == "Dark",
+            $"{reloaded.MaxBackupGenerations}/{reloaded.ThemeName}");
+
+        // 既存ファイルがある状態で上書きしても壊れないこと(Move の overwrite 経路)
+        reloaded.MaxBackupGenerations = 3;
+        reloaded.Save();
+        var again = new AeroDriver.Core.Services.SettingsService(log, cfg);
+        Check("上書き保存も読み戻せる", again.MaxBackupGenerations == 3, again.MaxBackupGenerations.ToString());
+        Check("上書き後も一時ファイルを残さない", !System.IO.File.Exists(cfg + ".tmp"));
+    }
+    finally
+    {
+        try { System.IO.File.Delete(cfg); } catch { }
+        try { System.IO.File.Delete(cfg + ".tmp"); } catch { }
+    }
+}
+
 Console.WriteLine("== PlatformGuard(Windows専用ツールを非対応OSで走らせない) ==");
 {
     // この環境は Linux。ガードが正しく「非対応」と判定することを実際に確かめる。

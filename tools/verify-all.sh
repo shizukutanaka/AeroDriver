@@ -201,6 +201,9 @@ python3 check-configureawait.py || fail=1
 printf '\n=== プロセス引数の組み立て(CLAUDE.md 規則5) ===\n'
 python3 check-processargs.py || fail=1
 
+printf '\n=== 永続ファイル書き込みのアトミック性 ===\n'
+python3 check-atomic-writes.py || fail=1
+
 printf '\n=== 検証→実行の同一性(TOCTOU) ===\n'
 python3 check-toctou.py || fail=1
 
