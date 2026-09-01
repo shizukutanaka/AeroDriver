@@ -299,6 +299,34 @@ Console.WriteLine("== Cancel ==");
     Check("実行中でない Cancel は無害", true);
 }
 
+Console.WriteLine("== Cancel: 実行中の操作を実際に中断する (この経路の初の実行検証) ==");
+{
+    var (vm, drv, _, _, _, _) = Build();
+    drv.Installed = new List<DriverInfo> { D("A", "GPU") };
+    drv.ScanGate = new TaskCompletionSource(); // スキャンをゲートで止めておく
+
+    var running = vm.ScanCommand.ExecuteAsync(null); // await しない = 実行中の状態を作る
+    // ゲートで止まっている間の状態
+    Check("実行中は IsBusy == true", vm.IsBusy);
+    Check("実行中は Cancel が可能", vm.CancelCommand.CanExecute(null));
+    Check("実行中は Scan の再実行が不可", !vm.ScanCommand.CanExecute(null));
+
+    vm.CancelCommand.Execute(null); // 実際にキャンセルする
+    await running;                  // RunAsync は例外を握って戻るので await は成功する
+
+    Check("キャンセル後は IsBusy == false", !vm.IsBusy);
+    Check("キャンセルはリソースキー経由で通知(エラー扱いしない)",
+        vm.StatusMessage == "[Status_Cancelled]", vm.StatusMessage);
+    Check("キャンセルされたスキャンの結果は反映されない", vm.InstalledDrivers.Count == 0,
+        vm.InstalledDrivers.Count.ToString());
+    Check("キャンセル後は Scan を再実行できる", vm.ScanCommand.CanExecute(null));
+
+    // ゲートを開けてもう一度走らせれば正常に完了する(キャンセルが状態を壊していない)
+    drv.ScanGate = null;
+    await vm.ScanCommand.ExecuteAsync(null);
+    Check("キャンセル後の再スキャンは成功する", vm.InstalledDrivers.Count == 1);
+}
+
 Console.WriteLine("== 詳細ペインのコンバーター ==");
 {
     // XAML の Visibility 束縛に使われているが一度も実行されていなかった。

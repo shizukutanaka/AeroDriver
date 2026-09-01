@@ -192,4 +192,19 @@
   <data name="Cli_Items" xml:space="preserve">
     <value>Element(e)</value>
   </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Abgebrochen</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Treiberdatei auswählen</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Treiberdateien</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>Alle Dateien</value>
+  </data>
 </root>

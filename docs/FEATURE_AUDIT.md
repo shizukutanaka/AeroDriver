@@ -254,6 +254,17 @@ captive dependency は存在しなかった。登録を1つ消す / `ISettingsSe
 対象外: 実 WMI、実 HTTP、レジリエンスポリシー(`AddStandardResilienceHandler` は
 no-op スタブ)、`App.xaml.cs` の UI 層 DI。
 
+### キャンセル経路の検証状況(2026-08-26)
+
+`MainViewModel.RunAsync` の `catch (OperationCanceledException)` 分岐 — つまり
+「実行中の操作を Cancel ボタンで実際に中断する」経路は、これまで一度も実行されて
+いなかった(ui-run は CanExecute の遷移とダイアログキャンセルのみ検証していた)。
+
+`tools/ui-run` の `MockDriverService.ScanGate`(TaskCompletionSource)でスキャンを
+実行中のまま止め、`CancelCommand` で実際に中断する8アサーションを追加。
+中断後の `IsBusy` 復帰・結果の非反映・ステータスのリソースキー経由・再実行可能性まで
+全て通った(ロジック自体は正しく、メッセージの日本語直書きのみが欠陥だった)。
+
 ### テストコードの検証状況
 
 `tests/AeroDriver.Core.Tests`(2,186行)は xunit が restore できないため**一度も

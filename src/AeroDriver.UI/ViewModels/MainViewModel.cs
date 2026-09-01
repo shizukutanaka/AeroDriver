@@ -431,7 +431,9 @@ namespace AeroDriver.UI.ViewModels
             }
             catch (System.OperationCanceledException)
             {
-                StatusMessage = _lang.GetString("Status_Error") + " (キャンセルされました)";
+                // キャンセルはユーザーが選んだ結果でありエラーではない。
+                // 以前は Status_Error + 日本語直書きの連結で、非日本語環境では半分だけ翻訳された
+                StatusMessage = _lang.GetString("Status_Cancelled");
             }
             catch (System.Exception ex)
             {

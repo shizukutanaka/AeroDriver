@@ -90,9 +90,12 @@ namespace AeroDriver.UI
             _serviceProvider?.GetService<ILogger<App>>()?
                 .LogError(e.Exception, "UIスレッドで未処理の例外が発生しました");
 
+            // キャプションもローカライズする。プロバイダー構築前に例外が来た場合に備え、
+            // logger と同じ null 安全パターンで解決し、最後は英語にフォールバックする
+            var caption = _serviceProvider?.GetService<ILanguageService>()?.GetString("Error_Title") ?? "Error";
             MessageBox.Show(
                 e.Exception.Message,
-                "エラー",
+                caption,
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
 

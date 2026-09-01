@@ -4,6 +4,10 @@
 # そこで出るはずのエラーを前倒しで潰すためのもの(各ツールの README に限界を明記)。
 set -uo pipefail
 cd "$(dirname "$0")"
+# 日本語検出の grep -P は locale 未設定だと UTF-8 のマルチバイト境界を誤認し、
+# EM DASH(U+2014)等を CJK と誤検出する(locale の無い素のコンテナで実際に発生)。
+# 環境に依存させない
+export LC_ALL=C.UTF-8
 fail=0
 
 run() {
@@ -74,6 +78,19 @@ if [ -n "$cli_hard" ]; then
     fail=1
 else
     echo "  Console 出力にハードコード文字列なし"
+fi
+
+printf '\n=== UI 層 .cs のハードコード文字列 ===\n'
+# ViewModel/サービス/App の C# にユーザー可視の日本語散文を残さない。
+# ログ(_logger./Log 系)は開発者向けの慣習として日本語を許容する。コメントも対象外
+ui_hard=$(grep -rnP '"[^"]*[ぁ-んァ-ヶ一-龠][^"]*"' ../src/AeroDriver.UI --include='*.cs' \
+          | grep -vP '_logger\.|\.Log[A-Za-z]*\(|^\s*//|:\s*//|///' || true)
+if [ -n "$ui_hard" ]; then
+    echo "$ui_hard" | sed 's|^|  |'
+    echo "  → ILanguageService 経由のラベル/メッセージに置き換えること"
+    fail=1
+else
+    echo "  ユーザー可視文字列は全てリソース経由(ログの日本語は対象外)"
 fi
 
 printf '\n=== XAML のハードコード文字列 ===\n'
