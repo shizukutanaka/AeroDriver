@@ -126,7 +126,16 @@ namespace AeroDriver.Core.Services
                 Directory.CreateDirectory(Path.GetDirectoryName(_cacheFile)!);
 
                 var content = await _httpClient.GetStringAsync(BlocklistUrl, ct).ConfigureAwait(false);
-                await File.WriteAllTextAsync(_cacheFile, content, ct).ConfigureAwait(false);
+
+                // 一時ファイルに書いてから置換する。File.WriteAllText は「切り詰めてから書く」ため、
+                // 途中でプロセスが落ちると**前半だけのキャッシュ**が残る。しかもその mtime は
+                // 新しいので TTL(7日)検査を通ってしまい、ブロックリストが空または不完全なまま
+                // 最大7日間使われる(空なら 15 分ごとに再読込するが、同じ壊れたファイルを
+                // 読み直すだけなので回復しない)。BYOVD 照合が黙って無効化される経路だった。
+                // 置換にすれば、落ちても「前の正常なキャッシュ」か「キャッシュ無し(=再取得)」になる
+                var tempFile = _cacheFile + ".tmp";
+                await File.WriteAllTextAsync(tempFile, content, ct).ConfigureAwait(false);
+                File.Move(tempFile, _cacheFile, overwrite: true);
                 var parsed = ParseSafe(content);
                 _logger.LogInformation("脆弱ドライバーリストを更新しました ({Count} ハッシュ)", parsed.Count);
                 return parsed;
