@@ -827,12 +827,37 @@ namespace AeroDriver.Core.Services
             {
                 _logger.LogInformation("カスタムドライバーをインストールします: {Path}", driverPath);
 
-                if (await IsBlockedAsVulnerableAsync(driverPath, cancellationToken).ConfigureAwait(false))
+                // TOCTOU対策: BYOVD照合・署名検証からインストール実行完了まで
+                // FileShare.Read（書き込み共有なし）のハンドルを保持し続ける。
+                // ダウンロード経路と同じ防御をここにも適用する（この経路が扱うのは
+                // ユーザーが選んだ任意のパスで、Downloads 等の書き込み可能な場所に
+                // あり得る。ロックが無いと、ハッシュ照合を通過した直後に非昇格の
+                // 攻撃者プロセスが既知の脆弱ドライバーへ差し替えられ、
+                // 昇格済みの本プロセスがそれをインストールしてしまう）。
+                FileStream lockStream;
+                try
+                {
+                    lockStream = new FileStream(driverPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                }
+                catch (IOException ex)
+                {
+                    // 他プロセスが書き込みハンドルを保持している＝検証と実行の同一性を
+                    // 保証できない。セキュリティ判定はフェイルクローズ（規則7）
+                    _logger.LogWarning(ex,
+                        "ファイルを排他的に読み取れないためインストールを中止しました" +
+                        "（検証したファイルと実行するファイルの同一性を保証できません）: {Path}", driverPath);
                     return false;
+                }
 
-                string ext = Path.GetExtension(driverPath).ToLowerInvariant();
-                var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
-                return installResult.IsSuccess();
+                using (lockStream)
+                {
+                    if (await IsBlockedAsVulnerableAsync(driverPath, cancellationToken).ConfigureAwait(false))
+                        return false;
+
+                    string ext = Path.GetExtension(driverPath).ToLowerInvariant();
+                    var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
+                    return installResult.IsSuccess();
+                }
             }
             catch (OperationCanceledException)
             {

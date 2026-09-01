@@ -25,6 +25,11 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
    (安全網が使えないことを理由に機能全体を殺さない)。**一方に合わせて「統一」しないこと**
 8. 外部入力(WMI文字列・ダウンロードURL・ユーザー指定パス)は信用しない:
    WQLは`WqlSanitizer`、パスは`Path.GetFullPath`正規化+ルート配下検証 or `Path.GetFileName`
+9. **検証したファイルと実行するファイルの同一性を保つ**: BYOVD照合・署名検証から
+   インストール実行完了まで `FileShare.Read`(書き込み共有なし)のハンドルを保持し続ける。
+   保持しないと、照合を通過した直後に別プロセスが脆弱ドライバーへ差し替えられる。
+   排他読み取りできない場合は中止する(規則7のフェイルクローズ)。
+   `tools/check-toctou.py` が「検証→実行」の全経路で強制する
 
 ## やってはいけない「近代化」(根拠は FEATURE_AUDIT.md §7)
 
