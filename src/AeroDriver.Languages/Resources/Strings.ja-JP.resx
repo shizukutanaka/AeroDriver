@@ -262,4 +262,7 @@
   <data name="FileDialog_FilterAll" xml:space="preserve">
     <value>すべてのファイル</value>
   </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>WHQL未認定です</value>
+  </data>
 </root>

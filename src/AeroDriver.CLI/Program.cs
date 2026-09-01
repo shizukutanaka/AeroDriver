@@ -432,12 +432,17 @@ namespace AeroDriver.CLI
         {
             var name = target.DeviceName ?? string.Empty;
 
+            // WHQL非認定は結果の成否と独立した警告(GUI の DescribeResult と対で維持する)
+            var whql = target.IsWHQLCertified
+                ? string.Empty
+                : $" — {lang.GetString("Warning_NotWhqlCertified")}";
+
             if (result == DriverInstallResult.Success)
-                return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}";
+                return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}{whql}";
 
             if (result == DriverInstallResult.SuccessRebootRequired)
                 return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}"
-                     + $" ({lang.GetString("Install_RebootRequired")})";
+                     + $" ({lang.GetString("Install_RebootRequired")}){whql}";
 
             var reason = lang.GetString(result switch
             {
@@ -451,7 +456,7 @@ namespace AeroDriver.CLI
                 DriverInstallResult.Cancelled             => "Install_Cancelled",
                 _                                         => "Install_UnknownError",
             });
-            return string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}";
+            return (string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}") + whql;
         }
 
         /// <summary>
