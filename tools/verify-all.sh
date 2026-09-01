@@ -164,6 +164,9 @@ done
 [ $miss -eq 0 ] && echo "  使用中の全キーが 10/10"
 
 # 9. 未使用リソースキー(翻訳コストだけ払って誰も表示しないキーを溜めない)
+printf '\n=== 検証→実行の同一性(TOCTOU) ===\n'
+python3 check-toctou.py || fail=1
+
 printf '\n=== キャンセルの伝播(CLAUDE.md 規則3) ===\n'
 python3 check-cancellation.py || fail=1
 
