@@ -13,6 +13,8 @@
       - 実 WMI クエリ / 実 pnputil / 実 WUA COM
       - System.CommandLine の実パース挙動
       - xunit テストの実行
+      - dotnet publish の成果物（サテライトアセンブリが落ちていないか）
+      - GUI の実起動（XAML はビルドを通っても起動時に落ちうる）
 
     このスクリプトはその残り全部を1コマンドで回す。
     IMPROVEMENT_BACKLOG.md の P0「Windows実機でのビルドとテスト」がこれに当たる。
@@ -24,7 +26,10 @@
 [CmdletBinding()]
 param(
     # scan / config など、システムを変更しない CLI コマンドの実起動を省く
-    [switch]$SkipSmoke
+    [switch]$SkipSmoke,
+
+    # GUI をウィンドウ表示して起動確認する工程を省く（ヘッドレスCI等）
+    [switch]$SkipGui
 )
 
 $ErrorActionPreference = 'Stop'
@@ -139,6 +144,73 @@ if (-not $SkipSmoke -and $built) {
         Invoke-Checked dotnet @('run', '--project', $cli, '-c', 'Release', '--no-build', '--', 'history') | Out-Null
     }
 }
+
+Write-Host "`n== 配布成果物 (dotnet publish) =="
+# README の Installation はこの手順を案内している。build だけでは
+# 「配布するとローカライズが死ぬ」種類の欠陥を捕まえられない
+$dist = Join-Path $repo 'dist-verify'
+$cliOut = Join-Path $dist 'cli'
+$guiOut = Join-Path $dist 'gui'
+
+$cliPublished = Check "dotnet publish (CLI, win-x64)" -When $built {
+    Invoke-Checked dotnet @('publish', "$repo\src\AeroDriver.CLI", '-c', 'Release',
+                            '-r', 'win-x64', '-o', $cliOut) | Out-Null
+}
+$guiPublished = Check "dotnet publish (GUI, win-x64)" -When $built {
+    Invoke-Checked dotnet @('publish', "$repo\src\AeroDriver.UI", '-c', 'Release',
+                            '-r', 'win-x64', '-o', $guiOut) | Out-Null
+}
+
+# サテライトアセンブリが9言語分そろっていること。
+# InvariantGlobalization や SatelliteResourceLanguages の設定ミスで落ちると、
+# 全ラベルが "[Button_Scan]" になった GUI が出荷される（実際に起きた欠陥）
+foreach ($pair in @(@{n='CLI'; p=$cliOut; ok=$cliPublished}, @{n='GUI'; p=$guiOut; ok=$guiPublished})) {
+    $null = Check "$($pair.n) の成果物に9言語のサテライトが揃っている" -When $pair.ok {
+        $cultures = @('ja-JP','zh-CN','ko-KR','fr-FR','es-ES','de-DE','it-IT','pt-BR','ru-RU')
+        $missing = @()
+        foreach ($c in $cultures) {
+            $dll = Join-Path (Join-Path $pair.p $c) 'AeroDriver.Languages.resources.dll'
+            if (-not (Test-Path $dll)) { $missing += $c }
+        }
+        if ($missing.Count -gt 0) {
+            throw "サテライトが欠落: $($missing -join ', ')"
+        }
+    }
+}
+
+$null = Check "配布した CLI が単体で動く (config)" -When $cliPublished {
+    $exe = Join-Path $cliOut 'AeroDriver.CLI.exe'
+    $out = & $exe config 2>&1
+    if ($LASTEXITCODE -ne 0) { throw ($out | Out-String) }
+    if (($out | Out-String) -notmatch 'restore-point') { throw "restore-point が出力に無い" }
+}
+
+# 注: 「非英語カルチャで実行して翻訳を確認する」検査は入れていない。
+# LanguageService は Thread.CurrentUICulture（= OS のユーザーカルチャ）を見るため、
+# 環境変数では切り替えられず、スクリプトから確実に再現する手段が無い。
+# サテライトの存在確認までで止め、実際の言語切替は GUI の言語コンボボックスで
+# 人が確認する（README の Verification に記載）。
+
+if (-not $SkipGui) {
+    Write-Host "`n== GUI の起動 =="
+    # XAML はビルドを通っても起動時に落ちうる（リソース辞書の解決失敗、
+    # DI の解決漏れ、コンバーターの型不一致など）。build では捕まらない
+    $null = Check "GUI が起動して生き残る" -When $guiPublished {
+        $exe = Join-Path $guiOut 'AeroDriver.UI.exe'
+        $proc = Start-Process -FilePath $exe -PassThru
+        try {
+            Start-Sleep -Seconds 8
+            if ($proc.HasExited) {
+                throw "起動直後に終了した (終了コード $($proc.ExitCode))"
+            }
+        } finally {
+            if (-not $proc.HasExited) { $proc.Kill(); $proc.WaitForExit(5000) | Out-Null }
+        }
+    }
+}
+
+# 後始末（成果物は検証専用。リポジトリに残さない）
+if (Test-Path $dist) { Remove-Item $dist -Recurse -Force -ErrorAction SilentlyContinue }
 
 Write-Host ""
 $summary = "verify-windows: $($script:pass) passed, $($script:fail) failed"
