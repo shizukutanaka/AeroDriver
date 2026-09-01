@@ -39,6 +39,14 @@ namespace AeroDriver.Core.Services
 
         private const string BlocklistUrl = "https://www.loldrivers.io/api/drivers.json";
 
+        /// <summary>
+        /// ブロックリスト応答の上限。ドライバー本体のダウンロードには 4 GiB の上限が
+        /// あったのに、こちらは GetStringAsync で**無制限に文字列へ展開**していた。
+        /// 配信元が乗っ取られたり応答が肥大したりすると OOM でプロセスごと落ちる。
+        /// 現在の drivers.json は十数 MB なので 64 MiB は十分に余裕がある。
+        /// </summary>
+        private const long MaxBlocklistBytes = 64L * 1024 * 1024;
+
         public VulnerableDriverBlocklist(ILogger<VulnerableDriverBlocklist> logger, HttpClient httpClient)
             : this(logger, httpClient, Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -125,7 +133,7 @@ namespace AeroDriver.Core.Services
                 _logger.LogInformation("脆弱ドライバーリストをダウンロードしています: {Url}", BlocklistUrl);
                 Directory.CreateDirectory(Path.GetDirectoryName(_cacheFile)!);
 
-                var content = await _httpClient.GetStringAsync(BlocklistUrl, ct).ConfigureAwait(false);
+                var content = await DownloadBoundedAsync(ct).ConfigureAwait(false);
 
                 // 一時ファイルに書いてから置換する。File.WriteAllText は「切り詰めてから書く」ため、
                 // 途中でプロセスが落ちると**前半だけのキャッシュ**が残る。しかもその mtime は
@@ -157,6 +165,42 @@ namespace AeroDriver.Core.Services
         /// 構造: [{ "KnownVulnerableSamples": [{ "SHA256": "..." }, ...] }, ...]
         /// 破損JSONは空集合を返す(フェイルオープン。例外を照合呼び出し元に漏らさない)。
         /// </summary>
+        /// <summary>
+        /// ブロックリストを上限付きでダウンロードする。Content-Length の申告と
+        /// 実バイト数の両方を見る(申告を偽られても防げるようにする。
+        /// DriverService のドライバーダウンロードと同じ方針)。
+        /// </summary>
+        private async Task<string> DownloadBoundedAsync(CancellationToken ct)
+        {
+            using var response = await _httpClient
+                .GetAsync(BlocklistUrl, HttpCompletionOption.ResponseHeadersRead, ct)
+                .ConfigureAwait(false);
+            response.EnsureSuccessStatusCode();
+
+            var declared = response.Content.Headers.ContentLength;
+            if (declared.HasValue && declared.Value > MaxBlocklistBytes)
+            {
+                throw new InvalidOperationException(
+                    $"脆弱ドライバーリストの申告サイズ {declared.Value} が上限 {MaxBlocklistBytes} を超えています");
+            }
+
+            using var stream = await response.Content.ReadAsStreamAsync(ct).ConfigureAwait(false);
+            using var buffer = new MemoryStream();
+            var chunk = new byte[81920];
+            int read;
+            while ((read = await stream.ReadAsync(chunk, ct).ConfigureAwait(false)) > 0)
+            {
+                if (buffer.Length + read > MaxBlocklistBytes)
+                {
+                    throw new InvalidOperationException(
+                        $"脆弱ドライバーリストが上限 {MaxBlocklistBytes} バイトを超えました");
+                }
+                buffer.Write(chunk, 0, read);
+            }
+
+            return System.Text.Encoding.UTF8.GetString(buffer.GetBuffer(), 0, (int)buffer.Length);
+        }
+
         private FrozenSet<string> ParseSafe(string json)
         {
             try

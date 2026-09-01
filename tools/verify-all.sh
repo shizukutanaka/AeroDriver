@@ -201,6 +201,9 @@ python3 check-configureawait.py || fail=1
 printf '\n=== プロセス引数の組み立て(CLAUDE.md 規則5) ===\n'
 python3 check-processargs.py || fail=1
 
+printf '\n=== ダウンロードのサイズ上限 ===\n'
+python3 check-download-limits.py || fail=1
+
 printf '\n=== 永続ファイル書き込みのアトミック性 ===\n'
 python3 check-atomic-writes.py || fail=1
 
