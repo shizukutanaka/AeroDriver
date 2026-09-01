@@ -26,15 +26,30 @@ namespace AeroDriver.UiRun
         public List<string> CustomInstallCalls { get; } = new();
         public DriverDetailInfo? Detail { get; set; }
         public Exception? ThrowOnScan { get; set; }
+        /// <summary>
+        /// 非null にすると GetAllDriversAsync はこの TCS が完了するまで待ち、
+        /// その間キャンセルを監視する。実行中の操作を Cancel ボタンで
+        /// 中断する経路を検証するために使う。
+        /// </summary>
+        public TaskCompletionSource? ScanGate { get; set; }
         public int DisposeCount { get; private set; }
         private DriverInstallResult _lastResult = DriverInstallResult.Success;
 
-        public Task<List<DriverInfo>> GetAllDriversAsync(
+        public async Task<List<DriverInfo>> GetAllDriversAsync(
             IProgress<DriverScanProgress>? progress = null, CancellationToken cancellationToken = default)
         {
             if (ThrowOnScan != null) throw ThrowOnScan;
+            if (ScanGate != null)
+            {
+                // 実サービスと同じく、キャンセルされたら OperationCanceledException を投げる
+                var cancelled = new TaskCompletionSource();
+                using var reg = cancellationToken.Register(() => cancelled.TrySetResult());
+                var winner = await Task.WhenAny(ScanGate.Task, cancelled.Task).ConfigureAwait(false);
+                if (winner == cancelled.Task)
+                    cancellationToken.ThrowIfCancellationRequested();
+            }
             progress?.Report(new DriverScanProgress { Phase = "scan", Current = Installed.Count, Total = Installed.Count });
-            return Task.FromResult(new List<DriverInfo>(Installed));
+            return new List<DriverInfo>(Installed);
         }
 
         public async IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
