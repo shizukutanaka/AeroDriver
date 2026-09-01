@@ -13,6 +13,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 1. **課金要素・テレメトリ禁止**。データソースとツールはWindows標準またはOSS/無料のみ
 2. **Windows標準API優先**: `CimSession`(WMI)、`pnputil.exe`、WUA COM
 3. **`OperationCanceledException`は再スロー**。`catch (Exception)`で握りつぶさない
+   (`tools/check-cancellation.py` が機械検証する。握りつぶすと「キャンセルが成功に化ける」—
+   実際に `RunPnpUtilAsync` で空文字列が「ドライバー0件」として成功表示されていた)
 4. **`ConfigureAwait(false)`** をライブラリ層(Core)全体で使用(UI層は `(true)` のまま)
 5. **`ProcessStartInfo.ArgumentList`** を使う。文字列結合で引数を組み立てない
 6. **宣言と実装を一致させる**: nullable注釈・XMLdoc・READMEは、実装がその通り動くことを
