@@ -210,4 +210,7 @@
   <data name="Warning_NotWhqlCertified" xml:space="preserve">
     <value>Без сертификации WHQL</value>
   </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>Этот инструмент работает только в Windows. Для перечисления драйверов используются WMI, pnputil и агент Центра обновления Windows</value>
+  </data>
 </root>

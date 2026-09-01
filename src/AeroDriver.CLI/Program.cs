@@ -44,6 +44,17 @@ namespace AeroDriver.CLI
 
             var lang = serviceProvider.GetRequiredService<ILanguageService>();
 
+            // 対応OSの確認。CLI は net8.0 のため Linux/macOS でも起動できてしまうが、
+            // WMI/pnputil/WUA が無いのでスキャンは「0 件検出」という成功に見える
+            // 誤った結果を返す。早期に、翻訳済みの理由を添えて止める
+            if (!PlatformGuard.IsSupportedPlatform())
+            {
+                Console.Error.WriteLine(
+                    $"{lang.GetString("Status_Error")}: {lang.GetString("Error_WindowsOnly")} " +
+                    $"({PlatformGuard.DescribeUnsupportedPlatform()})");
+                return ExitFailure;
+            }
+
             var rootCommand = new RootCommand($"{lang.GetString("AppName")} - {lang.GetString("AppDescription")}");
 
             var deviceIdOption = new Option<string?>("--device-id", "対象デバイスの DeviceID を指定します");

@@ -389,6 +389,25 @@ Console.WriteLine("== InstallHistoryService の切り詰め(上限5MiB。安全�
     }
 }
 
+Console.WriteLine("== PlatformGuard(Windows専用ツールを非対応OSで走らせない) ==");
+{
+    // この環境は Linux。ガードが正しく「非対応」と判定することを実際に確かめる。
+    // Windows でこれを走らせると逆の分岐になるが、どちらでも整合するよう書く
+    bool win = OperatingSystem.IsWindows();
+    Check($"IsSupportedPlatform が OS と一致 (IsWindows={win})",
+        PlatformGuard.IsSupportedPlatform() == win);
+    var desc = PlatformGuard.DescribeUnsupportedPlatform();
+    if (win)
+    {
+        Check("Windows では理由が null", desc == null, desc ?? "(null)");
+    }
+    else
+    {
+        Check("非Windows では理由が返る", !string.IsNullOrWhiteSpace(desc), desc ?? "(null)");
+        Check("理由に OS の識別情報が入る", desc!.Contains('/'), desc);
+    }
+}
+
 Console.WriteLine("== SettingsKeys (設定を UI から到達可能にする表) ==");
 {
     Check("全キーが一意", SettingsKeys.All.Select(e => e.Name).Distinct().Count() == SettingsKeys.All.Count);

@@ -210,4 +210,7 @@
   <data name="Warning_NotWhqlCertified" xml:space="preserve">
     <value>未通过 WHQL 认证</value>
   </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>此工具仅支持 Windows。驱动程序枚举使用 WMI、pnputil 和 Windows 更新代理</value>
+  </data>
 </root>
