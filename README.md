@@ -58,6 +58,10 @@ dotnet run --project src/AeroDriver.CLI -- scan
 dotnet run --project src/AeroDriver.UI
 ```
 
+Both need Windows. The CLI targets `net8.0` so it *starts* on Linux/macOS, but it
+exits immediately with a clear message rather than reporting a misleading
+"0 drivers found" — driver enumeration needs WMI, `pnputil` and the Windows Update Agent.
+
 ## 🧩 Architecture
 
 - **DriverService**: driver detection and update orchestration

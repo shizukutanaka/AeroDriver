@@ -210,4 +210,7 @@
   <data name="Warning_NotWhqlCertified" xml:space="preserve">
     <value>Nicht WHQL-zertifiziert</value>
   </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>Dieses Tool erfordert Windows. Die Treiberauflistung verwendet WMI, pnputil und den Windows Update-Agent</value>
+  </data>
 </root>

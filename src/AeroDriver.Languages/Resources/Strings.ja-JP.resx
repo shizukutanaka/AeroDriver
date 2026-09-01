@@ -265,4 +265,7 @@
   <data name="Warning_NotWhqlCertified" xml:space="preserve">
     <value>WHQL未認定です</value>
   </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>このツールは Windows 専用です。ドライバーの列挙に WMI・pnputil・Windows Update Agent を使用します</value>
+  </data>
 </root>

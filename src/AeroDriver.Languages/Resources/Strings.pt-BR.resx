@@ -210,4 +210,7 @@
   <data name="Warning_NotWhqlCertified" xml:space="preserve">
     <value>Sem certificação WHQL</value>
   </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>Esta ferramenta requer Windows. A enumeração de drivers usa WMI, pnputil e Windows Update Agent</value>
+  </data>
 </root>

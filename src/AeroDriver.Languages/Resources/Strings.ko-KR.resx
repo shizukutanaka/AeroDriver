@@ -210,4 +210,7 @@
   <data name="Warning_NotWhqlCertified" xml:space="preserve">
     <value>WHQL 인증을 받지 않았습니다</value>
   </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>이 도구는 Windows 전용입니다. 드라이버 열거에 WMI, pnputil, Windows 업데이트 에이전트를 사용합니다</value>
+  </data>
 </root>
