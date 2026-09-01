@@ -84,11 +84,19 @@ namespace AeroDriver.Core.Services
                 // 新規作成したバックアップディレクトリ内のメタデータ。途中まで書かれると
                 // その世代が復元不能になるため、他の永続ファイルと同じく置換で書く
                 var metaPath = Path.Combine(backupDir, "backup_info.json");
-                var metaTemp = metaPath + ".tmp";
-                await File.WriteAllTextAsync(
-                    metaTemp,
-                    JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
-                File.Move(metaTemp, metaPath, overwrite: true);
+                // 一時ファイル名はプロセスごとに一意にする(固定名だと複数プロセスが衝突する)
+                var metaTemp = metaPath + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+                try
+                {
+                    await File.WriteAllTextAsync(
+                        metaTemp,
+                        JsonSerializer.Serialize(meta, new JsonSerializerOptions { WriteIndented = true })).ConfigureAwait(false);
+                    File.Move(metaTemp, metaPath, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(metaTemp)) { try { File.Delete(metaTemp); } catch { } }
+                }
 
                 _logger.LogInformation("バックアップを作成しました: {BackupDir} (ファイル含む: {HasFiles})",
                     backupDir, exported);

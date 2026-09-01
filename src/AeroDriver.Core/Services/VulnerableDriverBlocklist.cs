@@ -141,9 +141,17 @@ namespace AeroDriver.Core.Services
                 // 最大7日間使われる(空なら 15 分ごとに再読込するが、同じ壊れたファイルを
                 // 読み直すだけなので回復しない)。BYOVD 照合が黙って無効化される経路だった。
                 // 置換にすれば、落ちても「前の正常なキャッシュ」か「キャッシュ無し(=再取得)」になる
-                var tempFile = _cacheFile + ".tmp";
-                await File.WriteAllTextAsync(tempFile, content, ct).ConfigureAwait(false);
-                File.Move(tempFile, _cacheFile, overwrite: true);
+                // 一時ファイル名はプロセスごとに一意にする(固定名だと複数プロセスが衝突する)
+                var tempFile = _cacheFile + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+                try
+                {
+                    await File.WriteAllTextAsync(tempFile, content, ct).ConfigureAwait(false);
+                    File.Move(tempFile, _cacheFile, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(tempFile)) { try { File.Delete(tempFile); } catch { } }
+                }
                 var parsed = ParseSafe(content);
                 _logger.LogInformation("脆弱ドライバーリストを更新しました ({Count} ハッシュ)", parsed.Count);
                 return parsed;
