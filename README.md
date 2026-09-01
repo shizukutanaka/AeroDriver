@@ -98,7 +98,12 @@ validates the solution file and every `PackageReference`, two things that previo
 broke the Windows build for reasons unrelated to Windows. This does **not** replace
 `dotnet build AeroDriver.sln && dotnet test` on Windows — XAML compilation,
 source-generator output, WMI behaviour and command-line parsing still need a real
-build. Each tool's README states its own limits.
+build. Each tool's README states its own limits. `verify-windows.ps1` covers what only Windows can:
+restore, build (XAML + source generators), `dotnet test`, CLI smoke against real WMI,
+`dotnet publish` for both surfaces, satellite assemblies for all 9 translated cultures,
+and launching the GUI to confirm it survives startup. The one thing it cannot automate is
+switching the UI culture — `LanguageService` reads the OS user culture, so verify the
+language combo box by hand.
 
 ## 🛠️ Development
 
