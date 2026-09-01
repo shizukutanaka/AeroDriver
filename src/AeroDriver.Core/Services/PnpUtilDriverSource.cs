@@ -89,6 +89,13 @@ namespace AeroDriver.Core.Services
 
                 return output;
             }
+            catch (OperationCanceledException)
+            {
+                // キャンセルは失敗ではない。ここで握りつぶして string.Empty を返すと
+                // 呼び出し側(ParseEnumOutput)が「ドライバー0件」という**正常な結果**として
+                // 解釈してしまい、キャンセルが成功に化ける。CLAUDE.md 規則3のとおり再スローする
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "pnputil.exe の実行中にエラーが発生しました: {Args}",
