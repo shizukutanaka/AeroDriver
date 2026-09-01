@@ -419,6 +419,21 @@ Console.WriteLine("== SettingsService の保存がアトミックであること
         var again = new AeroDriver.Core.Services.SettingsService(log, cfg);
         Check("上書き保存も読み戻せる", again.MaxBackupGenerations == 3, again.MaxBackupGenerations.ToString());
         Check("上書き後も一時ファイルを残さない", !System.IO.File.Exists(cfg + ".tmp"));
+
+        // 一時ファイル名はプロセス毎に一意(固定名だと GUI と CLI が同時保存で衝突し、
+        // 書き途中の内容を Move してしまう)。名前が一意な分、後始末も必須
+        var dir = System.IO.Path.GetDirectoryName(cfg)!;
+        var stem = System.IO.Path.GetFileName(cfg);
+        var strays = System.IO.Directory.GetFiles(dir, stem + ".*.tmp");
+        Check("一意名の一時ファイルも残っていない", strays.Length == 0,
+            string.Join(",", strays));
+
+        // 連続保存でも溜まらない(名前が一意なので後始末が無いと溜まる)
+        for (int i = 0; i < 5; i++) { again.MaxBackupGenerations = i + 1; again.Save(); }
+        Check("連続保存後も一時ファイルが溜まらない",
+            System.IO.Directory.GetFiles(dir, stem + ".*.tmp").Length == 0);
+        Check("連続保存の最後の値が読み戻せる",
+            new AeroDriver.Core.Services.SettingsService(log, cfg).MaxBackupGenerations == 5);
     }
     finally
     {

@@ -52,6 +52,7 @@
 | 永続ファイルの書き込みは中断に耐えるか? | `File.WriteAll*` の全呼び出しを走査 | **否、3箇所が非アトミックだった。** `File.WriteAllText` は「切り詰めてから書く」ため、途中で落ちると空/前半だけのファイルが残る。**最も重いのは BYOVD ブロックリストのキャッシュ** — 壊れたファイルの mtime は新しいので TTL(7日)検査を通ってしまい、照合が空または不完全なまま**最大7日間**使われる(空集合は15分ごとに再読込するが、同じ壊れたファイルを読むだけで回復しない)。履歴の切り詰めは temp+Move で正しく保護されていたのに、他がその方針から漏れていた |
 | システムを変更する全操作が昇格を要求しているか? | 変更操作と `ElevationGuard` を突き合わせ | **是。** 到達可能な入口(`DriverService` の install/backup/rollback)はすべて `ElevationGuard.ThrowIfNotElevated` を通る。`BackupService` の内部実装に無いのは、昇格済み経路からのみ呼ばれるため。**問題なし** |
 | ダウンロードのサイズ上限は全経路にあるか? | HTTP 取得箇所を全走査 | **否。** ドライバー本体には 4 GiB 上限(Content-Length の申告と実バイト数の両方を検査)があったのに、**BYOVD ブロックリストの取得だけが `GetStringAsync` で無制限**にメモリへ展開していた。配信元が乗っ取られたり応答が肥大すると OOM でプロセスごと落ちる。防御が片方の経路にしかない、このリポジトリで繰り返し見つかった構造 |
+| **直前の自分の修正は正しかったか?**(自分の成果物を疑う) | temp+Move に変えた3箇所を複数プロセスの観点で見直す | **否、不完全だった。** 一時ファイル名が固定(`.tmp`)だったため、**GUI と CLI が同時に保存すると同じ一時ファイルを奪い合い、書き途中の内容を Move してしまう** — アトミック化が防ぐはずだった破損そのもの。`DriverService` のダウンロードは元から `Guid.NewGuid()` を使っており、そこだけ正しかった。一意名にすると今度は失敗時に溜まるので `finally` での後始末も必要 |
 | 巻き戻った環境での検証は信用できるか? | 古いスナップショットに対する走査結果を main と突き合わせ | **否。** コンテナ復元直後の走査は修正済みの欠陥を「回帰」として誤検出した。必ず `git ls-remote` で真の main を確認してから検証すること(この教訓自体を記録) |
 
 ## 短所(確認済みの事実)
@@ -145,6 +146,7 @@ di-run / lang-run)、全C#がコンパイラを通過済み、リソースは65�
 | N | `Directory.Build.props` のXMLコメント内に `--`(`dotnet --info`)があり不正XML。**全プロジェクトのビルドが即失敗する状態だった** | コメント文言を修正。全 props/targets/csproj/resx/config/xaml のXML妥当性を一括検証 |
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
+| AS | **前ラウンドで入れた temp+Move が不完全だった**。一時ファイル名が固定のため、複数プロセス(GUI + CLI)が同時保存すると衝突し、書き途中の内容を Move しうる | 4箇所すべて `Environment.ProcessId` + `Guid.NewGuid()` の一意名にし、`finally` で後始末(一意名は失敗時に溜まるため)。`check-atomic-writes.py` に「一時ファイル名が一意であること」を追加。固定名に戻す変異と後始末を消す変異の両方で検出確認 |
 | AR | **BYOVD ブロックリストの取得にサイズ上限が無かった**。`GetStringAsync` が応答全体を無制限にメモリへ展開する。ドライバー本体のダウンロードには 4 GiB 上限があったのに、この経路だけ漏れていた | 64 MiB 上限付きのストリーム読み取りに変更(Content-Length の申告と実バイト数の両方を検査。ドライバー DL と同じ方針)。`tools/check-download-limits.py` を新設し `GetStringAsync`/`GetByteArrayAsync` を禁止、HTTP を使うファイルに上限定数を要求。2方向の変異で検出確認 |
 | AQ | **永続ファイルの書き込み3箇所が非アトミック**。`File.WriteAllText` は切り詰めてから書くため、中断で全損/破損する。(1) 設定 → ユーザー設定が黙って既定値に戻る (2) **BYOVD キャッシュ → 壊れても mtime が新しいので TTL(7日)を通り、照合が空/不完全なまま最大7日間使われる** (3) バックアップメタデータ → その世代が復元不能。`InstallHistoryService` の切り詰めだけが temp+Move で正しく、他が漏れていた | 3箇所とも temp+Move に統一。`tools/check-atomic-writes.py` を新設し `File.WriteAll*` に `File.Move(overwrite: true)` を伴うことを機械検証(追記は対象外)。4方向の変異すべてで検出確認 |
 | AP | **Windows 専用ツールに OS 判定が無かった**。CLI は `net8.0` のため Linux/macOS でも起動でき、スキャンが「0 件検出」という成功に見える誤った結果を返す(README の Development 節は OS の断り無く `dotnet run` を案内していた) | `PlatformGuard` を新設し CLI 起動直後に翻訳済みの理由付きで早期終了。`Error_WindowsOnly` を10言語に追加。`offline-verify` で実行検証(この環境は Linux なので非対応側の分岐が実際に走る)。ガードを外すと未使用キー検出が捕まえることも確認 |

@@ -63,6 +63,12 @@ for dp, dn, fn in os.walk(CORE):
                 continue
             checked += 1
             name, body = enclosing_method(lines, i)
+            # 一時ファイル名が固定だと、複数プロセスが同じ一時ファイルを奪い合い、
+            # 書き途中の内容を Move してしまう(アトミック化の意味が消える)
+            if MOVE.search(body) and not re.search(r'Guid\.NewGuid\(\)', body):
+                errors.append(
+                    f'{rel}:{i + 1}: {name or "(不明)"}() の一時ファイル名が固定 — '
+                    'Guid.NewGuid() で一意にすること(複数プロセスが衝突する)')
             if not MOVE.search(body):
                 errors.append(
                     f'{rel}:{i + 1}: {name or "(不明)"}() が File.WriteAll* を使っているが '

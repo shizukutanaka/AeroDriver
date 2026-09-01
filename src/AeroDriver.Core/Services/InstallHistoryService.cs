@@ -141,9 +141,17 @@ namespace AeroDriver.Core.Services
                 var keep = lines.Skip(lines.Length / 2).ToArray(); // 新しい半分を残す
 
                 // 一時ファイルに書いてから置換する(書き込み途中の電源断で履歴を全損させない)
-                var tempFile = _historyFile + ".tmp";
-                await File.WriteAllLinesAsync(tempFile, keep, Encoding.UTF8, ct).ConfigureAwait(false);
-                File.Move(tempFile, _historyFile, overwrite: true);
+                // 一時ファイル名はプロセスごとに一意にする(固定名だと複数プロセスが衝突する)
+                var tempFile = _historyFile + $".{Environment.ProcessId}.{Guid.NewGuid():N}.tmp";
+                try
+                {
+                    await File.WriteAllLinesAsync(tempFile, keep, Encoding.UTF8, ct).ConfigureAwait(false);
+                    File.Move(tempFile, _historyFile, overwrite: true);
+                }
+                finally
+                {
+                    if (File.Exists(tempFile)) { try { File.Delete(tempFile); } catch { } }
+                }
 
                 _logger.LogInformation(
                     "インストール履歴が上限に達したため古い {Count} 件を削除しました",
