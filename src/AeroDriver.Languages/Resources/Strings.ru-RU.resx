@@ -76,13 +76,13 @@
     <value>Операция успешно завершена</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>Произошла ошибка: {0}</value>
+    <value>Ошибка</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>Актуальная версия</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Доступно обновление: {0}</value>
+    <value>Доступно обновление</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Нет сертификации WHQL</value>

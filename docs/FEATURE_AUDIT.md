@@ -254,6 +254,20 @@ captive dependency は存在しなかった。登録を1つ消す / `ISettingsSe
 対象外: 実 WMI、実 HTTP、レジリエンスポリシー(`AddStandardResilienceHandler` は
 no-op スタブ)、`App.xaml.cs` の UI 層 DI。
 
+### リソースの書式方針(2026-08-26 確立)
+
+**リソースの値にプレースホルダーを持たせない。** `ResourceManager.GetString(key)` は
+書式化しないため、値に `{0}` があって引数なしで呼ぶと**リテラルのまま画面に出る**。
+実際に `Status_Error` と `Driver_Status_UpdateAvailable` の2キーがこの状態で、
+13箇所の呼び出しにより全10言語で `エラーが発生しました: {0}: ...` のような表示になっていた
+(GUI のタブ見出しは常時「更新があります: {0}」)。
+
+原因は方針の混在: `Install_*` 系は「理由だけを述べる短い句」として設計されていたが、
+この2キーだけ旧設計のまま残り、呼び出し側だけが新方針(自前連結)に移行していた。
+
+現在は全16箇所が `$"{GetString(key)}: {value}"` の単一形式で、
+`tools/check-resources.py` が値のプレースホルダーと引数付き呼び出しの両方を禁止する。
+
 ### キャンセル経路の検証状況(2026-08-26)
 
 `MainViewModel.RunAsync` の `catch (OperationCanceledException)` 分岐 — つまり

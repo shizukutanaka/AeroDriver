@@ -164,6 +164,9 @@ done
 [ $miss -eq 0 ] && echo "  使用中の全キーが 10/10"
 
 # 9. 未使用リソースキー(翻訳コストだけ払って誰も表示しないキーを溜めない)
+printf '\n=== リソース値と呼び出し形式の整合 ===\n'
+python3 check-resources.py || fail=1
+
 printf '\n=== 未使用リソースキー ===\n'
 orphan=0
 for k in $(python3 -c "

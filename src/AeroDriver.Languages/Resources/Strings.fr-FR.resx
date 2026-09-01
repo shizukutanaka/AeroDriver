@@ -76,13 +76,13 @@
     <value>Opération terminée avec succès</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>Une erreur s'est produite : {0}</value>
+    <value>Erreur</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>À jour</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Mise à jour disponible : {0}</value>
+    <value>Mise à jour disponible</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Non certifié WHQL</value>
