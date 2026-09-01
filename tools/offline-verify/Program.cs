@@ -322,6 +322,73 @@ Console.WriteLine("== BackupService generation retention (keeps NEWEST, not olde
     try { System.IO.Directory.Delete(root, true); } catch { }
 }
 
+Console.WriteLine("== InstallHistoryService の切り詰め(上限5MiB。安全網の初の実行検証) ==");
+{
+    // 実装はあったが一度も実行されていなかった。年単位で使うと必ず通る経路で、
+    // 壊れていれば監査証跡を全損する。実際に上限を超えさせて確かめる
+    var hist = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"trim_{Guid.NewGuid():N}.jsonl");
+    var svc = new AeroDriver.Core.Services.InstallHistoryService(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.InstallHistoryService>.Instance, hist);
+    try
+    {
+        // 5 MiB を超えるまで直接書き込む(RecordAsync を何万回も回すより速い)。
+        // 各行は GetHistoryAsync が読める正当な JSONL でなければならない
+        // 各行に通し番号を入れる。これが無いと「新しい半分」と「古い半分」を
+        // 区別できず、Skip を Take に変えても検出できない(実際に一度そうなった)
+        var sb = new System.Text.StringBuilder();
+        int written = 0;
+        while (sb.Length < 5 * 1024 * 1024 + 4096)
+        {
+            sb.Append(System.Text.Json.JsonSerializer.Serialize(new InstallHistoryEntry
+            {
+                TimestampUtc = DateTime.UtcNow,
+                DeviceName = $"seq-{written:D6}-" + new string('x', 180),
+                ToVersion = "1.0", Success = true, Result = "Success",
+            })).Append('\n');
+            written++;
+        }
+        await System.IO.File.WriteAllTextAsync(hist, sb.ToString());
+
+        var before = new System.IO.FileInfo(hist).Length;
+        Check("上限を超えた状態を作れた", before > 5 * 1024 * 1024, before.ToString());
+
+        // 追記すると切り詰めが走る
+        await svc.RecordAsync(new InstallHistoryEntry
+        {
+            TimestampUtc = DateTime.UtcNow, DeviceName = "Newest", ToVersion = "9.9",
+            Success = true, Result = "Success",
+        });
+
+        var after = new System.IO.FileInfo(hist).Length;
+        Check("ファイルが縮んだ", after < before, $"{before} -> {after}");
+        Check("空にはなっていない(全損させない)", after > before / 4, after.ToString());
+
+        var entries = await svc.GetHistoryAsync();
+        Check("切り詰め後も読み出せる", entries.Count > 0, entries.Count.ToString());
+        Check("残ったのは新しい方(直前の追記が先頭)", entries[0].DeviceName == "Newest",
+            entries[0].DeviceName ?? "(null)");
+        Check("件数がおよそ半分になった", entries.Count < written, $"{written} -> {entries.Count}");
+
+        // 残ったのが「新しい半分」であることを通し番号で確かめる。
+        // 古い方を残す実装(Skip→Take)ならここで落ちる
+        var seqs = entries.Select(e => e.DeviceName ?? string.Empty)
+                          .Where(n => n.StartsWith("seq-"))
+                          .Select(n => int.Parse(n.Substring(4, 6)))
+                          .ToList();
+        Check("通し番号を持つ行が残っている", seqs.Count > 0, seqs.Count.ToString());
+        Check("残ったのは番号の大きい方(= 新しい半分)",
+            seqs.Count > 0 && seqs.Min() >= written / 2 - 1,
+            $"min={(seqs.Count > 0 ? seqs.Min() : -1)} written/2={written / 2}");
+        Check("最も古い行(seq-000000)は捨てられている", !seqs.Contains(0));
+        Check("一時ファイルを残していない", !System.IO.File.Exists(hist + ".tmp"));
+    }
+    finally
+    {
+        try { System.IO.File.Delete(hist); } catch { }
+        try { System.IO.File.Delete(hist + ".tmp"); } catch { }
+    }
+}
+
 Console.WriteLine("== SettingsKeys (設定を UI から到達可能にする表) ==");
 {
     Check("全キーが一意", SettingsKeys.All.Select(e => e.Name).Distinct().Count() == SettingsKeys.All.Count);
