@@ -76,13 +76,13 @@
     <value>操作已成功完成</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>发生错误：{0}</value>
+    <value>错误</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>已是最新版本</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>有可用更新：{0}</value>
+    <value>有可用更新</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>未通过 WHQL 认证</value>

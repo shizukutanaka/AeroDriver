@@ -76,13 +76,13 @@
     <value>작업이 완료되었습니다</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>오류가 발생했습니다: {0}</value>
+    <value>오류</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>최신 상태입니다</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>업데이트 사용 가능: {0}</value>
+    <value>업데이트 있음</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>WHQL 인증되지 않음</value>

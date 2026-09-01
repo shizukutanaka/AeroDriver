@@ -127,7 +127,7 @@
     <value>Operation completed successfully</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>An error occurred: {0}</value>
+    <value>Error</value>
   </data>
   
   <!-- Driver Information -->
@@ -135,7 +135,7 @@
     <value>Up to date</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Update available: {0}</value>
+    <value>Update available</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Not WHQL certified</value>

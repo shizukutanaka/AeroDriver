@@ -211,7 +211,7 @@ namespace AeroDriver.CLI
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {ex.Message}");
                 logger.LogError(ex, "ドライバースキャン中にエラーが発生しました");
                 return ExitFailure;
             }
@@ -291,7 +291,7 @@ namespace AeroDriver.CLI
 
                 foreach (var u in updates)
                 {
-                    var label = lang.GetString("Driver_Status_UpdateAvailable", u.DriverVersion ?? "?");
+                    var label = $"{lang.GetString("Driver_Status_UpdateAvailable")}: {u.DriverVersion ?? "?"}";
                     Console.WriteLine($"{u.DeviceName,-40} {label} ({u.UpdateSource})  [DeviceID: {u.DeviceID}]");
                 }
 
@@ -300,7 +300,7 @@ namespace AeroDriver.CLI
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {ex.Message}");
                 logger.LogError(ex, "更新確認中にエラーが発生しました");
                 return ExitFailure;
             }

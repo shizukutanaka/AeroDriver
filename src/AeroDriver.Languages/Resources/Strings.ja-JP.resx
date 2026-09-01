@@ -127,7 +127,7 @@
     <value>正常に完了しました</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>エラーが発生しました: {0}</value>
+    <value>エラー</value>
   </data>
   
   <!-- Driver Information -->
@@ -135,7 +135,7 @@
     <value>最新の状態です</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>更新があります: {0}</value>
+    <value>更新があります</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>WHQL認証されていません</value>
