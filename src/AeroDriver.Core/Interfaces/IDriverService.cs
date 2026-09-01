@@ -17,23 +17,10 @@ namespace AeroDriver.Core.Interfaces
             IProgress<DriverScanProgress>? progress = null,
             CancellationToken cancellationToken = default);
 
-        /// <summary>インストール済みドライバーをストリーミングで列挙します（消費者がペースを制御）</summary>
-        // [EnumeratorCancellation] は async イテレーターの**実装側**に付ける属性で、
-        // インターフェース宣言に付けても効果が無い(CS8424)。実装は
-        // DriverService.StreamAllDriversAsync に付与済み。
-        IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
-            CancellationToken cancellationToken = default);
-
         /// <summary>全データソースに更新を問い合わせます</summary>
         Task<List<DriverInfo>> CheckForUpdatesAsync(
             IProgress<DriverScanProgress>? progress = null,
             CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// ドライバーをインストールします。成功/失敗のみが必要な場合の簡易版。
-        /// 失敗理由を区別したい場合は <see cref="InstallDriverUpdateWithResultAsync"/> を使用してください。
-        /// </summary>
-        Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default);
 
         /// <summary>
         /// ドライバーをインストールし、失敗理由を区別できる詳細結果を返します。
@@ -65,11 +52,5 @@ namespace AeroDriver.Core.Interfaces
 
         Task<DriverDetailInfo?> GetDriverDetailsAsync(string deviceId, CancellationToken cancellationToken = default);
         Task<bool> InstallCustomDriverAsync(string driverPath, CancellationToken cancellationToken = default);
-
-        /// <summary>
-        /// 2つのバージョン文字列を比較します（<see cref="AeroDriver.Core.Helpers.VersionHelper.Compare"/> への委譲）。
-        /// 返り値: 正 = version1 が新しい, 0 = 同じ, 負 = version1 が古い
-        /// </summary>
-        int CompareVersions(string version1, string version2);
     }
 }

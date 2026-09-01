@@ -1,4 +1,5 @@
 using AeroDriver.Core.Events;
+using AeroDriver.Core.Helpers;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
 using AeroDriver.Core.Services;
@@ -121,13 +122,13 @@ public class DriverServiceTests
     }
 
     // ──────────────────────────────────────────────
-    // InstallDriverUpdateAsync
+    // InstallDriverUpdateWithResultAsync
     // ──────────────────────────────────────────────
 
     [Fact]
     public async Task InstallDriverUpdate_NullArg_Throws()
     {
-        Func<Task> act = () => _sut.InstallDriverUpdateAsync(null!);
+        Func<Task> act = () => _sut.InstallDriverUpdateWithResultAsync(null!);
         await act.Should().ThrowAsync<ArgumentNullException>();
     }
 
@@ -137,7 +138,7 @@ public class DriverServiceTests
         _settings.BackupEnabled.Returns(false);
 
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = null };
-        var result = await _sut.InstallDriverUpdateAsync(driver);
+        var result = (await _sut.InstallDriverUpdateWithResultAsync(driver)).IsSuccess();
 
         result.Should().BeFalse();
     }
@@ -184,7 +185,7 @@ public class DriverServiceTests
         _backup.BackupDriverAsync(Arg.Any<DriverInfo>()).Returns(Task.CompletedTask);
 
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = null };
-        await _sut.InstallDriverUpdateAsync(driver);
+        await _sut.InstallDriverUpdateWithResultAsync(driver);
 
         await _backup.Received(1).BackupDriverAsync(driver);
     }
@@ -195,7 +196,7 @@ public class DriverServiceTests
         _settings.BackupEnabled.Returns(false);
 
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = null };
-        await _sut.InstallDriverUpdateAsync(driver);
+        await _sut.InstallDriverUpdateWithResultAsync(driver);
 
         await _backup.DidNotReceive().BackupDriverAsync(Arg.Any<DriverInfo>());
     }
@@ -210,7 +211,7 @@ public class DriverServiceTests
 
         // DownloadUrl なし → false を返してもイベントは発火する
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = null };
-        await _sut.InstallDriverUpdateAsync(driver);
+        await _sut.InstallDriverUpdateWithResultAsync(driver);
 
         // DownloadUrl なしの場合は false で return するのでイベントは発火しない
         raisedArgs.Should().BeNull();
@@ -250,7 +251,7 @@ public class DriverServiceTests
     }
 
     // ──────────────────────────────────────────────
-    // InstallDriverUpdateAsync — インストーラー形式
+    // InstallDriverUpdateWithResultAsync — インストーラー形式
     // ──────────────────────────────────────────────
 
     [Theory]
@@ -260,7 +261,7 @@ public class DriverServiceTests
     {
         _settings.BackupEnabled.Returns(false);
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = url };
-        var result = await _sut.InstallDriverUpdateAsync(driver);
+        var result = (await _sut.InstallDriverUpdateWithResultAsync(driver)).IsSuccess();
         result.Should().BeFalse();
     }
 
@@ -273,21 +274,22 @@ public class DriverServiceTests
         // HTTP等の非HTTPS URLは中間者攻撃でインストーラーを差し替えられるため拒否する
         _settings.BackupEnabled.Returns(false);
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = url };
-        var result = await _sut.InstallDriverUpdateAsync(driver);
+        var result = (await _sut.InstallDriverUpdateWithResultAsync(driver)).IsSuccess();
         result.Should().BeFalse();
     }
 
     // ──────────────────────────────────────────────
-    // CompareVersions (VersionHelper 委譲)
+    // バージョン比較（IDriverService.CompareVersions は VersionHelper への
+    // 委譲でしかなく本番の消費者がゼロだったため削除した。本体を直接検証する）
     // ──────────────────────────────────────────────
 
     [Theory]
     [InlineData("2.0.0.0", "1.0.0.0", 1)]
     [InlineData("1.0.0.0", "1.0.0.0", 0)]
     [InlineData("1.0.0.0", "2.0.0.0", -1)]
-    public void CompareVersions_ReturnsCorrectSign(string v1, string v2, int expectedSign)
+    public void VersionHelper_Compare_ReturnsCorrectSign(string v1, string v2, int expectedSign)
     {
-        int result = _sut.CompareVersions(v1, v2);
+        int result = VersionHelper.Compare(v1, v2);
 
         Math.Sign(result).Should().Be(expectedSign);
     }
