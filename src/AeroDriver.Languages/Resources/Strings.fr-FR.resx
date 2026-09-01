@@ -192,4 +192,19 @@
   <data name="Cli_Items" xml:space="preserve">
     <value>élément(s)</value>
   </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Annulé</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Erreur</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Sélectionner un fichier de pilote</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Fichiers de pilote</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>Tous les fichiers</value>
+  </data>
 </root>

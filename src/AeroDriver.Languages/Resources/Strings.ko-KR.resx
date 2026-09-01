@@ -192,4 +192,19 @@
   <data name="Cli_Items" xml:space="preserve">
     <value>개</value>
   </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>취소되었습니다</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>오류</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>드라이버 파일 선택</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>드라이버 파일</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>모든 파일</value>
+  </data>
 </root>

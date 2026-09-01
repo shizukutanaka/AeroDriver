@@ -247,4 +247,19 @@
   <data name="Cli_Items" xml:space="preserve">
     <value>item(s)</value>
   </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Select a driver file</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Driver files</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>All files</value>
+  </data>
 </root>
