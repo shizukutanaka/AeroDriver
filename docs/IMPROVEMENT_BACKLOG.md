@@ -42,6 +42,7 @@
 | README の主張(CLI 8コマンド・GUI 11機能)は実装と一致しているか? | 各コマンド登録と XAML 束縛を機械的に突き合わせ | **是。** CLI 8コマンドすべて登録済み、GUI の11束縛すべて XAML に実在。**問題なし** |
 | 逆に、実装されているのに UI から到達できない機能は無いか? | `IDriverService` の全メンバーを UI/CLI の消費者と突き合わせ | **否、3件あった。** `InstallDriverUpdateAsync`(bool版)と `CompareVersions` は**自分自身のテストだけが消費者**、`StreamAllDriversAsync` は「消費者がペースを制御」と謳いながら外部消費者ゼロ。`WhqlDatabaseService` 835行を削除したのと同じ構造 |
 | **受け入れ条件そのものは、完成を判定できる内容か?** | `verify-windows.ps1` の検査項目を、これまで発見した欠陥と突き合わせ | **否。3つの穴があった。** (1) `dotnet publish` を一度も実行しておらず、**「配布するとローカライズが死ぬ」欠陥(AD)を受け入れ試験が検出できない**。(2) GUI を起動しない — XAML はビルドを通っても起動時に落ちうる(リソース辞書・DI・コンバーター)。(3) サテライトアセンブリの有無を見ていない。**受け入れ試験が通っても製品が壊れている状態がありえた** |
+| **「pwsh が無いから検証できない」は本当か?** (自分の主張を疑う) | pwsh の入手経路を全て試し、駄目なら代替を探す | **半分は否。** pwsh は入手不能(apt に無く、GitHub API はこのリポジトリ以外 403、NuGet も遮断)。しかし「**構文検査できない**」の方は覆せた — 実際に使っている構文に絞った静的検査なら書ける。完全なパーサーではないが「無検証」よりはるかに良い。**「不可能」は入手の話であって、検証の話ではなかった** |
 | 巻き戻った環境での検証は信用できるか? | 古いスナップショットに対する走査結果を main と突き合わせ | **否。** コンテナ復元直後の走査は修正済みの欠陥を「回帰」として誤検出した。必ず `git ls-remote` で真の main を確認してから検証すること(この教訓自体を記録) |
 
 ## 短所(確認済みの事実)
@@ -122,6 +123,7 @@ di-run / lang-run)、全C#がコンパイラを通過済み、リソースは65�
 | N | `Directory.Build.props` のXMLコメント内に `--`(`dotnet --info`)があり不正XML。**全プロジェクトのビルドが即失敗する状態だった** | コメント文言を修正。全 props/targets/csproj/resx/config/xaml のXML妥当性を一括検証 |
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
+| AM | 受け入れ試験のスクリプトが **pwsh 不在を理由に一度も検査されていなかった**。実行する人がスクリプト側のバグを踏むリスクを、こちらが負わずに丸投げしていた | `tools/check-ps1.py` を新設し、pwsh の有無に依らず必ず走る静的検査を追加。括弧/引用符の均衡・`Check` の戻り値規約・`-When` 変数の定義順・コマンドレット名の綴り・`Start-Process` の後始末を検証。4方向の変異テストで検出確認 |
 | AL | **受け入れ条件(`verify-windows.ps1`)自体に穴**があり、通っても製品が壊れている状態がありえた。`dotnet publish` を実行せず、サテライトアセンブリを確認せず、GUI を起動していなかった。過去に修正した「配布するとローカライズが死ぬ」欠陥(AD)をこの試験は検出できない | publish(CLI/GUI 両方)・9言語サテライトの存在確認・配布物の実行・GUI 起動生存確認を追加(16検査)。**「非英語カルチャで翻訳を確認する」検査は書いたが削除した** — `LanguageService` は OS のユーザーカルチャを見るため環境変数では切り替わらず、動かない検査を残す方が有害だから。この限界は README に明記した |
 | AK | `IDriverService` に**投機的な API が3件**。`InstallDriverUpdateAsync`(bool版)と `CompareVersions` は本番の消費者がゼロで、自分自身のテストだけが生かしていた(`WhqlDatabaseService` 835行削除と同じ構造)。`StreamAllDriversAsync` は「消費者がペースを制御」と謳いながら外部消費者ゼロ | 前2つは interface と実装から削除し、テストは実 API(`InstallDriverUpdateWithResultAsync` / `VersionHelper.Compare`)へ振り替えて**カバレッジを落とさずに**契約を狭めた。`StreamAllDriversAsync` は `GetAllDriversAsync` が内部で使うため private 化して interface からのみ外した |
 | AJ | 規則4(`ConfigureAwait(false)`)に **Core 29箇所の違反**。規則は CLAUDE.md にあったが強制されていなかった。UI スレッドへの不要なマーシャリングと、呼び出し側がブロックした場合のデッドロックを招く | 全箇所に付与。`tools/check-configureawait.py` と `tools/check-processargs.py`(規則5)を新設し、**絶対規則9件すべてに機械検証が付いた状態**にした。自動挿入が3箇所で誤位置に入ったが型検査が捕捉、検出器のバグ2件(文末判定・行数上限)も変異テストで発見して修正 |

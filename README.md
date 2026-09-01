@@ -103,7 +103,9 @@ restore, build (XAML + source generators), `dotnet test`, CLI smoke against real
 `dotnet publish` for both surfaces, satellite assemblies for all 9 translated cultures,
 and launching the GUI to confirm it survives startup. The one thing it cannot automate is
 switching the UI culture — `LanguageService` reads the OS user culture, so verify the
-language combo box by hand.
+language combo box by hand. The script itself is statically checked on every run of
+`verify-all.sh` (brace/quote balance, cmdlet spelling, `-When` ordering), so a syntax
+slip in it will not waste your one trip to a Windows box.
 
 ## 🛠️ Development
 
