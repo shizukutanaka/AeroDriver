@@ -39,6 +39,8 @@
 | Singleton の可変状態は競合しないか? | `SettingsService` / `InstallHistoryService` / `VulnerableDriverBlocklist` の同期を確認 | **是。** 設定は全プロパティが `lock`、履歴は `SemaphoreSlim` で追記を直列化、ブロックリストは `_loadLock`。`DriverService.Dispose` も健全(`CimSession` は `using`、`HttpClient` はファクトリ管理で正しく Dispose しない)。**問題なし** |
 | README が謳う「WHQL未認定なら警告する」は、ユーザーに届いているか? | 警告の出力先を追跡 | **否。** 警告は `_logger.LogWarning` にしか出ておらず、**GUI は `WinExe` でコンソールを持たないためユーザーは一生見られなかった**。一覧の WHQL チェックボックス列は受動的な表示でありインストール時の警告ではない。README の主張が実装されていない典型的な規則6違反 |
 | **なぜ機械検証は毎回すり抜けられたのか?**(問い方そのものを疑う) | CLAUDE.md の絶対規則9件を「機械検証があるか」で分類 | **規則4と5だけ検証が無かった。** そこを測ると規則4(`ConfigureAwait(false)`)に **29件の実違反**。Core は WPF の UI スレッドから呼ばれるため、付け忘れは不要なマーシャリングと、呼び出し側が `.Result`/`.Wait()` した場合の**デッドロック**を招く。規則5(`ArgumentList`)は違反ゼロだった。**発見済み欠陥4件はすべて「文書に書かれているが強制されていない主張」だった** — 個別に問うより、未強制の主張を列挙する方が速い |
+| README の主張(CLI 8コマンド・GUI 11機能)は実装と一致しているか? | 各コマンド登録と XAML 束縛を機械的に突き合わせ | **是。** CLI 8コマンドすべて登録済み、GUI の11束縛すべて XAML に実在。**問題なし** |
+| 逆に、実装されているのに UI から到達できない機能は無いか? | `IDriverService` の全メンバーを UI/CLI の消費者と突き合わせ | **否、3件あった。** `InstallDriverUpdateAsync`(bool版)と `CompareVersions` は**自分自身のテストだけが消費者**、`StreamAllDriversAsync` は「消費者がペースを制御」と謳いながら外部消費者ゼロ。`WhqlDatabaseService` 835行を削除したのと同じ構造 |
 | 巻き戻った環境での検証は信用できるか? | 古いスナップショットに対する走査結果を main と突き合わせ | **否。** コンテナ復元直後の走査は修正済みの欠陥を「回帰」として誤検出した。必ず `git ls-remote` で真の main を確認してから検証すること(この教訓自体を記録) |
 
 ## 短所(確認済みの事実)
@@ -119,6 +121,7 @@ di-run / lang-run)、全C#がコンパイラを通過済み、リソースは65�
 | N | `Directory.Build.props` のXMLコメント内に `--`(`dotnet --info`)があり不正XML。**全プロジェクトのビルドが即失敗する状態だった** | コメント文言を修正。全 props/targets/csproj/resx/config/xaml のXML妥当性を一括検証 |
 | M | ドライバーDLに上限がなく、`ArrayPool.Rent(Content-Length)` がサーバー申告値でLOHに巨大配列を確保しうる+`(int)`キャストで2GB超が負値化 | ストリーミングを固定81920チャンクに変更、実バイト数で4GiB上限、long のまま判定 |
 | L | 再起動要求(3010/1641)を失敗と誤判定。ドライバーは3010で終わることが多く、成功が失敗と表示され更新一覧に残り続けた | `InstallerExitCode` で解釈。`DriverInstallResult.SuccessRebootRequired` を追加 |
+| AK | `IDriverService` に**投機的な API が3件**。`InstallDriverUpdateAsync`(bool版)と `CompareVersions` は本番の消費者がゼロで、自分自身のテストだけが生かしていた(`WhqlDatabaseService` 835行削除と同じ構造)。`StreamAllDriversAsync` は「消費者がペースを制御」と謳いながら外部消費者ゼロ | 前2つは interface と実装から削除し、テストは実 API(`InstallDriverUpdateWithResultAsync` / `VersionHelper.Compare`)へ振り替えて**カバレッジを落とさずに**契約を狭めた。`StreamAllDriversAsync` は `GetAllDriversAsync` が内部で使うため private 化して interface からのみ外した |
 | AJ | 規則4(`ConfigureAwait(false)`)に **Core 29箇所の違反**。規則は CLAUDE.md にあったが強制されていなかった。UI スレッドへの不要なマーシャリングと、呼び出し側がブロックした場合のデッドロックを招く | 全箇所に付与。`tools/check-configureawait.py` と `tools/check-processargs.py`(規則5)を新設し、**絶対規則9件すべてに機械検証が付いた状態**にした。自動挿入が3箇所で誤位置に入ったが型検査が捕捉、検出器のバグ2件(文末判定・行数上限)も変異テストで発見して修正 |
 | AI | README の「WHQL未認定なら警告する」が **GUI ユーザーに届いていなかった**。警告は `_logger` にしか出ず、`WinExe` の GUI はコンソールを持たない。規則6(宣言と実装の一致)違反 | 両UIの `Describe*` に1箇所で警告を追加(成功・再起動要求・失敗の全経路)。`Warning_NotWhqlCertified` を10言語に追加。ui-run に4アサーションを追加し、警告を消すと3件失敗することを確認。WDAC 状態を UI へ配線する案は、そのための部品が増えるだけなので**採らなかった**(WDAC の詳細はログに残る) |
 | AH | **カスタムインストール経路に TOCTOU 対策が無かった**。ダウンロード経路は BYOVD照合〜インストール実行完了まで `FileShare.Read`(書き込み共有なし)のハンドルを保持するが、`InstallCustomDriverAsync` は照合と実行の間にファイルを差し替えられる状態だった。ユーザーが選ぶ任意のパス(Downloads 等の書き込み可能な場所)を扱うため、BYOVD ブロックリストを素通りさせられる | 同じロックを照合前に取得するよう修正。排他読み取りできない場合は**フェイルクローズ**(規則7)で中止する。`tools/check-toctou.py` を新設し「検証→実行の全経路でロックを照合前に保持していること」を機械検証(ロック削除・順序反転の2方向で検出確認) |

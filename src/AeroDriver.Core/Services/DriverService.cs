@@ -125,7 +125,10 @@ namespace AeroDriver.Core.Services
         /// BoundedChannel(256) + Wait モードでバックプレッシャーを適用し
         /// メモリ使用量を上限に抑えます。
         /// </summary>
-        public async IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
+        // ストリーミング列挙。GetAllDriversAsync がこれを消費してバッファリングする。
+        // かつては IDriverService 上に公開されていたが「消費者がペースを制御する」
+        // 消費者は一度も現れなかったため、内部実装に戻した(投機的な API を残さない)
+        private async IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
             [System.Runtime.CompilerServices.EnumeratorCancellation]
             CancellationToken cancellationToken = default)
         {
@@ -340,12 +343,6 @@ namespace AeroDriver.Core.Services
                 _logger.LogWarning(ex, "[{Source}] クエリ中にエラーが発生しました", source.SourceName);
                 return Array.Empty<DriverInfo>();
             }
-        }
-
-        public async Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default)
-        {
-            var result = await InstallDriverUpdateWithResultAsync(driverUpdate, cancellationToken).ConfigureAwait(false);
-            return result.IsSuccess();
         }
 
         /// <summary>
@@ -870,7 +867,6 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        public int CompareVersions(string version1, string version2) => VersionHelper.Compare(version1, version2);
         /// <summary>
         /// ファイルが既知の脆弱ドライバー(LOLDriversリスト)ならtrueを返しログに記録する。
         /// ブロックリスト未登録(null)や照合自体の失敗はfalse(フェイルオープン)—
