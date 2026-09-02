@@ -168,14 +168,26 @@ namespace AeroDriver.CLI
                 return ExitSuccess;
             }
 
-            // まず全件を検証してから保存する。1件でも不正なら設定ファイルは書き換えない。
+            // まず全件を「適用せずに」検証する。TryApply は検証と適用が同一操作なので、
+            // これを検証に流用すると先行する代入がメモリ上の Singleton に適用済みのまま
+            // 後続で失敗しうる(設定ファイルは書き換わらないがプロセス内の設定は変わる)。
+            foreach (var a in assignments)
+            {
+                if (!SettingsKeys.TryValidate(a, out var error))
+                {
+                    Console.Error.WriteLine(error);
+                    Console.Error.WriteLine(lang.GetString("Cli_ValidKeys") + ": " +
+                        string.Join(", ", SettingsKeys.All.Select(e => e.Name)));
+                    return ExitUsageError;
+                }
+            }
+
+            // 全件が受理可能と分かってから適用する。ここでの失敗は想定外
             foreach (var a in assignments)
             {
                 if (!SettingsKeys.TryApply(settings, a, out var error))
                 {
                     Console.Error.WriteLine(error);
-                    Console.Error.WriteLine(lang.GetString("Cli_ValidKeys") + ": " +
-                        string.Join(", ", SettingsKeys.All.Select(e => e.Name)));
                     return ExitUsageError;
                 }
             }
