@@ -10,7 +10,7 @@
 ## タスクA: MainViewModelのユニットテスト(短所7) — **完了(`tools/ui-run`)**
 
 この環境では NuGet が遮断されており xunit/NSubstitute を restore できないため、
-**xunit ではなく `tools/ui-run` で同じ検証を実行済み**(73アサーション全通過)。
+**xunit ではなく `tools/ui-run` で同じ検証を実行済み**(73アサーション(記録時点の値。現在の件数は tools/verify-all.sh の出力を参照)全通過)。
 ジェネレーター再現側(`Generated.cs`)のコマンドを実 private ハンドラーと実 CanExecute 述語へ
 配線し、手書きモック(`Mocks.cs`)と**本物の `Microsoft.Extensions.DependencyInjection`** で
 ViewModel を実際に走らせる方式。`tools/verify-all.sh` から自動実行される。

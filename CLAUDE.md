@@ -2,7 +2,7 @@
 
 Windows用ドライバー管理ツール。`AeroDriver.Core`(net8.0、WMI/pnputil/WUA COM) の上に
 CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成。10言語対応
-(`AeroDriver.Languages`、60キー×10 resx)。
+(`AeroDriver.Languages`、10 resx。キー数はパリティ検査の出力が示す)。
 
 **最初に読むもの**: `docs/FEATURE_AUDIT.md`(実装済み/修正済み/未解決の引き継ぎ台帳)と
 `docs/IMPROVEMENT_BACKLOG.md`(長所/短所/優先度付き改善タスク。推奨モデルラベル付き)。
@@ -11,6 +11,7 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
 ## 絶対規則(違反PRは出さない)
 
 1. **課金要素・テレメトリ禁止**。データソースとツールはWindows標準またはOSS/無料のみ
+   (`tools/check-rule1.py` が外部ホストの許可リストと有償/テレメトリ SDK の拒否リストで機械検証する)
 2. **Windows標準API優先**: `CimSession`(WMI)、`pnputil.exe`、WUA COM
 3. **`OperationCanceledException`は再スロー**。`catch (Exception)`で握りつぶさない
    (`tools/check-cancellation.py` が機械検証する。握りつぶすと「キャンセルが成功に化ける」—
@@ -84,7 +85,7 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   `ValidateOnBuild`/`ValidateScopes` 付きでコンテナを構築してサービスを解決する。
   解決不能サービスと captive dependency は実行時にしか出ないため型検査では見つからない)。
   **`MainViewModel` は `tools/ui-run` で実行検証できる**(ジェネレーター再現側のコマンドを
-  実 private ハンドラーへ配線し、手書きモック+本物の DI コンテナで実際に走らせる。73アサーション。
+  実 private ハンドラーへ配線し、手書きモック+本物の DI コンテナで実際に走らせる。
   XAML・ジェネレーター実出力・実WMIは対象外)
 - **それでも検証できない部分**では静的検証を行い、コミットメッセージに「ビルド未検証」と明記:
   - 波括弧/括弧バランス(python等で機械チェック)

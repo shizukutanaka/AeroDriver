@@ -247,7 +247,7 @@ DI の解決失敗と captive dependency は型検査では絶対に見つから
 `InvalidOperationException` で落ちる種類の欠陥。
 
 `tools/di-run` で `ValidateOnBuild` + `ValidateScopes` 付きにコンテナを構築し、
-主要サービスの解決とライフタイムを実行検証している(16アサーション)。結果は健全で、
+主要サービスの解決とライフタイムを実行検証している(16アサーション(記録時点の値。現在の件数は tools/verify-all.sh の出力を参照))。結果は健全で、
 captive dependency は存在しなかった。登録を1つ消す / `ISettingsService` を Scoped に変える
 の両方で失敗を検出できることを確認済み。
 
@@ -403,7 +403,7 @@ jobs:
   WPF・CommunityToolkit の最小スタブに対して**実コンパイル**(型検査)
 - `tools/ui-run`: `MainViewModel` を**実際に実行**。ジェネレーター再現側のコマンドを
   実 private ハンドラーと実 CanExecute 述語へ配線し、手書きモックと本物の
-  `Microsoft.Extensions.DependencyInjection` で走らせる。**73アサーション全通過**。
+  `Microsoft.Extensions.DependencyInjection` で走らせる。**73アサーション(記録時点の値。現在の件数は tools/verify-all.sh の出力を参照)全通過**。
   これにより「一括インストールが `AdminRequired` で1件目中断し2件目を呼ばない」など、
   従来一度も実行されていなかったロジックが実測で確認された
 - `tools/verify-all.sh`: 上記に加え XAML の `{Binding ...}` 名と ViewModel/Models の
