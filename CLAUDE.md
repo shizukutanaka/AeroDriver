@@ -59,7 +59,8 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   **コンテナ(.cab)は展開後の中身を照合すること**。LOLDrivers が公開しているのは
   ドライバーバイナリ(.sys)の SHA256 であってコンテナのハッシュではないため、
   入り口のファイルだけ見ていると CAB で包むだけですり抜けられる。
-  経路を増やすときは必ずここも通すこと(`PnpUtilDriverSource` はかつて4本目の経路だったが、
+  経路を増やすときは必ずここも通すこと(`tools/check-blocklist-paths.py` が強制する。
+  インストーラーを起動するメソッドを列挙し、未登録なら落ちる)(`PnpUtilDriverSource` はかつて4本目の経路だったが、
   消費者ゼロの死にコードだったため削除し、同クラスは列挙専用にした)
 
 ## 検証手順
