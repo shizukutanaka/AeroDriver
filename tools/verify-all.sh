@@ -136,6 +136,9 @@ else
 fi
 
 # 6c. AeroDriver.sln の健全性(Windows 実機でだけ発覚する事故を前倒しで潰す)
+printf '\n=== ソースジェネレーター再現の同期(CommunityToolkit.Mvvm) ===\n'
+python3 check-generator-contract.py || fail=1
+
 printf '\n=== AeroDriver.sln の健全性 ===\n'
 python3 check-sln.py || fail=1
 
