@@ -209,12 +209,14 @@ public class DriverServiceTests
         UpdatesInstalledEventArgs? raisedArgs = null;
         _sut.UpdatesInstalled += (_, args) => raisedArgs = args;
 
-        // DownloadUrl なし → false を返してもイベントは発火する
+        // DownloadUrl なし → 失敗を返すが、イベントは「失敗した」として発火する。
+        // UpdatesInstalledEventArgs は IsSuccess を持つので、成功時だけでなく
+        // 失敗時も通知するのが設計上の契約(実装も全失敗経路で発火している)
         var driver = new DriverInfo { DeviceID = "DEV001", DownloadUrl = null };
         await _sut.InstallDriverUpdateWithResultAsync(driver);
 
-        // DownloadUrl なしの場合は false で return するのでイベントは発火しない
-        raisedArgs.Should().BeNull();
+        raisedArgs.Should().NotBeNull();
+        raisedArgs!.IsSuccess.Should().BeFalse();
     }
 
     // ──────────────────────────────────────────────
