@@ -219,6 +219,12 @@ python3 check-cancellation.py || fail=1
 printf '\n=== リソース値と呼び出し形式の整合 ===\n'
 python3 check-resources.py || fail=1
 
+printf '\n=== 生きた文書の件数直書き(規則6) ===\n'
+python3 check-docs.py || fail=1
+
+printf '\n=== 課金要素・テレメトリ禁止(CLAUDE.md 規則1) ===\n'
+python3 check-rule1.py || fail=1
+
 printf '\n=== 未使用リソースキー ===\n'
 orphan=0
 for k in $(python3 -c "
