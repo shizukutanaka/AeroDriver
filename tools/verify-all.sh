@@ -48,6 +48,9 @@ run "di-run: DI コンテナの実行検証" di-run dotnet run -v q --nologo
 # 2c. xunit テストスイートの実行(xunit 無しで走らせる。Windows の dotnet test の前倒し)
 TAIL=3 run "tests-run: xunit テストスイートの実行" tests-run dotnet run -v q --nologo
 
+# 2d. CLI の実行検証(OS ガードと、private ハンドラーの引数検証・終了コードの配線)
+run "cli-run: CLI ハンドラーの実行検証" cli-run dotnet run -v q --nologo
+
 # 3-6. スタブに対する型検査(テストコードもここで Core の API と突き合わせる)(出力は成否のみで十分)
 # --no-incremental: インクリメンタルビルドだと再コンパイルが起きず**警告が再出力されない**。
 # 「警告ゼロ」を主張するなら毎回コンパイルさせないと嘘になる(実際に一度見落とした)

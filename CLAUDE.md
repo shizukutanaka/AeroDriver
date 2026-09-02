@@ -74,7 +74,10 @@ CLI(`AeroDriver.CLI`)とWPF GUI(`AeroDriver.UI`、net8.0-windows)が乗る構成
   実コンパイル+実行検証できる**(`cd tools/offline-verify && dotnet run`)。新しい純粋ロジックを
   足したらここにも追加すること。**WPF層の手書きC#は `tools/ui-typecheck` で型検査できる**
   (WPF/CommunityToolkit の最小スタブに対して実コンパイル。XAML とジェネレーター実出力は対象外)。
-  **CLI は `tools/cli-typecheck`**(System.CommandLine の最小スタブ。実パース挙動は対象外)。
+  **CLI は `tools/cli-run` で実行検証できる**(代役パーサーで OS ガードを実際に通し、
+  private ハンドラーへリフレクションで直接呼んで引数検証と終了コードを確かめる。
+  System.CommandLine 本体のパース挙動は対象外)。
+  **CLI の型検査は `tools/cli-typecheck`**(System.CommandLine の最小スタブ。実パース挙動は対象外)。
   **xunit テストスイートは `tools/tests-run` で実行できる**(`DispatchProxy` で NSubstitute を、
   本物の表明で FluentAssertions を再現し、`[Fact]`/`[Theory]` をリフレクションで走らせる。
   xunit は手段であって目的ではない。実 WMI とプラットフォーム差は対象外)。

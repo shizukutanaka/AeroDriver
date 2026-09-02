@@ -497,6 +497,21 @@ Console.WriteLine("== SettingsKeys (設定を UI から到達可能にする表)
     Check("拒否されたら値は変わらない", st.MaxBackupGenerations == 3, st.MaxBackupGenerations.ToString());
     Check("不正な真偽値は拒否", !SettingsKeys.TryApply(st, "backup=maybe", out var e2) && e2.Contains("backup"));
 
+    // TryValidate は「適用せずに判定する」。複数件をまとめて適用する経路が
+    // 「1件でも不正なら何も変更しない」を守るために必須(実際に CLI が partial apply していた)
+    st.BackupEnabled = true;
+    Check("TryValidate は受理可能な代入に true", SettingsKeys.TryValidate("backup=off", out _));
+    Check("TryValidate は値を書き換えない", st.BackupEnabled, "backup が変更されてしまった");
+    Check("TryValidate は未知キーを拒否", !SettingsKeys.TryValidate("nope=1", out var e3) && e3.Contains("nope"));
+    Check("TryValidate は不正な値を拒否", !SettingsKeys.TryValidate("backup-generations=0", out _));
+    Check("TryValidate は書式不正を拒否", !SettingsKeys.TryValidate("backup", out _));
+    Check("TryValidate の判定は TryApply と一致",
+        SettingsKeys.All.All(entry =>
+            new[] { "on", "off", "maybe", "", "3", "0" }.All(v =>
+                entry.IsValid(v) == entry.Write(new AeroDriver.Core.Services.SettingsService(
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance,
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sk2_{Guid.NewGuid():N}.json")), v))));
+
     // ISettingsService の「ユーザー設定」全件が表に載っているか
     // (ThemeName/CultureName は GUI が直接書くため対象外)
     Check("ユーザー設定5件すべてが到達可能", SettingsKeys.All.Count == 5, SettingsKeys.All.Count.ToString());

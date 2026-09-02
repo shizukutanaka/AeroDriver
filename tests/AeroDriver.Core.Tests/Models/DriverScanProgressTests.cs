@@ -1,3 +1,4 @@
+using System.Threading;
 using AeroDriver.Core.Models;
 using FluentAssertions;
 using Xunit;
@@ -43,17 +44,56 @@ public class DriverScanProgressTests
     [Fact]
     public void Progress_ReportsAreReceivedInOrder()
     {
-        // IProgress<T> が同期的にコールバックを呼ぶことを前提とした統合確認
-        var reported = new List<int>();
-        var progress = new Progress<DriverScanProgress>(p => reported.Add(p.Current));
+        // Progress<T> は構築時の SynchronizationContext を捕まえ、そこへ Post する。
+        // コンテキストが無いと ThreadPool へ投げるため、コールバックは
+        // **アサーションと並行に走り、スレッド安全でない List<int> を壊す**
+        // (実際にこのテストは再ビルド直後の初回実行でだけ落ちる形でフレークしていた)。
+        // 順序を検証したいのだから、順序が保証されるコンテキストを用意して決定的にする。
+        var previous = SynchronizationContext.Current;
+        try
+        {
+            var context = new QueueingSynchronizationContext();
+            SynchronizationContext.SetSynchronizationContext(context);
 
-        // 同期コールバックを直接呼び出してテスト
-        ((IProgress<DriverScanProgress>)progress).Report(new DriverScanProgress { Current = 1 });
-        ((IProgress<DriverScanProgress>)progress).Report(new DriverScanProgress { Current = 2 });
-        ((IProgress<DriverScanProgress>)progress).Report(new DriverScanProgress { Current = 3 });
+            var reported = new List<int>();
+            var progress = new Progress<DriverScanProgress>(p => reported.Add(p.Current));
+            var sink = (IProgress<DriverScanProgress>)progress;
 
-        // Progress<T> は SynchronizationContext 経由のため即時反映は保証されない
-        // → 非同期テストではなく同期での単体検証のみ行う
-        reported.Should().BeSubsetOf(new[] { 1, 2, 3 });
+            sink.Report(new DriverScanProgress { Current = 1 });
+            sink.Report(new DriverScanProgress { Current = 2 });
+            sink.Report(new DriverScanProgress { Current = 3 });
+
+            // 同一スレッドで投入順に実行する。ここまでは何も走っていない
+            context.DrainAll();
+
+            reported.Should().HaveCount(3);
+            reported.Should().ContainInOrder(1, 2, 3);
+        }
+        finally
+        {
+            SynchronizationContext.SetSynchronizationContext(previous);
+        }
+    }
+
+    /// <summary>
+    /// Post されたコールバックを順に貯め、明示的に呼ばれたときだけ同一スレッドで実行する。
+    /// これにより Progress&lt;T&gt; の通知順を決定的に検証できる。
+    /// </summary>
+    private sealed class QueueingSynchronizationContext : SynchronizationContext
+    {
+        private readonly Queue<(SendOrPostCallback Callback, object? State)> _queue = new();
+
+        public override void Post(SendOrPostCallback d, object? state) => _queue.Enqueue((d, state));
+
+        public override void Send(SendOrPostCallback d, object? state) => d(state);
+
+        public void DrainAll()
+        {
+            while (_queue.Count > 0)
+            {
+                var (callback, state) = _queue.Dequeue();
+                callback(state);
+            }
+        }
     }
 }

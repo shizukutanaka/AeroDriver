@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Core は collection expressions(C#12)を使うため、CLI 側の 11.0 固定は適用しない -->
+    <!-- CLI の Program.Main と本ハーネスの入口が両方 Main を持つため明示する -->
+    <StartupObject>CliRunHarness</StartupObject>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <!-- WMI と AddStandardResilienceHandler のスタブは core-typecheck と共有する -->
+    <Compile Include="../core-typecheck/Stubs.cs" />
+    <Compile Include="../../src/AeroDriver.Core/**/*.cs" Exclude="../../src/AeroDriver.Core/obj/**/*.cs;../../src/AeroDriver.Core/bin/**/*.cs" />
+    <Compile Include="../../src/AeroDriver.CLI/Program.cs" />
+  </ItemGroup>
+</Project>
