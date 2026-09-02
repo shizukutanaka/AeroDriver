@@ -110,9 +110,40 @@ for dp, dn, fn in os.walk(CORE):
                     f'{rel}:{i + 1}: {name or "(不明)"}() が外部入力からパスを組み立てているが '
                     '正規化/検証(Path.GetFullPath+ルート配下検証 or Path.GetFileName)が無い')
 
+# --- 破壊的操作(削除)のパス由来を検査する ---
+# 未検証のパスに対する Directory.Delete(recursive) は取り返しがつかない。
+# 現状の4箇所はすべて安全(検証済みディレクトリ配下 / 列挙結果 / Guid 由来の一時パス)
+# だが、それを保証するものが何も無かった。表の空欄はここにもあった。
+DELETE = re.compile(r'(Directory|File)\.Delete\s*\(')
+# 安全な出所: パス検証を通っている / 列挙結果を消している / 自分で作った一時パス
+SAFE_ORIGIN = re.compile(
+    r'Path\.GetFullPath|Path\.GetFileName|SanitizeDeviceId|StartsWith\(|'
+    r'Directory\.GetDirectories|Directory\.GetFiles|Directory\.EnumerateFiles|'
+    r'Path\.GetTempPath|Guid\.NewGuid')
+
+delete_sites = 0
+for dp, dn, fn in os.walk(CORE):
+    dn[:] = [d for d in dn if d not in ('obj', 'bin')]
+    for f in sorted(fn):
+        if not f.endswith('.cs'):
+            continue
+        path = os.path.join(dp, f)
+        rel = os.path.relpath(path, ROOT)
+        lines = open(path, encoding='utf-8', errors='replace').read().split('\n')
+        for i, raw in enumerate(lines):
+            line = raw.split('//')[0]
+            if not DELETE.search(line):
+                continue
+            delete_sites += 1
+            name, body = enclosing(lines, i)
+            if not SAFE_ORIGIN.search(body):
+                errors.append(
+                    f'{rel}:{i + 1}: {name or "(不明)"}() が削除するパスの出所を保証していない — '
+                    'パス検証済み / 列挙結果 / 自前の一時パス のいずれかであること')
+
 if errors:
     for e in errors:
         print(f'  {e}')
     sys.exit(1)
-print(f'  WQL {wql_sites} 箇所・外部入力からのパス組み立て {path_sites} 箇所とも'
-      'サニタイズ/正規化を通っている')
+print(f'  WQL {wql_sites} 箇所・パス組み立て {path_sites} 箇所・削除 {delete_sites} 箇所とも'
+      'サニタイズ/正規化/出所保証を通っている')
