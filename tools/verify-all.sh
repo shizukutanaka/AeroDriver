@@ -219,6 +219,9 @@ python3 check-download-limits.py || fail=1
 printf '\n=== 永続ファイル書き込みのアトミック性 ===\n'
 python3 check-atomic-writes.py || fail=1
 
+printf '\n=== BYOVD 照合の全経路適用 と HTTPS 強制 ===\n'
+python3 check-blocklist-paths.py || fail=1
+
 printf '\n=== 検証→実行の同一性(TOCTOU) ===\n'
 python3 check-toctou.py || fail=1
 
