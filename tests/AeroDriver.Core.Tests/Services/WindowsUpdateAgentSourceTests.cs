@@ -1,3 +1,4 @@
+using AeroDriver.Core.Models;
 using AeroDriver.Core.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -52,7 +53,12 @@ public class WindowsUpdateAgentSourceTests
     }
 
     // --- MapToDriverInfo: 実際のCOMなしでマッピングロジックだけを検証 ---
-    // dynamic な ExpandoObject は WUA COM オブジェクトと同様、名前ベースでプロパティ解決される
+    // dynamic な ExpandoObject は WUA COM オブジェクトと同様、名前ベースでプロパティ解決される。
+    //
+    // 注記: 戻り値は必ず `DriverInfo?` で受けること。`var` にすると、引数が dynamic なので
+    // 呼び出し全体が動的束縛になり info も dynamic になる。拡張メソッドは dynamic に
+    // 実行時束縛されないため、`.Should()` が RuntimeBinderException で落ちる
+    // (この環境だけの話ではなく、Windows の dotnet test でも同じく落ちる)。
 
     [Fact]
     public void MapToDriverInfo_UsesDriverVerVersion_NotDriverVerDate()
@@ -66,7 +72,7 @@ public class WindowsUpdateAgentSourceTests
         update.DriverProvider = "Test Vendor";
         update.DriverHardwareID = "PCI\\VEN_10DE&DEV_2204";
 
-        var info = _sut.MapToDriverInfo(update);
+        DriverInfo? info = _sut.MapToDriverInfo(update); // var は不可(下記の注記を参照)
 
         info.Should().NotBeNull();
         info!.DriverVersion.Should().Be("31.0.15.3667");
@@ -83,7 +89,7 @@ public class WindowsUpdateAgentSourceTests
         update.DriverHardwareID = "PCI\\VEN_10DE&DEV_2204";
         update.IsBeta = true;
 
-        var info = _sut.MapToDriverInfo(update);
+        DriverInfo? info = _sut.MapToDriverInfo(update); // var は不可(下記の注記を参照)
 
         info.Should().NotBeNull();
         info!.IsBeta.Should().BeTrue();
@@ -98,7 +104,7 @@ public class WindowsUpdateAgentSourceTests
         update.DriverVerVersion = "31.0.15.3667";
         update.DriverHardwareID = "PCI\\VEN_10DE&DEV_2204";
 
-        var info = _sut.MapToDriverInfo(update);
+        DriverInfo? info = _sut.MapToDriverInfo(update); // var は不可(下記の注記を参照)
 
         info.Should().NotBeNull();
         info!.IsBeta.Should().BeFalse();
@@ -114,7 +120,7 @@ public class WindowsUpdateAgentSourceTests
         update.DriverProvider = "Test Vendor";
         update.DriverHardwareID = "PCI\\VEN_10DE&DEV_2204&SUBSYS_00000000";
 
-        var info = _sut.MapToDriverInfo(update);
+        DriverInfo? info = _sut.MapToDriverInfo(update); // var は不可(下記の注記を参照)
 
         info!.DeviceID.Should().Be("PCI\\VEN_10DE&DEV_2204");
         info.IsWHQLCertified.Should().BeTrue();
@@ -129,7 +135,7 @@ public class WindowsUpdateAgentSourceTests
         dynamic update = new System.Dynamic.ExpandoObject();
         update.Title = "Minimal Driver";
 
-        var info = _sut.MapToDriverInfo(update);
+        DriverInfo? info = _sut.MapToDriverInfo(update); // var は不可(下記の注記を参照)
 
         info.Should().NotBeNull();
         info!.DeviceName.Should().Be("Minimal Driver");

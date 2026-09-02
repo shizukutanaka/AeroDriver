@@ -52,8 +52,7 @@ namespace AeroDriver.Core.Services
             try
             {
                 var deviceDir = GetDeviceDirectory(driver.DeviceID);
-                var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
-                var backupDir = Path.Combine(deviceDir, $"backup_{timestamp}");
+                var backupDir = CreateUniqueBackupDirectory(deviceDir);
                 var filesDir = Path.Combine(backupDir, "files");
                 Directory.CreateDirectory(filesDir);
 
@@ -106,6 +105,15 @@ namespace AeroDriver.Core.Services
                 // 一切反映されないバグだった。実際の設定値を参照するよう修正。
                 await CleanupOldBackupsAsync(deviceDir, _settings.MaxBackupGenerations).ConfigureAwait(false);
                 return true;
+            }
+            catch (ArgumentException)
+            {
+                // GetDeviceDirectory はパストラバーサルを検出すると ArgumentException を投げる。
+                // これは呼び出し側の誤り(または攻撃入力)であって「バックアップに失敗した」とは
+                // 意味が違う。握りつぶして false を返すと、同期版の HasBackup が例外を伝播するのと
+                // 挙動が食い違い、呼び出し側は攻撃入力を通常の失敗と区別できなくなる。
+                // 規則3の「キャンセルを握りつぶさない」と同じ理由で再スローする
+                throw;
             }
             catch (Exception ex)
             {
@@ -250,6 +258,12 @@ namespace AeroDriver.Core.Services
 
                 return installed;
             }
+            catch (ArgumentException)
+            {
+                // BackupDriverAsync と同じ理由: パストラバーサルの検出結果を
+                // 通常の復元失敗と混ぜない(backupVersion 経由の埋め込みトラバーサルを含む)
+                throw;
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "ドライバー復元中にエラーが発生しました: {DeviceID}", driver.DeviceID);
@@ -377,6 +391,39 @@ namespace AeroDriver.Core.Services
                 .Select(n => n!["backup_".Length..])
                 .OrderByDescending(v => v)
                 .ToArray();
+        }
+
+        /// <summary>
+        /// バックアップ世代のディレクトリを作る。名前は秒精度のタイムスタンプだが、
+        /// 同一秒に2回バックアップすると名前が衝突し、2回目が1回目を上書きして
+        /// **世代管理そのものが黙って壊れる**(`MaxBackupGenerations` も
+        /// `GetAvailableBackups` も1件しか見えなくなる)。実際にテストスイートを
+        /// 実行して初めてこの欠陥が観測できた。
+        /// <para>
+        /// 衝突時は `_002`, `_003` … の連番を付ける。復元側は
+        /// <c>OrderByDescending(d =&gt; d)</c> の辞書順で新しい世代を選ぶが、
+        /// 同一秒内では <c>backup_YYYY…</c> &lt; <c>backup_YYYY…_002</c> となり
+        /// 辞書順と時系列が一致するため、既存の順序ロジックを変えずに済む。
+        /// <b>連番は3桁ゼロ埋めが必須</b>: 埋めないと <c>_10</c> が <c>_2</c> より
+        /// 辞書順で前に来て、同一秒に10件以上作ると順序が逆転する。
+        /// </para>
+        /// </summary>
+        private static string CreateUniqueBackupDirectory(string deviceDir)
+        {
+            var timestamp = DateTime.UtcNow.ToString("yyyyMMddHHmmss");
+            var baseDir = Path.Combine(deviceDir, $"backup_{timestamp}");
+            if (!Directory.Exists(baseDir))
+                return baseDir;
+
+            for (int n = 2; n < 1000; n++)
+            {
+                var candidate = Path.Combine(deviceDir, $"backup_{timestamp}_{n:D3}");
+                if (!Directory.Exists(candidate))
+                    return candidate;
+            }
+
+            // 同一秒に1000回は現実的に起きない。ここに来たら想定外なので失敗させる
+            throw new IOException($"同一秒のバックアップ世代が多すぎます: {baseDir}");
         }
 
         private string GetDeviceDirectory(string deviceId)
