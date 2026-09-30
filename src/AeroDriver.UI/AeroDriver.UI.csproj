@@ -22,7 +22,7 @@
          Microsoft公式・無料・ソースジェネレーターベースの CommunityToolkit.Mvvm に置き換え。
          [ObservableProperty]/[RelayCommand] がコンパイル時にコード生成されるため
          PropertyChanged.Fody の IL ウィービングも不要になり削除。 -->
-    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
   </ItemGroup>
 
   <ItemGroup>
