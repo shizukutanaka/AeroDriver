@@ -79,14 +79,14 @@ namespace AeroDriver.Core.Services
             }
 
             // SemaphoreSlim(1,1) で async-safe 排他 — lock() は await をまたげない
-            await _cacheLock.WaitAsync(cancellationToken);
+            await _cacheLock.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
                 // ダブルチェック: 待機中に別スレッドがキャッシュを更新した可能性
                 if (progress == null && _cachedDrivers != null && DateTime.UtcNow < _cacheExpiry)
                     return new List<DriverInfo>(_cachedDrivers);
 
-                return await ScanDriversAsync(progress, cancellationToken);
+                return await ScanDriversAsync(progress, cancellationToken).ConfigureAwait(false);
             }
             finally
             {
@@ -125,7 +125,10 @@ namespace AeroDriver.Core.Services
         /// BoundedChannel(256) + Wait モードでバックプレッシャーを適用し
         /// メモリ使用量を上限に抑えます。
         /// </summary>
-        public async IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
+        // ストリーミング列挙。GetAllDriversAsync がこれを消費してバッファリングする。
+        // かつては IDriverService 上に公開されていたが「消費者がペースを制御する」
+        // 消費者は一度も現れなかったため、内部実装に戻した(投機的な API を残さない)
+        private async IAsyncEnumerable<DriverInfo> StreamAllDriversAsync(
             [System.Runtime.CompilerServices.EnumeratorCancellation]
             CancellationToken cancellationToken = default)
         {
@@ -223,7 +226,7 @@ namespace AeroDriver.Core.Services
                 var scanProgress = progress == null ? null : new Progress<DriverScanProgress>(p =>
                     progress.Report(p with { Phase = $"ドライバー検出: {p.Phase}" }));
 
-                var installed = await GetAllDriversAsync(scanProgress, cancellationToken);
+                var installed = await GetAllDriversAsync(scanProgress, cancellationToken).ConfigureAwait(false);
 
                 // HardwareID でインデックス化（照合用）
                 var installedByHwId = installed
@@ -243,7 +246,7 @@ namespace AeroDriver.Core.Services
                 int sourcesDone = 0;
                 var sourceTasks = _updateSources.Select(async s =>
                 {
-                    var result = await QuerySourceAsync(s, cancellationToken);
+                    var result = await QuerySourceAsync(s, cancellationToken).ConfigureAwait(false);
                     var done = Interlocked.Increment(ref sourcesDone);
                     progress?.Report(new DriverScanProgress
                     {
@@ -255,7 +258,7 @@ namespace AeroDriver.Core.Services
                     return result;
                 });
 
-                var allCandidates = (await Task.WhenAll(sourceTasks))
+                var allCandidates = (await Task.WhenAll(sourceTasks).ConfigureAwait(false))
                     .SelectMany(x => x)
                     .ToList();
 
@@ -325,7 +328,7 @@ namespace AeroDriver.Core.Services
         {
             try
             {
-                var results = await source.SearchUpdatesAsync(ct);
+                var results = await source.SearchUpdatesAsync(ct).ConfigureAwait(false);
                 _logger.LogInformation("  [{Source}] {Count} 件", source.SourceName, results.Count);
                 return results;
             }
@@ -340,12 +343,6 @@ namespace AeroDriver.Core.Services
                 _logger.LogWarning(ex, "[{Source}] クエリ中にエラーが発生しました", source.SourceName);
                 return Array.Empty<DriverInfo>();
             }
-        }
-
-        public async Task<bool> InstallDriverUpdateAsync(DriverInfo driverUpdate, CancellationToken cancellationToken = default)
-        {
-            var result = await InstallDriverUpdateWithResultAsync(driverUpdate, cancellationToken).ConfigureAwait(false);
-            return result.IsSuccess();
         }
 
         /// <summary>
@@ -392,7 +389,7 @@ namespace AeroDriver.Core.Services
 
                 bool backupCreated = false;
                 if (_settingsService.BackupEnabled)
-                    backupCreated = await _backupService.BackupDriverAsync(driverUpdate);
+                    backupCreated = await _backupService.BackupDriverAsync(driverUpdate).ConfigureAwait(false);
 
                 if (string.IsNullOrEmpty(driverUpdate.DownloadUrl))
                 {
@@ -418,7 +415,7 @@ namespace AeroDriver.Core.Services
                     HttpResponseMessage response;
                     try
                     {
-                        response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken);
+                        response = await _httpClient.GetAsync(driverUpdate.DownloadUrl, cancellationToken).ConfigureAwait(false);
                         response.EnsureSuccessStatusCode();
                     }
                     catch (HttpRequestException ex)
@@ -451,10 +448,10 @@ namespace AeroDriver.Core.Services
                         {
                             using var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None,
                                 bufferSize: 81920, useAsync: true);
-                            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+                            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false);
                             long total = 0;
                             int read;
-                            while ((read = await stream.ReadAsync(buffer, cancellationToken)) > 0)
+                            while ((read = await stream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) > 0)
                             {
                                 total += read;
                                 // 実バイト数での上限チェック（Content-Length を偽ったり省略しても防げる）
@@ -467,7 +464,7 @@ namespace AeroDriver.Core.Services
                                         driverUpdate, false, "ダウンロードサイズが上限を超えています"));
                                     return DriverInstallResult.DownloadFailed;
                                 }
-                                await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+                                await fs.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                             }
                         }
                         finally
@@ -505,7 +502,7 @@ namespace AeroDriver.Core.Services
                     DriverInstallResult installResult;
                     try
                     {
-                        installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken);
+                        installResult = await InstallFromFileAsync(tempPath, driverUpdate.InstallerType, cancellationToken).ConfigureAwait(false);
                     }
                     finally
                     {
@@ -644,7 +641,7 @@ namespace AeroDriver.Core.Services
                     return false;
                 }
 
-                bool result = await _backupService.RestoreDriverAsync(driver, backupVersion);
+                bool result = await _backupService.RestoreDriverAsync(driver, backupVersion).ConfigureAwait(false);
 
                 if (result)
                     _logger.LogInformation("ロールバック完了: {DeviceID}", deviceId);
@@ -768,7 +765,7 @@ namespace AeroDriver.Core.Services
                     }
 
                     return null;
-                }, cancellationToken);
+                }, cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
@@ -827,12 +824,37 @@ namespace AeroDriver.Core.Services
             {
                 _logger.LogInformation("カスタムドライバーをインストールします: {Path}", driverPath);
 
-                if (await IsBlockedAsVulnerableAsync(driverPath, cancellationToken).ConfigureAwait(false))
+                // TOCTOU対策: BYOVD照合・署名検証からインストール実行完了まで
+                // FileShare.Read（書き込み共有なし）のハンドルを保持し続ける。
+                // ダウンロード経路と同じ防御をここにも適用する（この経路が扱うのは
+                // ユーザーが選んだ任意のパスで、Downloads 等の書き込み可能な場所に
+                // あり得る。ロックが無いと、ハッシュ照合を通過した直後に非昇格の
+                // 攻撃者プロセスが既知の脆弱ドライバーへ差し替えられ、
+                // 昇格済みの本プロセスがそれをインストールしてしまう）。
+                FileStream lockStream;
+                try
+                {
+                    lockStream = new FileStream(driverPath, FileMode.Open, FileAccess.Read, FileShare.Read);
+                }
+                catch (IOException ex)
+                {
+                    // 他プロセスが書き込みハンドルを保持している＝検証と実行の同一性を
+                    // 保証できない。セキュリティ判定はフェイルクローズ（規則7）
+                    _logger.LogWarning(ex,
+                        "ファイルを排他的に読み取れないためインストールを中止しました" +
+                        "（検証したファイルと実行するファイルの同一性を保証できません）: {Path}", driverPath);
                     return false;
+                }
 
-                string ext = Path.GetExtension(driverPath).ToLowerInvariant();
-                var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken);
-                return installResult.IsSuccess();
+                using (lockStream)
+                {
+                    if (await IsBlockedAsVulnerableAsync(driverPath, cancellationToken).ConfigureAwait(false))
+                        return false;
+
+                    string ext = Path.GetExtension(driverPath).ToLowerInvariant();
+                    var installResult = await InstallFromFileAsync(driverPath, ext.TrimStart('.'), cancellationToken).ConfigureAwait(false);
+                    return installResult.IsSuccess();
+                }
             }
             catch (OperationCanceledException)
             {
@@ -845,7 +867,6 @@ namespace AeroDriver.Core.Services
             }
         }
 
-        public int CompareVersions(string version1, string version2) => VersionHelper.Compare(version1, version2);
         /// <summary>
         /// ファイルが既知の脆弱ドライバー(LOLDriversリスト)ならtrueを返しログに記録する。
         /// ブロックリスト未登録(null)や照合自体の失敗はfalse(フェイルオープン)—
@@ -989,7 +1010,7 @@ namespace AeroDriver.Core.Services
             using var process = System.Diagnostics.Process.Start(psi);
             if (process == null) return DriverInstallResult.InstallerFailed;
 
-            await process.WaitForExitAsync(ct);
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
             return MapExitCode(process.ExitCode, filePath);
         }
 
@@ -1046,7 +1067,7 @@ namespace AeroDriver.Core.Services
                 using (var expandProcess = System.Diagnostics.Process.Start(expandPsi))
                 {
                     if (expandProcess == null) return DriverInstallResult.InstallerFailed;
-                    await expandProcess.WaitForExitAsync(ct);
+                    await expandProcess.WaitForExitAsync(ct).ConfigureAwait(false);
                     if (expandProcess.ExitCode != 0)
                     {
                         _logger.LogWarning("CABの展開に失敗しました (ExitCode={ExitCode}): {Path}", expandProcess.ExitCode, cabPath);
@@ -1080,7 +1101,7 @@ namespace AeroDriver.Core.Services
                 using var process = System.Diagnostics.Process.Start(psi);
                 if (process == null) return DriverInstallResult.InstallerFailed;
 
-                await process.WaitForExitAsync(ct);
+                await process.WaitForExitAsync(ct).ConfigureAwait(false);
                 return MapExitCode(process.ExitCode, infPath);
             }
             finally

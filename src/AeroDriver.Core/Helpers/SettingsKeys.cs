@@ -27,6 +27,13 @@ namespace AeroDriver.Core.Helpers
             public required Func<ISettingsService, string> Read { get; init; }
             /// <summary>文字列を解釈して書き込む。解釈できなければ false（値は変更しない）。</summary>
             public required Func<ISettingsService, string, bool> Write { get; init; }
+            /// <summary>
+            /// 値が受理できるかだけを判定する（<b>書き込まない</b>）。
+            /// 複数の代入をまとめて適用する経路で「1件でも不正なら何も変更しない」を
+            /// 実現するために必要。<see cref="Write"/> は検証と適用が同一操作なので、
+            /// これが無いと先行する代入が適用済みのまま後続で失敗しうる。
+            /// </summary>
+            public required Func<string, bool> IsValid { get; init; }
             /// <summary>取りうる値の説明（ヘルプ表示用）。</summary>
             public required string ValueSyntax { get; init; }
         }
@@ -52,6 +59,10 @@ namespace AeroDriver.Core.Helpers
 
         private static string Fmt(bool b) => b ? "true" : "false";
 
+        /// <summary>保持世代数として受理できるか(1 以上の整数)。</summary>
+        private static bool IsValidGenerationCount(string? text, out int value) =>
+            int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out value) && value >= 1;
+
         /// <summary>変更可能な全設定。表示順は重要度順。</summary>
         public static IReadOnlyList<Entry> All { get; } = new List<Entry>
         {
@@ -62,6 +73,7 @@ namespace AeroDriver.Core.Helpers
                 ValueSyntax = "true|false",
                 Read = s => Fmt(s.CreateRestorePoint),
                 Write = (s, v) => { if (!TryParseBool(v, out var b)) return false; s.CreateRestorePoint = b; return true; },
+                IsValid = v => TryParseBool(v, out _),
             },
             new()
             {
@@ -70,6 +82,7 @@ namespace AeroDriver.Core.Helpers
                 ValueSyntax = "true|false",
                 Read = s => Fmt(s.BackupEnabled),
                 Write = (s, v) => { if (!TryParseBool(v, out var b)) return false; s.BackupEnabled = b; return true; },
+                IsValid = v => TryParseBool(v, out _),
             },
             new()
             {
@@ -79,11 +92,11 @@ namespace AeroDriver.Core.Helpers
                 Read = s => s.MaxBackupGenerations.ToString(CultureInfo.InvariantCulture),
                 Write = (s, v) =>
                 {
-                    if (!int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) || n < 1)
-                        return false;
+                    if (!IsValidGenerationCount(v, out var n)) return false;
                     s.MaxBackupGenerations = n;
                     return true;
                 },
+                IsValid = v => IsValidGenerationCount(v, out _),
             },
             new()
             {
@@ -92,6 +105,7 @@ namespace AeroDriver.Core.Helpers
                 ValueSyntax = "true|false",
                 Read = s => Fmt(s.AutoUpdateEnabled),
                 Write = (s, v) => { if (!TryParseBool(v, out var b)) return false; s.AutoUpdateEnabled = b; return true; },
+                IsValid = v => TryParseBool(v, out _),
             },
             new()
             {
@@ -100,6 +114,7 @@ namespace AeroDriver.Core.Helpers
                 ValueSyntax = "true|false",
                 Read = s => Fmt(s.IncludeBetaDrivers),
                 Write = (s, v) => { if (!TryParseBool(v, out var b)) return false; s.IncludeBetaDrivers = b; return true; },
+                IsValid = v => TryParseBool(v, out _),
             },
         };
 
@@ -131,6 +146,35 @@ namespace AeroDriver.Core.Helpers
         /// <c>key=value</c> を解釈して設定に適用します。適用できたら true。
         /// 未知のキー・解釈できない値では**何も変更せず** false を返す。
         /// </summary>
+        /// <summary>
+        /// 代入を<b>適用せずに</b>受理可能か判定する。複数件をまとめて適用する経路が
+        /// 「1件でも不正なら何も変更しない」を守るために、全件をこれで先に検証すること。
+        /// </summary>
+        public static bool TryValidate(string? assignment, out string error)
+        {
+            if (!TryParseAssignment(assignment, out var key, out var value))
+            {
+                error = "書式が正しくありません。key=value の形式で指定してください。";
+                return false;
+            }
+
+            var entry = Find(key);
+            if (entry == null)
+            {
+                error = $"未知の設定キーです: {key}";
+                return false;
+            }
+
+            if (!entry.IsValid(value))
+            {
+                error = $"{entry.Name} に指定できない値です: {value} (期待: {entry.ValueSyntax})";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
         public static bool TryApply(ISettingsService settings, string? assignment, out string error)
         {
             if (settings == null) throw new ArgumentNullException(nameof(settings));

@@ -76,13 +76,13 @@
     <value>작업이 완료되었습니다</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>오류가 발생했습니다: {0}</value>
+    <value>오류</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>최신 상태입니다</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>업데이트 사용 가능: {0}</value>
+    <value>업데이트 있음</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>WHQL 인증되지 않음</value>
@@ -191,5 +191,26 @@
   </data>
   <data name="Cli_Items" xml:space="preserve">
     <value>개</value>
+  </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>취소되었습니다</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>오류</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>드라이버 파일 선택</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>드라이버 파일</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>모든 파일</value>
+  </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>WHQL 인증을 받지 않았습니다</value>
+  </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>이 도구는 Windows 전용입니다. 드라이버 열거에 WMI, pnputil, Windows 업데이트 에이전트를 사용합니다</value>
   </data>
 </root>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Core は net8.0 のまま [SupportedOSPlatform("windows")] 付きヘルパーを呼ぶため
+         CA1416 が多数出る。実行時は OperatingSystem.IsWindows() でガードされている既知の誤検出。
+         テストコード側の null 許容警告もテストの意図(null を渡す)なので抑止する -->
+    <NoWarn>$(NoWarn);CA1416;CS8600;CS8602;CS8604;CS8620;CS8625</NoWarn>
+  </PropertyGroup>
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <!-- WMI と AddStandardResilienceHandler のスタブは core-typecheck と共有する -->
+    <Compile Include="../core-typecheck/Stubs.cs" />
+    <Compile Include="../../src/AeroDriver.Core/**/*.cs" Exclude="../../src/AeroDriver.Core/obj/**/*.cs;../../src/AeroDriver.Core/bin/**/*.cs" />
+    <Compile Include="../../tests/AeroDriver.Core.Tests/**/*.cs" Exclude="../../tests/AeroDriver.Core.Tests/obj/**/*.cs;../../tests/AeroDriver.Core.Tests/bin/**/*.cs" />
+  </ItemGroup>
+</Project>

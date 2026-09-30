@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- 本物と同じ条件を再現する。RootNamespace と resx の配置から
+         マニフェスト名 AeroDriver.Languages.Resources.Strings が決まる -->
+    <RootNamespace>AeroDriver.Languages</RootNamespace>
+    <AssemblyName>AeroDriver.Languages</AssemblyName>
+    <NeutralLanguage>en-US</NeutralLanguage>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <EmbeddedResourceUseDependentUponConvention>true</EmbeddedResourceUseDependentUponConvention>
+  </PropertyGroup>
+  <ItemGroup><FrameworkReference Include="Microsoft.AspNetCore.App" /></ItemGroup>
+  <ItemGroup>
+    <!-- resx は本物と同じ相対配置(Resources/ 配下)にリンクする。
+         これでサテライトアセンブリの生成条件まで含めて同じになる -->
+    <EmbeddedResource Include="../../src/AeroDriver.Languages/Resources/Strings*.resx"
+                      Link="Resources/%(Filename)%(Extension)" />
+    <Compile Include="../../src/AeroDriver.Languages/Services/LanguageService.cs" />
+  </ItemGroup>
+</Project>

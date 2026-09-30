@@ -76,13 +76,13 @@
     <value>Операция успешно завершена</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>Произошла ошибка: {0}</value>
+    <value>Ошибка</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>Актуальная версия</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Доступно обновление: {0}</value>
+    <value>Доступно обновление</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Нет сертификации WHQL</value>
@@ -191,5 +191,26 @@
   </data>
   <data name="Cli_Items" xml:space="preserve">
     <value>шт.</value>
+  </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Отменено</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Ошибка</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Выберите файл драйвера</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Файлы драйверов</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>Все файлы</value>
+  </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>Без сертификации WHQL</value>
+  </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>Этот инструмент работает только в Windows. Для перечисления драйверов используются WMI, pnputil и агент Центра обновления Windows</value>
   </data>
 </root>

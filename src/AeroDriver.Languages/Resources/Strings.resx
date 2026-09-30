@@ -127,7 +127,7 @@
     <value>Operation completed successfully</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>An error occurred: {0}</value>
+    <value>Error</value>
   </data>
   
   <!-- Driver Information -->
@@ -135,7 +135,7 @@
     <value>Up to date</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Update available: {0}</value>
+    <value>Update available</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Not WHQL certified</value>
@@ -246,5 +246,26 @@
   </data>
   <data name="Cli_Items" xml:space="preserve">
     <value>item(s)</value>
+  </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Cancelled</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Error</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Select a driver file</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Driver files</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>All files</value>
+  </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>Not WHQL certified</value>
+  </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>This tool requires Windows. Driver enumeration uses WMI, pnputil and the Windows Update Agent</value>
   </data>
 </root>

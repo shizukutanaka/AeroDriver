@@ -15,6 +15,7 @@
     <Compile Include="../../src/AeroDriver.Core/Events/DriverUpdateEvents.cs" />
     <Compile Include="../../src/AeroDriver.UI/Services/IFileDialogService.cs" />
     <Compile Include="../../src/AeroDriver.UI/Services/IThemeService.cs" />
+    <Compile Include="../../src/AeroDriver.UI/Converters/NullToVisibilityConverters.cs" />
     <Compile Include="../../src/AeroDriver.UI/ViewModels/MainViewModel.cs" />
   </ItemGroup>
 </Project>

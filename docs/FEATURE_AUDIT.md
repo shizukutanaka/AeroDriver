@@ -183,6 +183,23 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
 署名の強制により、`pnputil` は未署名ドライバーのドライバーストア追加を拒否する。
 加えて WHQL 状態を UI に提示し、BYOVD 照合は CAB 展開後の中身に対して行っている。
 
+### `AeroDriver.Languages` がコンパイルできない状態だった(2026-08-25 修正)
+
+`LanguageService.cs` の `using AeroDriver.Languages.Resources;` が、**コード上に存在しない
+名前空間**を参照していた。SDK スタイルのプロジェクトでは `.resx` から強く型付けされた
+リソースクラスは自動生成されないため、この名前空間はどこにも無い。結果 CS0234 で
+コンパイル不能。しかも `ResourceManager` はベース名を**文字列**で受けるので、
+この `using` は最初から未使用だった。
+
+10言語対応の中核プロジェクトが**ビルドできない**状態で、`dotnet build AeroDriver.sln` は
+Windows でもここで落ちていた(`.sln` の破損と WMI パッケージ参照の欠落に続く3件目の
+「Windows と無関係にビルドを殺していた欠陥」)。
+
+`tools/lang-run` を作って初めて発覚した。`AeroDriver.Languages` は Core を
+`ProjectReference` しており Core の NuGet が restore できないため、プロジェクトとしては
+この環境でビルドできない。resx と `LanguageService.cs` だけを同条件で切り出すことで
+実際に動かせるようになった。
+
 ### 配布(publish)に関する制約
 
 10言語対応は publish の設定ひとつで無言のうちに壊れる。以下は**変更してはいけない**:
@@ -194,6 +211,73 @@ de-DE/es-ES/fr-FR/it-IT/ko-KR/pt-BR/ru-RU/zh-CN の8言語すべてに en-US と
   `GetString()` の `"[キー名]"` フォールバックのせいで**例外も出さずに UI が全滅する**状態だった
 
 `tools/check-packages.py` が上記3点を機械検証する。
+
+### verify-windows.ps1 の検証状況
+
+`tools/verify-windows.ps1` は長らく**構文検査すらされていなかった**(この環境に pwsh が
+無いと判断していたため)。しかし **PowerShell の公式配布経路は GitHub Releases** であり、
+GitHub は到達可能だった:
+
+```
+https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz
+```
+
+同リリースの `hashes.sha256` と SHA256 が一致することを確認したうえで導入し、公式パーサー
+(`System.Management.Automation.Language.Parser::ParseFile`)で構文検査、さらに Linux 上で
+実行して挙動を確認した。その結果**実際の欠陥が3件**見つかった:
+
+1. Windows でないとき中断せず restore/build まで進み、本当の原因(Windows で動かしていない)が
+   55行のノイズに埋もれていた → 即座に中断して終了
+2. restore 失敗後も build/test を実行して同じ原因の失敗を積み上げていた
+   → 前段が失敗したら SKIP する
+3. `Check` の戻り値が出力ストリームに漏れて `True`/`False` が混ざっていた
+   → `$null =` で受ける
+
+`tools/verify-all.sh` に構文検査とガード動作の確認を組み込み済み(pwsh が無い環境では
+スキップし、その旨を表示する)。構文エラーの注入・ガードの除去の両方で検出できることを
+確認している。
+
+**それでも Windows 側の経路(restore/build/test/スモーク)は未実行**である点は変わらない。
+
+### DI コンテナの検証状況
+
+`ServiceCollectionExtensions.ConfigureServices()` は**一度も実行されていなかった**
+(`ServiceCollectionExtensionsTests.cs` は xunit のためこの環境では走らない)。
+DI の解決失敗と captive dependency は型検査では絶対に見つからず、実行時に
+`InvalidOperationException` で落ちる種類の欠陥。
+
+`tools/di-run` で `ValidateOnBuild` + `ValidateScopes` 付きにコンテナを構築し、
+主要サービスの解決とライフタイムを実行検証している(16アサーション(記録時点の値。現在の件数は tools/verify-all.sh の出力を参照))。結果は健全で、
+captive dependency は存在しなかった。登録を1つ消す / `ISettingsService` を Scoped に変える
+の両方で失敗を検出できることを確認済み。
+
+対象外: 実 WMI、実 HTTP、レジリエンスポリシー(`AddStandardResilienceHandler` は
+no-op スタブ)、`App.xaml.cs` の UI 層 DI。
+
+### リソースの書式方針(2026-08-26 確立)
+
+**リソースの値にプレースホルダーを持たせない。** `ResourceManager.GetString(key)` は
+書式化しないため、値に `{0}` があって引数なしで呼ぶと**リテラルのまま画面に出る**。
+実際に `Status_Error` と `Driver_Status_UpdateAvailable` の2キーがこの状態で、
+13箇所の呼び出しにより全10言語で `エラーが発生しました: {0}: ...` のような表示になっていた
+(GUI のタブ見出しは常時「更新があります: {0}」)。
+
+原因は方針の混在: `Install_*` 系は「理由だけを述べる短い句」として設計されていたが、
+この2キーだけ旧設計のまま残り、呼び出し側だけが新方針(自前連結)に移行していた。
+
+現在は全16箇所が `$"{GetString(key)}: {value}"` の単一形式で、
+`tools/check-resources.py` が値のプレースホルダーと引数付き呼び出しの両方を禁止する。
+
+### キャンセル経路の検証状況(2026-08-26)
+
+`MainViewModel.RunAsync` の `catch (OperationCanceledException)` 分岐 — つまり
+「実行中の操作を Cancel ボタンで実際に中断する」経路は、これまで一度も実行されて
+いなかった(ui-run は CanExecute の遷移とダイアログキャンセルのみ検証していた)。
+
+`tools/ui-run` の `MockDriverService.ScanGate`(TaskCompletionSource)でスキャンを
+実行中のまま止め、`CancelCommand` で実際に中断する8アサーションを追加。
+中断後の `IsBusy` 復帰・結果の非反映・ステータスのリソースキー経由・再実行可能性まで
+全て通った(ロジック自体は正しく、メッセージの日本語直書きのみが欠陥だった)。
 
 ### テストコードの検証状況
 
@@ -319,7 +403,7 @@ jobs:
   WPF・CommunityToolkit の最小スタブに対して**実コンパイル**(型検査)
 - `tools/ui-run`: `MainViewModel` を**実際に実行**。ジェネレーター再現側のコマンドを
   実 private ハンドラーと実 CanExecute 述語へ配線し、手書きモックと本物の
-  `Microsoft.Extensions.DependencyInjection` で走らせる。**73アサーション全通過**。
+  `Microsoft.Extensions.DependencyInjection` で走らせる。**73アサーション(記録時点の値。現在の件数は tools/verify-all.sh の出力を参照)全通過**。
   これにより「一括インストールが `AdminRequired` で1件目中断し2件目を呼ばない」など、
   従来一度も実行されていなかったロジックが実測で確認された
 - `tools/verify-all.sh`: 上記に加え XAML の `{Binding ...}` 名と ViewModel/Models の

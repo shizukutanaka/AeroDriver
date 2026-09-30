@@ -58,6 +58,10 @@ dotnet run --project src/AeroDriver.CLI -- scan
 dotnet run --project src/AeroDriver.UI
 ```
 
+Both need Windows. The CLI targets `net8.0` so it *starts* on Linux/macOS, but it
+exits immediately with a clear message rather than reporting a misleading
+"0 drivers found" — driver enumeration needs WMI, `pnputil` and the Windows Update Agent.
+
 ## 🧩 Architecture
 
 - **DriverService**: driver detection and update orchestration
@@ -81,11 +85,16 @@ working rules live in [CLAUDE.md](CLAUDE.md).
 
 ```bash
 tools/verify-all.sh              # everything checkable without Windows
-pwsh -File tools/verify-windows.ps1   # the rest, on real Windows
+pwsh -File tools/verify-windows.ps1   # the rest, on real Windows (syntax-checked here)
 ```
 
-Core is compiled and executed for real (130 assertions), and `MainViewModel` is
-executed too (101 assertions, against hand-written mocks and a real DI container).
+Core is compiled and executed for real, `MainViewModel` and the value converters are
+executed too (against hand-written mocks and a real DI container), the DI container itself
+is built and resolved with `ValidateOnBuild` and `ValidateScopes` — captive dependencies
+only ever surface at runtime — and the localization pipeline is exercised end to end
+(resx compilation, satellite assemblies, neutral fallback for cultures with no satellite).
+Assertion counts are deliberately not written here: they drifted four times when they
+were, so the live numbers come from running the script itself.
 The script also checks that no user-visible string is hardcoded in the XAML and that
 every `{Binding ...}` name resolves to a real ViewModel or model member.
 The remaining WPF and CLI code — and the whole xunit test suite — is type-checked
@@ -94,7 +103,14 @@ validates the solution file and every `PackageReference`, two things that previo
 broke the Windows build for reasons unrelated to Windows. This does **not** replace
 `dotnet build AeroDriver.sln && dotnet test` on Windows — XAML compilation,
 source-generator output, WMI behaviour and command-line parsing still need a real
-build. Each tool's README states its own limits.
+build. Each tool's README states its own limits. `verify-windows.ps1` covers what only Windows can:
+restore, build (XAML + source generators), `dotnet test`, CLI smoke against real WMI,
+`dotnet publish` for both surfaces, satellite assemblies for all 9 translated cultures,
+and launching the GUI to confirm it survives startup. The one thing it cannot automate is
+switching the UI culture — `LanguageService` reads the OS user culture, so verify the
+language combo box by hand. The script itself is statically checked on every run of
+`verify-all.sh` (brace/quote balance, cmdlet spelling, `-When` ordering), so a syntax
+slip in it will not waste your one trip to a Windows box.
 
 ## 🛠️ Development
 

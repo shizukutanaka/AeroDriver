@@ -1,9 +1,11 @@
 // MainViewModel を実際にインスタンス化してコマンドを実行し、状態遷移を検証する。
 // offline-verify と同じ Check() 方式。
 using System.Globalization;
+using System.Windows;
 using System.Linq;
 using AeroDriver.Core.Interfaces;
 using AeroDriver.Core.Models;
+using AeroDriver.UI.Converters;
 using AeroDriver.UI.Services;
 using AeroDriver.UI.ViewModels;
 using AeroDriver.UiRun;
@@ -176,6 +178,35 @@ Console.WriteLine("== DescribeResult: 全失敗理由がリソースキー経由
     }
 }
 
+Console.WriteLine("== WHQL 警告(README が謳う『WHQL未認定なら警告する』) ==");
+{
+    // 以前は _logger にしか出しておらず、コンソールを持たない WinExe の GUI では
+    // ユーザーが一生見られなかった。結果メッセージに載ることを実行で確かめる
+    async Task<string> InstallAndDescribe(bool whql, DriverInstallResult r)
+    {
+        var (v, d, _, _, _, _) = Build();
+        d.Updates = new List<DriverInfo>
+        {
+            new() { DeviceID = "A", DeviceName = "GPU", DriverVersion = "1.0", IsWHQLCertified = whql },
+        };
+        await v.CheckUpdatesCommand.ExecuteAsync(null);
+        v.SelectedUpdate = v.AvailableUpdates[0];
+        d.InstallResults.Enqueue(r);
+        await v.InstallSelectedCommand.ExecuteAsync(null);
+        return v.StatusMessage;
+    }
+
+    var warn = "[Warning_NotWhqlCertified]";
+    Check("非WHQL + 成功 → 警告が出る",
+        (await InstallAndDescribe(false, DriverInstallResult.Success)).Contains(warn));
+    Check("非WHQL + 再起動要求 → 警告が出る",
+        (await InstallAndDescribe(false, DriverInstallResult.SuccessRebootRequired)).Contains(warn));
+    Check("非WHQL + 失敗 → 警告が出る",
+        (await InstallAndDescribe(false, DriverInstallResult.InstallerFailed)).Contains(warn));
+    Check("WHQL認定済み → 警告は出ない",
+        !(await InstallAndDescribe(true, DriverInstallResult.Success)).Contains(warn));
+}
+
 Console.WriteLine("== Backup / Rollback / Details ==");
 {
     var (vm, drv, _, _, _, _) = Build();
@@ -295,6 +326,73 @@ Console.WriteLine("== Cancel ==");
     Check("非実行中は Cancel 不可", !vm.CancelCommand.CanExecute(null));
     vm.CancelCommand.Execute(null); // _cts == null でも例外にならないこと
     Check("実行中でない Cancel は無害", true);
+}
+
+Console.WriteLine("== Cancel: 実行中の操作を実際に中断する (この経路の初の実行検証) ==");
+{
+    var (vm, drv, _, _, _, _) = Build();
+    drv.Installed = new List<DriverInfo> { D("A", "GPU") };
+    drv.ScanGate = new TaskCompletionSource(); // スキャンをゲートで止めておく
+
+    var running = vm.ScanCommand.ExecuteAsync(null); // await しない = 実行中の状態を作る
+    // ゲートで止まっている間の状態
+    Check("実行中は IsBusy == true", vm.IsBusy);
+    Check("実行中は Cancel が可能", vm.CancelCommand.CanExecute(null));
+    Check("実行中は Scan の再実行が不可", !vm.ScanCommand.CanExecute(null));
+
+    vm.CancelCommand.Execute(null); // 実際にキャンセルする
+    await running;                  // RunAsync は例外を握って戻るので await は成功する
+
+    Check("キャンセル後は IsBusy == false", !vm.IsBusy);
+    Check("キャンセルはリソースキー経由で通知(エラー扱いしない)",
+        vm.StatusMessage == "[Status_Cancelled]", vm.StatusMessage);
+    Check("キャンセルされたスキャンの結果は反映されない", vm.InstalledDrivers.Count == 0,
+        vm.InstalledDrivers.Count.ToString());
+    Check("キャンセル後は Scan を再実行できる", vm.ScanCommand.CanExecute(null));
+
+    // ゲートを開けてもう一度走らせれば正常に完了する(キャンセルが状態を壊していない)
+    drv.ScanGate = null;
+    await vm.ScanCommand.ExecuteAsync(null);
+    Check("キャンセル後の再スキャンは成功する", vm.InstalledDrivers.Count == 1);
+}
+
+Console.WriteLine("== 詳細ペインのコンバーター ==");
+{
+    // XAML の Visibility 束縛に使われているが一度も実行されていなかった。
+    // 2つは対になっており、同じ入力に対して必ず逆の結果を返さなければならない
+    // (両方 Collapsed になるとペインが空白のまま何も出ない)
+    var nullToVis = new NullToVisibilityConverter();
+    var notNullToVis = new NotNullToVisibilityConverter();
+    var ci = CultureInfo.InvariantCulture;
+    var detail = new DriverDetailInfo { DeviceName = "GPU" };
+
+    Check("null -> プレースホルダーを表示",
+        (Visibility)nullToVis.Convert(null, typeof(Visibility), null, ci) == Visibility.Visible);
+    Check("非null -> プレースホルダーを隠す",
+        (Visibility)nullToVis.Convert(detail, typeof(Visibility), null, ci) == Visibility.Collapsed);
+    Check("null -> 内容を隠す",
+        (Visibility)notNullToVis.Convert(null, typeof(Visibility), null, ci) == Visibility.Collapsed);
+    Check("非null -> 内容を表示",
+        (Visibility)notNullToVis.Convert(detail, typeof(Visibility), null, ci) == Visibility.Visible);
+
+    foreach (object? v in new object?[] { null, detail, "", 0 })
+        Check($"2つのコンバーターが逆の結果を返す ({v?.GetType().Name ?? "null"})",
+            (Visibility)nullToVis.Convert(v, typeof(Visibility), null, ci)
+            != (Visibility)notNullToVis.Convert(v, typeof(Visibility), null, ci));
+
+    // 片方向束縛なので ConvertBack は呼ばれてはならない。黙って既定値を返すと
+    // 「なぜか表示が壊れる」形の不具合になるため、明示的に例外にしてある
+    Check("ConvertBack は NotSupportedException",
+        Throws(() => nullToVis.ConvertBack(Visibility.Visible, typeof(object), null, ci)));
+    Check("ConvertBack は NotSupportedException (NotNull 版)",
+        Throws(() => notNullToVis.ConvertBack(Visibility.Visible, typeof(object), null, ci)));
+
+    static bool Throws(Action a)
+    {
+        try { a(); return false; }
+        catch (NotSupportedException) { return true; }
+        catch { return false; }
+    }
 }
 
 Console.WriteLine();

@@ -4,7 +4,6 @@ using System.Globalization;
 using System.Resources;
 using System.Threading;
 using Microsoft.Extensions.Logging;
-using AeroDriver.Languages.Resources;
 
 namespace AeroDriver.Languages.Services
 {
@@ -130,7 +129,9 @@ namespace AeroDriver.Languages.Services
 
             try
             {
-                string format = _resourceManager.GetString(name, _currentCulture);
+                // GetString は string? を返す。次行の ?? で null は扱っているので
+                // 実挙動は正しかったが、宣言が string で CS8600 が出ていた
+                string? format = _resourceManager.GetString(name, _currentCulture);
                 return string.Format(format ?? $"[{name}]", args);
             }
             catch (Exception ex)

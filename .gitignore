@@ -186,3 +186,6 @@ msbuild.wrn
 # 外部フェッチを止めている)。無いと新規クローンで restore が
 # プロキシに 403 され tools/verify-all.sh が動かない。上の *.config より後に置くこと
 !tools/*/nuget.config
+
+# tools/verify-windows.ps1 が作る検証専用の成果物(スクリプト側でも削除するが保険)
+dist-verify/

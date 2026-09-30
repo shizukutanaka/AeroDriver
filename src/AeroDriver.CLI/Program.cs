@@ -44,6 +44,17 @@ namespace AeroDriver.CLI
 
             var lang = serviceProvider.GetRequiredService<ILanguageService>();
 
+            // 対応OSの確認。CLI は net8.0 のため Linux/macOS でも起動できてしまうが、
+            // WMI/pnputil/WUA が無いのでスキャンは「0 件検出」という成功に見える
+            // 誤った結果を返す。早期に、翻訳済みの理由を添えて止める
+            if (!PlatformGuard.IsSupportedPlatform())
+            {
+                Console.Error.WriteLine(
+                    $"{lang.GetString("Status_Error")}: {lang.GetString("Error_WindowsOnly")} " +
+                    $"({PlatformGuard.DescribeUnsupportedPlatform()})");
+                return ExitFailure;
+            }
+
             var rootCommand = new RootCommand($"{lang.GetString("AppName")} - {lang.GetString("AppDescription")}");
 
             var deviceIdOption = new Option<string?>("--device-id", "対象デバイスの DeviceID を指定します");
@@ -157,14 +168,26 @@ namespace AeroDriver.CLI
                 return ExitSuccess;
             }
 
-            // まず全件を検証してから保存する。1件でも不正なら設定ファイルは書き換えない。
+            // まず全件を「適用せずに」検証する。TryApply は検証と適用が同一操作なので、
+            // これを検証に流用すると先行する代入がメモリ上の Singleton に適用済みのまま
+            // 後続で失敗しうる(設定ファイルは書き換わらないがプロセス内の設定は変わる)。
+            foreach (var a in assignments)
+            {
+                if (!SettingsKeys.TryValidate(a, out var error))
+                {
+                    Console.Error.WriteLine(error);
+                    Console.Error.WriteLine(lang.GetString("Cli_ValidKeys") + ": " +
+                        string.Join(", ", SettingsKeys.All.Select(e => e.Name)));
+                    return ExitUsageError;
+                }
+            }
+
+            // 全件が受理可能と分かってから適用する。ここでの失敗は想定外
             foreach (var a in assignments)
             {
                 if (!SettingsKeys.TryApply(settings, a, out var error))
                 {
                     Console.Error.WriteLine(error);
-                    Console.Error.WriteLine(lang.GetString("Cli_ValidKeys") + ": " +
-                        string.Join(", ", SettingsKeys.All.Select(e => e.Name)));
                     return ExitUsageError;
                 }
             }
@@ -211,7 +234,7 @@ namespace AeroDriver.CLI
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {ex.Message}");
                 logger.LogError(ex, "ドライバースキャン中にエラーが発生しました");
                 return ExitFailure;
             }
@@ -291,7 +314,7 @@ namespace AeroDriver.CLI
 
                 foreach (var u in updates)
                 {
-                    var label = lang.GetString("Driver_Status_UpdateAvailable", u.DriverVersion ?? "?");
+                    var label = $"{lang.GetString("Driver_Status_UpdateAvailable")}: {u.DriverVersion ?? "?"}";
                     Console.WriteLine($"{u.DeviceName,-40} {label} ({u.UpdateSource})  [DeviceID: {u.DeviceID}]");
                 }
 
@@ -300,7 +323,7 @@ namespace AeroDriver.CLI
             }
             catch (Exception ex)
             {
-                Console.Error.WriteLine(lang.GetString("Status_Error", ex.Message));
+                Console.Error.WriteLine($"{lang.GetString("Status_Error")}: {ex.Message}");
                 logger.LogError(ex, "更新確認中にエラーが発生しました");
                 return ExitFailure;
             }
@@ -432,12 +455,17 @@ namespace AeroDriver.CLI
         {
             var name = target.DeviceName ?? string.Empty;
 
+            // WHQL非認定は結果の成否と独立した警告(GUI の DescribeResult と対で維持する)
+            var whql = target.IsWHQLCertified
+                ? string.Empty
+                : $" — {lang.GetString("Warning_NotWhqlCertified")}";
+
             if (result == DriverInstallResult.Success)
-                return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}";
+                return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}{whql}";
 
             if (result == DriverInstallResult.SuccessRebootRequired)
                 return $"{lang.GetString("Status_Complete")}: {name} {target.DriverVersion}"
-                     + $" ({lang.GetString("Install_RebootRequired")})";
+                     + $" ({lang.GetString("Install_RebootRequired")}){whql}";
 
             var reason = lang.GetString(result switch
             {
@@ -451,7 +479,7 @@ namespace AeroDriver.CLI
                 DriverInstallResult.Cancelled             => "Install_Cancelled",
                 _                                         => "Install_UnknownError",
             });
-            return string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}";
+            return (string.IsNullOrEmpty(name) ? reason : $"{name}: {reason}") + whql;
         }
 
         /// <summary>

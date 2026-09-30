@@ -322,6 +322,145 @@ Console.WriteLine("== BackupService generation retention (keeps NEWEST, not olde
     try { System.IO.Directory.Delete(root, true); } catch { }
 }
 
+Console.WriteLine("== InstallHistoryService の切り詰め(上限5MiB。安全網の初の実行検証) ==");
+{
+    // 実装はあったが一度も実行されていなかった。年単位で使うと必ず通る経路で、
+    // 壊れていれば監査証跡を全損する。実際に上限を超えさせて確かめる
+    var hist = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"trim_{Guid.NewGuid():N}.jsonl");
+    var svc = new AeroDriver.Core.Services.InstallHistoryService(
+        Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.InstallHistoryService>.Instance, hist);
+    try
+    {
+        // 5 MiB を超えるまで直接書き込む(RecordAsync を何万回も回すより速い)。
+        // 各行は GetHistoryAsync が読める正当な JSONL でなければならない
+        // 各行に通し番号を入れる。これが無いと「新しい半分」と「古い半分」を
+        // 区別できず、Skip を Take に変えても検出できない(実際に一度そうなった)
+        var sb = new System.Text.StringBuilder();
+        int written = 0;
+        while (sb.Length < 5 * 1024 * 1024 + 4096)
+        {
+            sb.Append(System.Text.Json.JsonSerializer.Serialize(new InstallHistoryEntry
+            {
+                TimestampUtc = DateTime.UtcNow,
+                DeviceName = $"seq-{written:D6}-" + new string('x', 180),
+                ToVersion = "1.0", Success = true, Result = "Success",
+            })).Append('\n');
+            written++;
+        }
+        await System.IO.File.WriteAllTextAsync(hist, sb.ToString());
+
+        var before = new System.IO.FileInfo(hist).Length;
+        Check("上限を超えた状態を作れた", before > 5 * 1024 * 1024, before.ToString());
+
+        // 追記すると切り詰めが走る
+        await svc.RecordAsync(new InstallHistoryEntry
+        {
+            TimestampUtc = DateTime.UtcNow, DeviceName = "Newest", ToVersion = "9.9",
+            Success = true, Result = "Success",
+        });
+
+        var after = new System.IO.FileInfo(hist).Length;
+        Check("ファイルが縮んだ", after < before, $"{before} -> {after}");
+        Check("空にはなっていない(全損させない)", after > before / 4, after.ToString());
+
+        var entries = await svc.GetHistoryAsync();
+        Check("切り詰め後も読み出せる", entries.Count > 0, entries.Count.ToString());
+        Check("残ったのは新しい方(直前の追記が先頭)", entries[0].DeviceName == "Newest",
+            entries[0].DeviceName ?? "(null)");
+        Check("件数がおよそ半分になった", entries.Count < written, $"{written} -> {entries.Count}");
+
+        // 残ったのが「新しい半分」であることを通し番号で確かめる。
+        // 古い方を残す実装(Skip→Take)ならここで落ちる
+        var seqs = entries.Select(e => e.DeviceName ?? string.Empty)
+                          .Where(n => n.StartsWith("seq-"))
+                          .Select(n => int.Parse(n.Substring(4, 6)))
+                          .ToList();
+        Check("通し番号を持つ行が残っている", seqs.Count > 0, seqs.Count.ToString());
+        Check("残ったのは番号の大きい方(= 新しい半分)",
+            seqs.Count > 0 && seqs.Min() >= written / 2 - 1,
+            $"min={(seqs.Count > 0 ? seqs.Min() : -1)} written/2={written / 2}");
+        Check("最も古い行(seq-000000)は捨てられている", !seqs.Contains(0));
+        Check("一時ファイルを残していない", !System.IO.File.Exists(hist + ".tmp"));
+    }
+    finally
+    {
+        try { System.IO.File.Delete(hist); } catch { }
+        try { System.IO.File.Delete(hist + ".tmp"); } catch { }
+    }
+}
+
+Console.WriteLine("== SettingsService の保存がアトミックであること ==");
+{
+    // File.WriteAllText は切り詰めてから書くため、途中で落ちると設定が全損する。
+    // 履歴の切り詰めと同じ temp+Move に統一したことを実際に確かめる
+    var cfg = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"atomic_{Guid.NewGuid():N}.json");
+    var log = Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance;
+    try
+    {
+        var svc = new AeroDriver.Core.Services.SettingsService(log, cfg);
+        svc.MaxBackupGenerations = 7;
+        svc.ThemeName = "Dark";
+        svc.Save();
+
+        Check("保存後に設定ファイルが存在する", System.IO.File.Exists(cfg));
+        Check("一時ファイルを残していない", !System.IO.File.Exists(cfg + ".tmp"));
+
+        var body = await System.IO.File.ReadAllTextAsync(cfg);
+        Check("中身が完全な JSON(切り詰められていない)",
+            body.TrimStart().StartsWith("{") && body.TrimEnd().EndsWith("}"), body);
+
+        var reloaded = new AeroDriver.Core.Services.SettingsService(log, cfg);
+        Check("保存内容が読み戻せる", reloaded.MaxBackupGenerations == 7 && reloaded.ThemeName == "Dark",
+            $"{reloaded.MaxBackupGenerations}/{reloaded.ThemeName}");
+
+        // 既存ファイルがある状態で上書きしても壊れないこと(Move の overwrite 経路)
+        reloaded.MaxBackupGenerations = 3;
+        reloaded.Save();
+        var again = new AeroDriver.Core.Services.SettingsService(log, cfg);
+        Check("上書き保存も読み戻せる", again.MaxBackupGenerations == 3, again.MaxBackupGenerations.ToString());
+        Check("上書き後も一時ファイルを残さない", !System.IO.File.Exists(cfg + ".tmp"));
+
+        // 一時ファイル名はプロセス毎に一意(固定名だと GUI と CLI が同時保存で衝突し、
+        // 書き途中の内容を Move してしまう)。名前が一意な分、後始末も必須
+        var dir = System.IO.Path.GetDirectoryName(cfg)!;
+        var stem = System.IO.Path.GetFileName(cfg);
+        var strays = System.IO.Directory.GetFiles(dir, stem + ".*.tmp");
+        Check("一意名の一時ファイルも残っていない", strays.Length == 0,
+            string.Join(",", strays));
+
+        // 連続保存でも溜まらない(名前が一意なので後始末が無いと溜まる)
+        for (int i = 0; i < 5; i++) { again.MaxBackupGenerations = i + 1; again.Save(); }
+        Check("連続保存後も一時ファイルが溜まらない",
+            System.IO.Directory.GetFiles(dir, stem + ".*.tmp").Length == 0);
+        Check("連続保存の最後の値が読み戻せる",
+            new AeroDriver.Core.Services.SettingsService(log, cfg).MaxBackupGenerations == 5);
+    }
+    finally
+    {
+        try { System.IO.File.Delete(cfg); } catch { }
+        try { System.IO.File.Delete(cfg + ".tmp"); } catch { }
+    }
+}
+
+Console.WriteLine("== PlatformGuard(Windows専用ツールを非対応OSで走らせない) ==");
+{
+    // この環境は Linux。ガードが正しく「非対応」と判定することを実際に確かめる。
+    // Windows でこれを走らせると逆の分岐になるが、どちらでも整合するよう書く
+    bool win = OperatingSystem.IsWindows();
+    Check($"IsSupportedPlatform が OS と一致 (IsWindows={win})",
+        PlatformGuard.IsSupportedPlatform() == win);
+    var desc = PlatformGuard.DescribeUnsupportedPlatform();
+    if (win)
+    {
+        Check("Windows では理由が null", desc == null, desc ?? "(null)");
+    }
+    else
+    {
+        Check("非Windows では理由が返る", !string.IsNullOrWhiteSpace(desc), desc ?? "(null)");
+        Check("理由に OS の識別情報が入る", desc!.Contains('/'), desc);
+    }
+}
+
 Console.WriteLine("== SettingsKeys (設定を UI から到達可能にする表) ==");
 {
     Check("全キーが一意", SettingsKeys.All.Select(e => e.Name).Distinct().Count() == SettingsKeys.All.Count);
@@ -357,6 +496,21 @@ Console.WriteLine("== SettingsKeys (設定を UI から到達可能にする表)
     Check("非数値は拒否", !SettingsKeys.TryApply(st, "backup-generations=many", out _));
     Check("拒否されたら値は変わらない", st.MaxBackupGenerations == 3, st.MaxBackupGenerations.ToString());
     Check("不正な真偽値は拒否", !SettingsKeys.TryApply(st, "backup=maybe", out var e2) && e2.Contains("backup"));
+
+    // TryValidate は「適用せずに判定する」。複数件をまとめて適用する経路が
+    // 「1件でも不正なら何も変更しない」を守るために必須(実際に CLI が partial apply していた)
+    st.BackupEnabled = true;
+    Check("TryValidate は受理可能な代入に true", SettingsKeys.TryValidate("backup=off", out _));
+    Check("TryValidate は値を書き換えない", st.BackupEnabled, "backup が変更されてしまった");
+    Check("TryValidate は未知キーを拒否", !SettingsKeys.TryValidate("nope=1", out var e3) && e3.Contains("nope"));
+    Check("TryValidate は不正な値を拒否", !SettingsKeys.TryValidate("backup-generations=0", out _));
+    Check("TryValidate は書式不正を拒否", !SettingsKeys.TryValidate("backup", out _));
+    Check("TryValidate の判定は TryApply と一致",
+        SettingsKeys.All.All(entry =>
+            new[] { "on", "off", "maybe", "", "3", "0" }.All(v =>
+                entry.IsValid(v) == entry.Write(new AeroDriver.Core.Services.SettingsService(
+                    Microsoft.Extensions.Logging.Abstractions.NullLogger<AeroDriver.Core.Services.SettingsService>.Instance,
+                    System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"sk2_{Guid.NewGuid():N}.json")), v))));
 
     // ISettingsService の「ユーザー設定」全件が表に載っているか
     // (ThemeName/CultureName は GUI が直接書くため対象外)

@@ -4,11 +4,33 @@
 # そこで出るはずのエラーを前倒しで潰すためのもの(各ツールの README に限界を明記)。
 set -uo pipefail
 cd "$(dirname "$0")"
+# 日本語検出の grep -P は locale 未設定だと UTF-8 のマルチバイト境界を誤認し、
+# EM DASH(U+2014)等を CJK と誤検出する(locale の無い素のコンテナで実際に発生)。
+# 環境に依存させない
+export LC_ALL=C.UTF-8
 fail=0
 
+# 実行ハーネス用。dotnet run は暗黙にビルドするが**インクリメンタル**なので、
+# 一度ビルドが通ると以降 CS 警告が再出力されない(実際に LanguageService の
+# CS8600 がそれで隠れていた)。明示的に --no-incremental でビルドし、
+# 警告を失敗として扱ってから --no-build で実行する
 run() {
     printf '\n=== %s ===\n' "$1"
-    if (cd "$2" && shift 2 && "$@" 2>&1 | tail -n "${TAIL:-6}"); then :; else fail=1; fi
+    local dir="$2"; shift 2
+    local out
+    if out=$(cd "$dir" && dotnet build -v q --nologo --no-incremental 2>&1); then
+        local warn
+        if warn=$(echo "$out" | grep -oP "warning CS\d+.*" | sed 's| \[/.*||' | sort -u); [ -n "$warn" ]; then
+            echo "$warn" | sed 's|^|  |'
+            echo "  → CS 警告は宣言と実装の不一致を示す(規則6)。潰すこと"
+            fail=1
+        fi
+    else
+        echo "$out" | grep -E "error" | sed 's|.*/src/|src/|' | sed 's| \[/.*||' | sort -u | head -10
+        fail=1
+        return
+    fi
+    if (cd "$dir" && "$@" --no-build 2>&1 | tail -n "${TAIL:-6}"); then :; else fail=1; fi
 }
 
 # 1. 純粋ロジックの実コンパイル+実行(アサーション)
@@ -17,10 +39,29 @@ run "offline-verify: Core の実コンパイル+実行" offline-verify dotnet ru
 # 2. ViewModel の実コンパイル+実行(コマンドを実ハンドラーに配線して振る舞いを検証)
 run "ui-run: MainViewModel の実行検証" ui-run dotnet run -v q --nologo
 
+# 2c. ローカライズ基盤の実行検証(resx コンパイル → サテライト生成 → 解決とフォールバック)
+run "lang-run: ローカライズ基盤の実行検証" lang-run dotnet run -v q --nologo
+
+# 2b. DI コンテナの実行検証(解決不能サービス・captive dependency は実行時にしか出ない)
+run "di-run: DI コンテナの実行検証" di-run dotnet run -v q --nologo
+
+# 2c. xunit テストスイートの実行(xunit 無しで走らせる。Windows の dotnet test の前倒し)
+TAIL=3 run "tests-run: xunit テストスイートの実行" tests-run dotnet run -v q --nologo
+
+# 2d. CLI の実行検証(OS ガードと、private ハンドラーの引数検証・終了コードの配線)
+run "cli-run: CLI ハンドラーの実行検証" cli-run dotnet run -v q --nologo
+
 # 3-6. スタブに対する型検査(テストコードもここで Core の API と突き合わせる)(出力は成否のみで十分)
+# --no-incremental: インクリメンタルビルドだと再コンパイルが起きず**警告が再出力されない**。
+# 「警告ゼロ」を主張するなら毎回コンパイルさせないと嘘になる(実際に一度見落とした)
 for t in core-typecheck ui-typecheck cli-typecheck tests-typecheck; do
     printf '\n=== %s: 型検査 ===\n' "$t"
-    if out=$(cd "$t" && dotnet build -v q --nologo 2>&1); then
+    if out=$(cd "$t" && dotnet build -v q --nologo --no-incremental 2>&1); then
+        if warn=$(echo "$out" | grep -oP "warning CS\d+.*" | sed 's| \[/.*||' | sort -u); [ -n "$warn" ]; then
+            echo "$warn" | sed 's|^|  |'
+            echo "  → CS 警告は宣言と実装の不一致を示す(規則6)。潰すこと"
+            fail=1
+        fi
         echo "  Build succeeded"
     else
         echo "$out" | grep -E "error" | sed 's|.*/src/|src/|' | sed 's| \[/.*||' | sort -u | head -10
@@ -70,6 +111,19 @@ else
     echo "  Console 出力にハードコード文字列なし"
 fi
 
+printf '\n=== UI 層 .cs のハードコード文字列 ===\n'
+# ViewModel/サービス/App の C# にユーザー可視の日本語散文を残さない。
+# ログ(_logger./Log 系)は開発者向けの慣習として日本語を許容する。コメントも対象外
+ui_hard=$(grep -rnP '"[^"]*[ぁ-んァ-ヶ一-龠][^"]*"' ../src/AeroDriver.UI --include='*.cs' \
+          | grep -vP '_logger\.|\.Log[A-Za-z]*\(|^\s*//|:\s*//|///' || true)
+if [ -n "$ui_hard" ]; then
+    echo "$ui_hard" | sed 's|^|  |'
+    echo "  → ILanguageService 経由のラベル/メッセージに置き換えること"
+    fail=1
+else
+    echo "  ユーザー可視文字列は全てリソース経由(ログの日本語は対象外)"
+fi
+
 printf '\n=== XAML のハードコード文字列 ===\n'
 hard=$(grep -nP '="[^"]*[ぁ-んァ-ヶ一-龠][^"]*"' ../src/AeroDriver.UI/*.xaml \
        | grep -vP "^\S+:\s*<!--" || true)
@@ -82,12 +136,55 @@ else
 fi
 
 # 6c. AeroDriver.sln の健全性(Windows 実機でだけ発覚する事故を前倒しで潰す)
+printf '\n=== ソースジェネレーター再現の同期(CommunityToolkit.Mvvm) ===\n'
+python3 check-generator-contract.py || fail=1
+
 printf '\n=== AeroDriver.sln の健全性 ===\n'
 python3 check-sln.py || fail=1
 
 # 6d. PackageReference の過不足(NuGet が restore できないため実ビルドでは検出できない)
 printf '\n=== PackageReference の過不足 ===\n'
 python3 check-packages.py || fail=1
+
+# 6e. verify-windows.ps1 の構文検査(pwsh があるときだけ)
+# この環境では Windows 実機検証は走らせられないが、**スクリプト自体の構文**は
+# PowerShell の公式パーサーで検査できる。pwsh は公式 GitHub Releases から入る:
+#   curl -sSL -o /tmp/pwsh.tar.gz https://github.com/PowerShell/PowerShell/releases/download/v7.4.6/powershell-7.4.6-linux-x64.tar.gz
+#   (同リリースの hashes.sha256 で SHA256 を照合すること)
+#   mkdir -p /opt/pwsh && tar -xzf /tmp/pwsh.tar.gz -C /opt/pwsh && chmod +x /opt/pwsh/pwsh
+printf '\n=== verify-windows.ps1 の静的検査 ===\n'
+# pwsh の有無に依らず必ず走る。実際に使っている構文に絞った自前の検査で、
+# 括弧・引用符の均衡、Check の戻り値規約、-When 変数の定義順、
+# コマンドレット名の綴り、Start-Process の後始末を見る
+python3 check-ps1.py || fail=1
+
+printf '\n=== verify-windows.ps1 の構文(pwsh がある場合) ===\n'
+PWSH=$(command -v pwsh || echo /opt/pwsh/pwsh)
+if [ -x "$PWSH" ]; then
+    if out=$("$PWSH" -NoProfile -Command '
+        $e=$null; $t=$null
+        [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path verify-windows.ps1), [ref]$t, [ref]$e) | Out-Null
+        if ($e) { $e | ForEach-Object { "  {0}:{1} {2}" -f $_.Extent.StartLineNumber, $_.Extent.StartColumnNumber, $_.Message }; exit 1 }
+        "  構文エラーなし ({0} トークン)" -f $t.Count' 2>&1); then
+        echo "$out"
+        # Windows 以外では即座に中断して終了コード1を返すこと(そこだけは実行検証できる)
+        # ガードが壊れていると restore/build に進んで数分かかるため timeout で切る
+        timeout 30 "$PWSH" -NoProfile -File verify-windows.ps1 >/dev/null 2>&1
+        rc=$?
+        if [ $rc -eq 0 ]; then
+            echo "  非Windowsで成功してしまった(ガードが効いていない)"; fail=1
+        elif [ $rc -eq 124 ]; then
+            echo "  非Windowsで即座に中断しなかった(ガードが効いていない)"; fail=1
+        else
+            echo "  非Windowsでは中断する(ガード動作を確認)"
+        fi
+    else
+        echo "$out"; fail=1
+    fi
+else
+    echo "  pwsh が無いためスキップ(構文未検証)"
+fi
 
 # 7. XML 妥当性(不正な props でビルドが即死した実績があるため必ず見る)
 printf '\n=== XML 妥当性 ===\n'
@@ -107,6 +204,39 @@ done
 [ $miss -eq 0 ] && echo "  使用中の全キーが 10/10"
 
 # 9. 未使用リソースキー(翻訳コストだけ払って誰も表示しないキーを溜めない)
+printf '\n=== ConfigureAwait(CLAUDE.md 規則4) ===\n'
+python3 check-configureawait.py || fail=1
+
+printf '\n=== プロセス引数の組み立て(CLAUDE.md 規則5) ===\n'
+python3 check-processargs.py || fail=1
+
+printf '\n=== インジェクション対策(WQL / パス) ===\n'
+python3 check-injection.py || fail=1
+
+printf '\n=== ダウンロードのサイズ上限 ===\n'
+python3 check-download-limits.py || fail=1
+
+printf '\n=== 永続ファイル書き込みのアトミック性 ===\n'
+python3 check-atomic-writes.py || fail=1
+
+printf '\n=== BYOVD 照合の全経路適用 と HTTPS 強制 ===\n'
+python3 check-blocklist-paths.py || fail=1
+
+printf '\n=== 検証→実行の同一性(TOCTOU) ===\n'
+python3 check-toctou.py || fail=1
+
+printf '\n=== キャンセルの伝播(CLAUDE.md 規則3) ===\n'
+python3 check-cancellation.py || fail=1
+
+printf '\n=== リソース値と呼び出し形式の整合 ===\n'
+python3 check-resources.py || fail=1
+
+printf '\n=== 生きた文書の件数直書き(規則6) ===\n'
+python3 check-docs.py || fail=1
+
+printf '\n=== 課金要素・テレメトリ禁止(CLAUDE.md 規則1) ===\n'
+python3 check-rule1.py || fail=1
+
 printf '\n=== 未使用リソースキー ===\n'
 orphan=0
 for k in $(python3 -c "

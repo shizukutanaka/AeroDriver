@@ -76,13 +76,13 @@
     <value>Opération terminée avec succès</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>Une erreur s'est produite : {0}</value>
+    <value>Erreur</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>À jour</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Mise à jour disponible : {0}</value>
+    <value>Mise à jour disponible</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Non certifié WHQL</value>
@@ -191,5 +191,26 @@
   </data>
   <data name="Cli_Items" xml:space="preserve">
     <value>élément(s)</value>
+  </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Annulé</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Erreur</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Sélectionner un fichier de pilote</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Fichiers de pilote</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>Tous les fichiers</value>
+  </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>Non certifié WHQL</value>
+  </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>Cet outil nécessite Windows. L’énumération des pilotes utilise WMI, pnputil et Windows Update Agent</value>
   </data>
 </root>

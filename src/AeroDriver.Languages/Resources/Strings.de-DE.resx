@@ -76,13 +76,13 @@
     <value>Vorgang erfolgreich abgeschlossen</value>
   </data>
   <data name="Status_Error" xml:space="preserve">
-    <value>Ein Fehler ist aufgetreten: {0}</value>
+    <value>Fehler</value>
   </data>
   <data name="Driver_Status_UpToDate" xml:space="preserve">
     <value>Auf dem neuesten Stand</value>
   </data>
   <data name="Driver_Status_UpdateAvailable" xml:space="preserve">
-    <value>Update verfügbar: {0}</value>
+    <value>Update verfügbar</value>
   </data>
   <data name="Driver_Status_NotWHQL" xml:space="preserve">
     <value>Nicht WHQL-zertifiziert</value>
@@ -191,5 +191,26 @@
   </data>
   <data name="Cli_Items" xml:space="preserve">
     <value>Element(e)</value>
+  </data>
+  <data name="Status_Cancelled" xml:space="preserve">
+    <value>Abgebrochen</value>
+  </data>
+  <data name="Error_Title" xml:space="preserve">
+    <value>Fehler</value>
+  </data>
+  <data name="FileDialog_Title" xml:space="preserve">
+    <value>Treiberdatei auswählen</value>
+  </data>
+  <data name="FileDialog_FilterDrivers" xml:space="preserve">
+    <value>Treiberdateien</value>
+  </data>
+  <data name="FileDialog_FilterAll" xml:space="preserve">
+    <value>Alle Dateien</value>
+  </data>
+  <data name="Warning_NotWhqlCertified" xml:space="preserve">
+    <value>Nicht WHQL-zertifiziert</value>
+  </data>
+  <data name="Error_WindowsOnly" xml:space="preserve">
+    <value>Dieses Tool erfordert Windows. Die Treiberauflistung verwendet WMI, pnputil und den Windows Update-Agent</value>
   </data>
 </root>
