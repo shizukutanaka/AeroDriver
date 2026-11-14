@@ -112,7 +112,7 @@ public class DriverServiceTests
         using var cts = new CancellationTokenSource();
 
         _source1.SearchUpdatesAsync(Arg.Any<CancellationToken>())
-                .Returns(_ => throw new OperationCanceledException(cts.Token));
+                .Returns<IReadOnlyList<DriverInfo>>(_ => throw new OperationCanceledException(cts.Token));
         _source2.SearchUpdatesAsync(Arg.Any<CancellationToken>())
                 .Returns(Array.Empty<DriverInfo>());
 
