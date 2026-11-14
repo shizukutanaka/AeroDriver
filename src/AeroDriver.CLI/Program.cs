@@ -522,7 +522,7 @@ namespace AeroDriver.CLI
                         System.Globalization.DateTimeStyles.AdjustToUniversal, out var dt)
                         ? dt.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
                         : v;
-                    var latestTag = i == 0 ? "  (最新)" : string.Empty;
+                    var latestTag = i == 0 ? $"  ({lang.GetString("Cli_Latest")})" : string.Empty;
                     Console.WriteLine($"  {v}   {readable}{latestTag}");
                 }
 
@@ -561,10 +561,10 @@ namespace AeroDriver.CLI
             try
             {
                 bool success = await driverService.RollbackDriverAsync(deviceId, backupVersion);
-                var which = backupVersion ?? "最新";
+                var which = backupVersion ?? lang.GetString("Cli_Latest");
                 Console.WriteLine(success
-                    ? $"ロールバック完了: {deviceId} (世代: {which})"
-                    : $"ロールバック失敗: {deviceId} (世代: {which})");
+                    ? $"{lang.GetString("Cli_RollbackComplete")}: {deviceId} ({lang.GetString("Cli_Generation")}: {which})"
+                    : $"{lang.GetString("Cli_RollbackFailed")}: {deviceId} ({lang.GetString("Cli_Generation")}: {which})");
                 return success ? ExitSuccess : ExitFailure;
             }
             catch (UnauthorizedAccessException ex)

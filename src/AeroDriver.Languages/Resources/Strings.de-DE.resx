@@ -177,6 +177,18 @@
   <data name="Cli_RollbackHint" xml:space="preserve">
     <value>Zum Wiederherstellen: rollback --device-id &lt;id&gt; --version &lt;Generation&gt;</value>
   </data>
+  <data name="Cli_RollbackComplete" xml:space="preserve">
+    <value>Rollback abgeschlossen</value>
+  </data>
+  <data name="Cli_RollbackFailed" xml:space="preserve">
+    <value>Rollback fehlgeschlagen</value>
+  </data>
+  <data name="Cli_Latest" xml:space="preserve">
+    <value>neueste</value>
+  </data>
+  <data name="Cli_Generation" xml:space="preserve">
+    <value>Generation</value>
+  </data>
   <data name="Cli_BackupsListFailed" xml:space="preserve">
     <value>Sicherungsliste konnte nicht abgerufen werden</value>
   </data>

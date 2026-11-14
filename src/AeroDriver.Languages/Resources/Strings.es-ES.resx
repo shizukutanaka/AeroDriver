@@ -177,6 +177,18 @@
   <data name="Cli_RollbackHint" xml:space="preserve">
     <value>Para restaurar, ejecute: rollback --device-id &lt;id&gt; --version &lt;generación&gt;</value>
   </data>
+  <data name="Cli_RollbackComplete" xml:space="preserve">
+    <value>Restauración completada</value>
+  </data>
+  <data name="Cli_RollbackFailed" xml:space="preserve">
+    <value>Error en la restauración</value>
+  </data>
+  <data name="Cli_Latest" xml:space="preserve">
+    <value>más reciente</value>
+  </data>
+  <data name="Cli_Generation" xml:space="preserve">
+    <value>generación</value>
+  </data>
   <data name="Cli_BackupsListFailed" xml:space="preserve">
     <value>No se pudo obtener la lista de copias de seguridad</value>
   </data>

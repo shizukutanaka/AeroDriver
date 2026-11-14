@@ -232,6 +232,18 @@
   <data name="Cli_RollbackHint" xml:space="preserve">
     <value>To restore, run: rollback --device-id &lt;id&gt; --version &lt;generation&gt;</value>
   </data>
+  <data name="Cli_RollbackComplete" xml:space="preserve">
+    <value>Rollback complete</value>
+  </data>
+  <data name="Cli_RollbackFailed" xml:space="preserve">
+    <value>Rollback failed</value>
+  </data>
+  <data name="Cli_Latest" xml:space="preserve">
+    <value>latest</value>
+  </data>
+  <data name="Cli_Generation" xml:space="preserve">
+    <value>generation</value>
+  </data>
   <data name="Cli_BackupsListFailed" xml:space="preserve">
     <value>Failed to list backups</value>
   </data>

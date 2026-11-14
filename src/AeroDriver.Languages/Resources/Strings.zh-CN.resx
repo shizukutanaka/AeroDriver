@@ -177,6 +177,18 @@
   <data name="Cli_RollbackHint" xml:space="preserve">
     <value>要恢复，请运行: rollback --device-id &lt;id&gt; --version &lt;代&gt;</value>
   </data>
+  <data name="Cli_RollbackComplete" xml:space="preserve">
+    <value>回滚完成</value>
+  </data>
+  <data name="Cli_RollbackFailed" xml:space="preserve">
+    <value>回滚失败</value>
+  </data>
+  <data name="Cli_Latest" xml:space="preserve">
+    <value>最新</value>
+  </data>
+  <data name="Cli_Generation" xml:space="preserve">
+    <value>代</value>
+  </data>
   <data name="Cli_BackupsListFailed" xml:space="preserve">
     <value>获取备份列表失败</value>
   </data>
