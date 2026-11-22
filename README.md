@@ -7,6 +7,8 @@
 (Windows Hardware Quality Labs) certified drivers to keep systems stable.
 It ships as both a command-line tool and a WPF GUI (`AeroDriver.UI`).
 
+**What AeroDriver will never do.** There is no paid version, no ads, no bundled software, and no telemetry — not as a promise but as a mechanically enforced rule: `tools/check-rule1.py` rejects paid or telemetry SDKs and any network endpoint outside an allowlist, and it runs as part of the standard verification suite. AeroDriver also ships no driver database of its own: updates come only from the Windows Update Agent and the driver store — channels Microsoft already vets — and are installed in dependency order, only after Authenticode signature verification, screening against the LOLDrivers blocklist of known-vulnerable drivers, and a real file-level backup you can roll back to.
+
 ## ✨ Features (implemented today)
 
 - **WHQL-aware installs**: Warns when a driver isn't WHQL certified, especially under WDAC kernel enforcement
